@@ -66,7 +66,7 @@ you will be presented with a list of 5 thousand JSON objects, each of which cont
     "url": "https://via.placeholder.com/600/771796",
     "thumbnailUrl": "https://via.placeholder.com/150/771796"
   },
-  ... 4998 more similar JSON entries ...
+  /* ... 4998 more similar JSON entries ... */
 ]
 ```
 
