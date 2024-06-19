@@ -1,0 +1,25 @@
+## *fbdb* examples
+
+All *fbdb* examples are split between three subdirectories.
+
+1. The [`fbdb`](https://github.com/hipercompl/fbdb/tree/main/example/fbdb) directory contains examples for the high-level, Dart-idiomatic API of FbDb:
+    - [`ex_01_simple_select.dart`](https://github.com/hipercompl/fbdb/blob/main/example/fbdb/ex_01_simple_select.dart) - shows how to connect to a database, execute a `SELECT` statement and fetch the results,
+    - [`ex_02_createdb_dropdb.dart`](https://github.com/hipercompl/fbdb/blob/main/example/fbdb/ex_02_createdb_dropdb.dart) - shows how to create and drop databases using the `FbDb` attachments,
+    - [`ex_03_transactions.dart`](https://github.com/hipercompl/fbdb/blob/main/example/fbdb/ex_03_transactions.dart) - illustrates transaction handling,
+    - [`ex_04_fetching.dart`](https://github.com/hipercompl/fbdb/blob/main/example/fbdb/ex_04_fetching.dart) - shows different methods of fetching rows from the query result set,
+    - [`ex_05_blobs.dart`](https://github.com/hipercompl/fbdb/blob/main/example/fbdb/ex_05_blobs.dart) - shows how to handle BLOB data,
+    - [`ex_06_output_params.dart`](https://github.com/hipercompl/fbdb/blob/main/example/fbdb/ex_06_output_params.dart) - shows how to obtain results from a stored procedure that is not selectable, i.e. returns its results via output parameters,
+    - [`ex_07_affected_rows.dart`](https://github.com/hipercompl/fbdb/blob/main/example/fbdb/ex_07_affected_rows.dart) - shows how to check how many rows have been affected by a DML query,
+    - [`ex_08_multiple_connections.dart`](https://github.com/hipercompl/fbdb/blob/main/example/fbdb/ex_08_multiple_connections.dart) - shows how to open multiple concurrent connections in FbDb,
+    - [`ex_09_lock_wait.dart`](https://github.com/hipercompl/fbdb/blob/main/example/fbdb/ex_09_lock_wait.dart) - illustrates the difference between wait and no wait transactions and the role of the lock timeout parameter,
+    - [`ex_10_errors.dart`](https://github.com/hipercompl/fbdb/blob/main/example/fbdb/ex_10_errors.dart) - shows how to detect and handle errors reported by the server,
+    - [`ex_11_mem_benchmark.dart`](https://github.com/hipercompl/fbdb/blob/main/example/fbdb/ex_11_mem_benchmark.dart) - strictly speaking it'snot an example, but a simple memory usage benchmark, using a custom `TracingAllocator` to record all allocations and releases of native memory blocks (including the background worker isolate).
+2. The [`interfaces`](https://github.com/hipercompl/fbdb/tree/main/example/interfaces) directory contains some examples for the low-level API, i.e. the direct FFI bindings to the Firebird client library interfaces. Those are mainly re-implementations of the C++ examples, distributed together with the Firebird server (usually available in the `examples/interfaces` subdirectory of the Firebird root directory). The examples re-implemented in *fbdb* are:
+    - [`ex_01_create.dart`](https://github.com/hipercompl/fbdb/blob/main/example/interfaces/ex_01_create.dart) (an equivalent of `01.create.cpp` from the Firebird examples) - shows how to create a new database using the `IAttachment` interface,
+    - [`ex_02_update.dart`](https://github.com/hipercompl/fbdb/blob/main/example/interfaces/ex_02_update.dart) (an equivalent of `02.update.cpp` from the Firebird examples) - shows how to execute `UPDATE` queries, both with and without prepared statements,
+    - [`ex_03_select.dart`](https://github.com/hipercompl/fbdb/blob/main/example/interfaces/ex_03_select.dart) (an equivalent of `03.select.cpp` from Firebird examples) - demonstrates simple `SELECT` statements with cursors and row fetching,
+    - [`ex_04_print_table.dart`](https://github.com/hipercompl/fbdb/blob/main/example/interfaces/ex_04_print_table.dart) (an equivalent of `04.print_table.cpp` from the Firebird examples) - displays all tables from the database by querying a system table,
+    - [`ex_07_blob.dart`](https://github.com/hipercompl/fbdb/blob/main/example/interfaces/ex_07_blob.dart) (an equivalent of `07.blob.cpp` from the Firebird examples) - shows how to handle both writing and reading of BLOBs,
+    - [`ex_09_service.dart`](https://github.com/hipercompl/fbdb/blob/main/example/interfaces/ex_09_service.dart) (an equivalent of `09.service.cpp` from the Firebird examples) - shows how to communicate with the service manager to obtain database information,
+    - [`ex_10_backup.dart`](https://github.com/hipercompl/fbdb/blob/main/example/interfaces/ex_10_backup.dart) (an equivalent of `10.backup.cpp` from the Firebird examples) - shows how to use services manager to make a backup of a database.
+3. The [`tutorial`](https://github.com/hipercompl/fbdb/tree/main/example/tutorial) directory contains the complete source code and project files for the [FbDb Tutorial](https://github.com/hipercompl/fbdb/blob/main/doc/fbdb_tutorial.md) application.

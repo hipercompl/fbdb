@@ -1,0 +1,41 @@
+name: fbdb
+description: A Firebird SQL database access library for Dart and Flutter.
+version: 1.0.0
+homepage: https://github.com/hipercompl/fbdb
+repository: https://github.com/hipercompl/fbdb
+issue_tracker: https://github.com/hipercompl/fbdb/issues
+documentation: https://github.com/hipercompl/fbdb/tree/main/doc
+platforms:
+  android:
+  ios:
+  linux:
+  macos:
+  windows:
+
+false_secrets:
+  - /test/test_config.dart
+  - /example/fbdb/ex_auth.dart
+  - /example/interfaces/ex_auth.dart
+
+screenshots:
+  - description: An Android application connecting directly to a Firebird database.
+    path: fbdbmobdemo_scr.png
+
+topics:
+  - database
+  - firebird
+  - fbclient
+
+# The tests only make sense on vm/io platforms (ffi is required).
+test_on: vm
+
+environment:
+  sdk: ^3.2.0
+
+# Add regular dependencies here.
+dependencies:
+  ffi: ^2.1.0
+
+dev_dependencies:
+  test: ^1.24.0
+  lints: ^4.0.0

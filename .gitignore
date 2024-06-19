@@ -1,0 +1,13 @@
+.dart_tool/
+.vscode/
+tmp/
+
+**/.dart_tool
+
+pubspec.lock
+*.dll
+*.so
+*.exe
+
+*.pdf
+**/*.pdf
