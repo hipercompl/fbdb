@@ -55,7 +55,7 @@ For a set of example Dart applications using the low-level API, please refer to
  the [example/interfaces](https://github.com/hipercompl/fbdb/tree/main/example/interfaces) directory. The examples are
 basically Dart implementation of the C++ examples, distributed together with the Firebird server
 package (see the `examples/interfaces` folder in the 
-[official Firebird repository](https://github.com/FirebirdSQL/firebird/tree/main/examples/interfaces)).
+[official Firebird repository](https://github.com/FirebirdSQL/firebird/tree/master/examples/interfaces)).
 
 >This guide by no means covers all interfaces available in the Firebird client library (the set of available interfaces is quite vast). It covers only the most basic interfaces, which are essential to the interaction with databases.
 
@@ -70,7 +70,7 @@ and add the *fbdb* library as your project dependency.
 ###  1.2. <a name='InstallingnativeFirebirdclientlibraries'></a>Installing native Firebird client libraries
 In order for your final application to work, you also need to deploy the official native shared libraries from the Firebird distribution (*fbclient.dll* / *libfbclient.so*).
 
-The procedure for different operating systems is described in the [FbDb Programmer's Guide](https://github.com/FirebirdSQL/firebird/blob/master/doc/fbdb_guide.md) in section 2.2.
+The procedure for different operating systems is described in the [FbDb Programmer's Guide](https://github.com/hipercompl/fbdb/blob/main/doc/fbdb_guide.md) in section 2.2.
 
 ###  1.3. <a name='Mixingthelow-levelandhigh-levelAPI'></a>Mixing the low-level and high-level API
 As was already mentioned, the *fbdb* library consists of two different APIs:
@@ -97,7 +97,7 @@ A pointer to an interface returned by any libfbclient routine, which is declared
 - `((uintptr_t*) IVersioned)[0]` - ignore: `CLOOP` dummy pointer,
 - `((uintptr_t*) IVersioned)[1]` - points to the `VTable` of the interface.
 
-Here is the relevant snippet from the `IVersioned` C++ implementation (the header file [include/firebird/IdlFbInterfaces.h](https://github.com/FirebirdSQL/firebird/blob/main/src/include/firebird/IdlFbInterfaces.h) from the Firebird server distribution):
+Here is the relevant snippet from the `IVersioned` C++ implementation (the header file [include/firebird/IdlFbInterfaces.h](https://github.com/FirebirdSQL/firebird/blob/master/src/include/firebird/IdlFbInterfaces.h) from the Firebird server distribution):
 
 ```C++
 class IVersioned
