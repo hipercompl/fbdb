@@ -1051,7 +1051,7 @@ class FbQuery {
   ///   parameters: ["180"], // a single string parameter
   /// );
   /// final allRows = await q.fetchAllAsMaps();
-  /// // allRows is a list of maps
+  /// // allRows is a list of maps (possibly empty)
   /// print(allRows[0]["DEPT_NO"]);
   /// await q.close();
   /// // allRows retains the data after the query gets closed
@@ -1076,7 +1076,7 @@ class FbQuery {
   ///   parameters: ["180"], // a single string parameter
   /// );
   /// final allRows = await q.fetchAllAsLists();
-  /// // allRows is a list of lists
+  /// // allRows is a list (possibly empty) of lists
   /// print(allRows[0][0]); // print the first column of the first row
   /// await q.close();
   /// // allRows retains the data after the query gets closed
@@ -1104,7 +1104,7 @@ class FbQuery {
   /// );
   /// final row = await q.fetchOneAsMap();
   /// // row is a map
-  /// print(allRows["DEPT_NO"]);
+  /// print(row?["DEPT_NO"]); // row is nullable, hence the ? operator
   /// await q.close();
   /// // row retains the data after the query gets closed
   /// ```
@@ -1143,8 +1143,8 @@ class FbQuery {
   ///   parameters: ["180"], // a single string parameter
   /// );
   /// final row = await q.fetchOneAsList();
-  /// // row is a list of values only
-  /// print(allRows[0]); // print the first column
+  /// // row is a list of values only (nullable)
+  /// print(row?[0]); // print the first column
   /// await q.close();
   /// // row retains the data after the query gets closed
   /// ```
