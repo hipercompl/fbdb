@@ -24,7 +24,8 @@ This guide is copyritht © 2024 Tomasz Tyrakowski (t.tyrakowski @at@ hipercom.pl
 	* 4.1. [Creating query objects](#Creatingqueryobjects)
 	* 4.2. [Executing queries](#Executingqueries)
 		* 4.2.1. [Query parameters](#Queryparameters)
-		* 4.2.2. [Executing queries - examples](#Executingqueries-examples)
+		* 4.2.2. [Type mapping](#Typemapping)
+		* 4.2.3. [Executing queries - examples](#Executingqueries-examples)
 	* 4.3. [Closing the query](#Closingthequery)
 	* 4.4. [Accessing data](#Accessingdata)
 		* 4.4.1. [Methods of the `FbQuery` objects](#MethodsoftheFbQueryobjects)
@@ -474,7 +475,19 @@ await q.openCursor(
 ```
 Please note, that `subs` has to be passed **twice**, because there are two placeholders in the query, which just accidentally, in this particular case, correspond to the same value (the current contents of the `subs` variable).
 
-####  4.2.2. <a name='Executingqueries-examples'></a>Executing queries - examples
+####  4.2.2. <a name='Typemapping'></a>Type mapping
+In order to know, how to pass query parameters correctly and what to expect when fetching query results, one has to know, how the SQL data types in the Firebird database are mapped to their corresponding types in Dart.
+
+The type mappings are as follows:
+- SQL textual types (`CHAR` and `VARCHAR`) are mapped to `String` in Dart,
+- SQL integer types (`SMALLINT`, `INTEGER`, `BIGINT`) are mapped to `int` (64-bit integer) in Dart,
+- SQL integer type `INT128` is mapped to `double` in Dart (there's no 128-bit integer type available),
+- SQL real numbers (`DOUBLE PRECISION`, `NUMERIC(N,M)`, `DECIMAL(N,M)`) are mapped to `double` in Dart,
+- SQL date and time types (`DATE`, `TIME`, `TIMESTAMP`) are mapped to Dart `DateTime` objects,
+- the same applies to SQL types `TIME WITH TIME ZONE` and `TIMESTAMP WITH TIME ZONE` (they are both mapped to `DateTime` in Dart), which is unfortunate, because currently Dart's `DateTime` does not support arbitrary time zones (it only supports UTC and the local time zone of the host); this issue will be addressed in future releases of *fbdb*,
+- parameters of the SQL `BLOB` type can be passed to a query as `ByteBuffer` objects, any `TypedData` objects (from which a byte buffer can be obtained), as `String` objects (in which case they will be encoded as UTF8 and passed byte-by-byte) or as `FbBlobId` objects (for BLOBs stored beforehand); the returned values are always either `ByteBuffer` objects or `FbBlobId` objects (depending on whether BLOB inlining is turned on or off for a particular query). See also the [Working with blobs](#Workingwithblobs) section.
+
+####  4.2.3. <a name='Executingqueries-examples'></a>Executing queries - examples
 A query that does not return a data set:
 ```dart
 // con is an attached connection

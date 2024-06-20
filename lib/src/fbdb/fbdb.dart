@@ -816,6 +816,30 @@ class FbDb {
 /// await db.detach(); // detach from the database
 /// // db cannot be used any more
 /// ```
+///
+/// In order to know, how to pass query parameters correctly and what to expect
+/// when fetching query results, one has to know, how the SQL data types
+/// in the Firebird database are mapped by FbDb to their corresponding types
+/// in Dart.
+///
+/// The type mappings are as follows:
+/// - SQL textual types (`CHAR` and `VARCHAR`) are mapped to `String` in Dart,
+/// - SQL integer types (`SMALLINT`, `INTEGER`, `BIGINT`) are mapped
+///   to `int` (64-bit integer) in Dart,
+/// - SQL integer type `INT128` is mapped to `double` in Dart
+///   (there's no 128-bit integer type available),
+/// - SQL real numbers (`DOUBLE PRECISION`, `NUMERIC(N,M)`, `DECIMAL(N,M)`)
+///   are mapped to `double` in Dart,
+/// - SQL date and time types (`DATE`, `TIME`, `TIMESTAMP`) are mapped
+///   to Dart `DateTime` objects,
+/// - the same applies to SQL types `TIME WITH TIME ZONE`
+///   and `TIMESTAMP WITH TIME ZONE` (they are both mapped to `DateTime`
+///   in Dart), which is unfortunate, because currently Dart's `DateTime`
+///   does not support arbitrary time zones (it only supports UTC and the
+///   local time zone of the host); this issue will be addressed in the
+///   future releases of fbdb,
+/// - parameters of the SQL `BLOB` type can be passed to a query as `ByteBuffer` objects, any `TypedData` objects (from which a byte buffer can be obtained), as `String` objects (in which case they will be encoded as UTF8 and passed byte-by-byte) or as `FbBlobId` objects (for BLOBs stored beforehand); the returned values are always either `ByteBuffer` objects or `FbBlobId` objects (depending on whether BLOB inlining is turned on or off for a particular query).
+
 class FbQuery {
   /// Creates a query object associated with the specific database connection.
   FbQuery.forDb(this._db);
