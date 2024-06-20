@@ -11,8 +11,8 @@ This document is copyritht © 2024 Tomasz Tyrakowski (t.tyrakowski @at@ hipercom
 <!-- vscode-markdown-toc -->
 * 1. [Low-level and high-level API](#Low-levelandhigh-levelAPI)
 	* 1.1. [Firebird interfaces](#Firebirdinterfaces)
-	* 1.2. [FbClient: interface wrappers](#FbClient:interfacewrappers)
-	* 1.3. [FbDb: high-level abstractions](#FbDb:high-levelabstractions)
+	* 1.2. [FbClient: interface wrappers](#FbClient_interfacewrappers)
+	* 1.3. [FbDb: high-level abstractions](#FbDb_high-levelabstractions)
 * 2. [Asynchronous database access](#Asynchronousdatabaseaccess)
 
 <!-- vscode-markdown-toc-config
@@ -56,7 +56,7 @@ Although the interfaces are composed in a class-like hierarchy, their constructi
 
 FbDb takes advantage of this fact and interacts with the native Firebird client interfaces via FFI (Foreign Function Interface). Please refer to the [C interop using dart:ffi](https://dart.dev/interop/c-interop) article on dart.dev for more information about FFI.
 
-###  1.2. <a name='FbClient:interfacewrappers'></a>FbClient: interface wrappers
+###  1.2. <a name='FbClient_interfacewrappers'></a>FbClient: interface wrappers
 
 The FbClient part of the *fbdb* package wraps native Firebird client interfaces with Dart classes.
 
@@ -111,7 +111,7 @@ Please refer to [Using OO API](https://github.com/FirebirdSQL/firebird/blob/mast
 
 You may also be interested in exploring some demo code from the `example/interfaces` directory of the *fbdb* package.
 
-###  1.3. <a name='FbDb:high-levelabstractions'></a>FbDb: high-level abstractions
+###  1.3. <a name='FbDb_high-levelabstractions'></a>FbDb: high-level abstractions
 Although it's perfectly feasible to implement the interaction with a Firebird database using just the FbClient's low-level classes, this approach has three main disadvantages:
 
 1. It requires a lot of boilerplate code and frequent dealing with FFI types and native memory management.
