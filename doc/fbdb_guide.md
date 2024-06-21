@@ -485,6 +485,7 @@ The type mappings are as follows:
 - SQL real numbers (`DOUBLE PRECISION`, `NUMERIC(N,M)`, `DECIMAL(N,M)`) are mapped to `double` in Dart,
 - SQL date and time types (`DATE`, `TIME`, `TIMESTAMP`) are mapped to Dart `DateTime` objects,
 - the same applies to SQL types `TIME WITH TIME ZONE` and `TIMESTAMP WITH TIME ZONE` (they are both mapped to `DateTime` in Dart), which is unfortunate, because currently Dart's `DateTime` does not support arbitrary time zones (it only supports UTC and the local time zone of the host); this issue will be addressed in future releases of *fbdb*,
+- SQL `BOOLEAN` is mapped to `bool` in Dart,
 - parameters of the SQL `BLOB` type can be passed to a query as `ByteBuffer` objects, any `TypedData` objects (from which a byte buffer can be obtained), as `String` objects (in which case they will be encoded as UTF8 and passed byte-by-byte) or as `FbBlobId` objects (for BLOBs stored beforehand); the returned values are always either `ByteBuffer` objects or `FbBlobId` objects (depending on whether BLOB inlining is turned on or off for a particular query). See also the [Working with blobs](#Workingwithblobs) section.
 
 ####  4.2.3. <a name='Executingqueries-examples'></a>Executing queries - examples

@@ -2,14 +2,24 @@ import "dart:io";
 import "dart:ffi";
 import "package:fbdb/fbclient.dart";
 
+/// Encapsulates the native Firebird client library.
+///
+/// This class serves both as a native library loader and an entry
+/// point to obtain the main Firebird client interface: IMaster.
+/// All other interfaces can be obtained via the master interface.
 class FbClient {
+  /// Firebird client native dynamic library handle.
   DynamicLibrary? lib;
 
+  /// The binding to the fb_get_master_interface native function.
   late final FbInterface Function() _fbGetMasterInterface;
+
+  /// The binding to the isc_vax_integer native function.
   late final int Function(Pointer<Uint8> buf, int byteCnt) _iscVaxInteger;
 
-  /// Open the Firebird client dynamic library and retrieve the
+  /// Opens the Firebird client dynamic library and retrieve the
   /// reference to fb_get_master_interface function.
+  ///
   /// Optionally, a path to the libfbclient dynamic library
   /// can be provided in [fbLibPath]. If omitted, a mechanism
   /// default for the current OS will be used to resolve the
@@ -30,7 +40,7 @@ class FbClient {
         .asFunction();
   }
 
-  /// Close the dynamic library.
+  /// Closes the dynamic library.
   void close() {
     if (lib != null) {
       lib?.close();
@@ -38,7 +48,7 @@ class FbClient {
     }
   }
 
-  /// Get the master interface, which allows to access all other
+  /// Gets the master interface, which allows to access all other
   /// client functionality.
   IMaster fbGetMasterInterface() {
     if (lib == null) {
@@ -79,7 +89,7 @@ class FbClient {
     return res;
   }
 
-  /// Convert a fragment of the buffer to platform integer.
+  /// Converts a fragment of a native buffer to a platform-specific integer.
   ///
   /// Integer values returned by Firebird are encoded as so-called
   /// "VAX" integers, which use little endian representation
@@ -92,7 +102,7 @@ class FbClient {
         Pointer<Uint8>.fromAddress(buffer.address + offset), byteCnt);
   }
 
-  // The name of the libfbclient dynamic library, system dependent.
+  /// The name of the libfbclient dynamic library, system dependent.
   static String _libName([String version = ""]) {
     var lname = "libfbclient$version.so";
     if (Platform.isMacOS) {
@@ -105,7 +115,8 @@ class FbClient {
 
   /// Directory separator, platform-dependent.
   ///
-  /// This final property is defined as a backslash ("\") on Windows
-  /// and a forwart slash ("/") on all other platforms.
+  /// This attribute is defined as backslash ("\") on Windows
+  /// and forwart slash ("/") on all other platforms
+  /// (which are Unix-based).
   static final String dirSep = Platform.isWindows ? "\\" : "/";
 }

@@ -175,44 +175,120 @@ enum FbFieldType {
 
 /// Mappings between actual Firebird type codes and FbDb supported types.
 const Map<int, FbFieldType> fbTypeMap = {
+  /// SQL CHAR mapping
   FbConsts.SQL_TEXT: FbFieldType.ftString,
+
+  /// SQL nullable CHAR mapping
   FbConsts.SQL_TEXT + 1: FbFieldType.ftString,
+
+  /// SQL VARCHAR mapping
   FbConsts.SQL_VARYING: FbFieldType.ftString,
+
+  /// SQL nullable VARCHAR mapping
   FbConsts.SQL_VARYING + 1: FbFieldType.ftString,
+
+  /// SQL SMALLINT mapping
   FbConsts.SQL_SHORT: FbFieldType.ftInt,
+
+  /// SQL nullable SMALLINT mapping
   FbConsts.SQL_SHORT + 1: FbFieldType.ftInt,
+
+  /// SQL INTEGER mapping
   FbConsts.SQL_LONG: FbFieldType.ftInt,
+
+  /// SQL nullable INTEGER mapping
   FbConsts.SQL_LONG + 1: FbFieldType.ftInt,
+
   FbConsts.SQL_FLOAT: FbFieldType.ftFloat,
   FbConsts.SQL_FLOAT + 1: FbFieldType.ftFloat,
+
+  /// SQL DOUBLE PRECISION mapping
   FbConsts.SQL_DOUBLE: FbFieldType.ftFloat,
+
+  /// SQL nullable DOUBLE PRECISION mapping
   FbConsts.SQL_DOUBLE + 1: FbFieldType.ftFloat,
+
+  /// SQL TIMESTAMP mapping
   FbConsts.SQL_TIMESTAMP: FbFieldType.ftDatetime,
+
+  /// SQL nullable TIMESTAMP mapping
   FbConsts.SQL_TIMESTAMP + 1: FbFieldType.ftDatetime,
+
+  /// SQL BLOB mapping
   FbConsts.SQL_BLOB: FbFieldType.ftBlob,
+
+  /// SQL nullable BLOB mapping
   FbConsts.SQL_BLOB + 1: FbFieldType.ftBlob,
+
+  /// SQL TIME mapping
   FbConsts.SQL_TYPE_TIME: FbFieldType.ftDatetime,
+
+  /// SQL nullable TIME mapping
   FbConsts.SQL_TYPE_TIME + 1: FbFieldType.ftDatetime,
+
+  /// SQL DATE mapping
   FbConsts.SQL_TYPE_DATE: FbFieldType.ftDatetime,
+
+  /// SQL nullable DATE mapping
   FbConsts.SQL_TYPE_DATE + 1: FbFieldType.ftDatetime,
+
+  /// SQL BIGINT or scaled NUMERIC(N,M) mapping
   FbConsts.SQL_INT64: FbFieldType.ftInt,
+
+  /// SQL nullable BIGINT or scaled NUMERIC(N,M) mapping
   FbConsts.SQL_INT64 + 1: FbFieldType.ftInt,
+
+  /// SQL INT128 or scaled NUMERIC(N,M) mapping
   FbConsts.SQL_INT128: FbFieldType.ftFloat,
+
+  /// SQL nullable INT128 or scaled NUMERIC(N,M) mapping
   FbConsts.SQL_INT128 + 1: FbFieldType.ftFloat,
+
+  /// SQL TIMESTAMP WITH TIME ZONE mapping
   FbConsts.SQL_TIMESTAMP_TZ: FbFieldType.ftDatetime,
+
+  /// SQL nullable TIMESTAMP WITH TIME ZONE mapping
   FbConsts.SQL_TIMESTAMP_TZ + 1: FbFieldType.ftDatetime,
+
+  /// SQL TIME WITH TIME ZONE mapping
   FbConsts.SQL_TIME_TZ: FbFieldType.ftDatetime,
+
+  /// SQL nullable TIME WITH TIME ZONE mapping
   FbConsts.SQL_TIME_TZ + 1: FbFieldType.ftDatetime,
+
+  /// SQL TIMESTAMP WITH TIME ZONE mapping
   FbConsts.SQL_TIMESTAMP_TZ_EX: FbFieldType.ftDatetime,
+
+  /// SQL nullable TIMESTAMP WITH TIME ZONE mapping
   FbConsts.SQL_TIMESTAMP_TZ_EX + 1: FbFieldType.ftDatetime,
+
+  /// SQL TIME WITH TIME ZONE mapping
   FbConsts.SQL_TIME_TZ_EX: FbFieldType.ftDatetime,
+
+  /// SQL nullable TIME WITH TIME ZONE mapping
   FbConsts.SQL_TIME_TZ_EX + 1: FbFieldType.ftDatetime,
+
+  /// SQL BOOLEAN mapping
   FbConsts.SQL_BOOLEAN: FbFieldType.ftBoolean,
+
+  /// SQL nullable BOOLEAN mapping
   FbConsts.SQL_BOOLEAN + 1: FbFieldType.ftBoolean,
+
+  /// SQL DECIMAL(N,M) (DEC16) mapping
   FbConsts.SQL_DEC16: FbFieldType.ftFloat,
+
+  /// SQL nullable DECIMAL(N,M) (DEC16) mapping
   FbConsts.SQL_DEC16 + 1: FbFieldType.ftFloat,
+
+  /// SQL DECIMAL(N,M) (DEC34) mapping
   FbConsts.SQL_DEC34: FbFieldType.ftFloat,
+
+  /// SQL nullable DECIMAL(N,M) (DEC34) mapping
   FbConsts.SQL_DEC34 + 1: FbFieldType.ftFloat,
+
+  /// SQL NULL mapping
   FbConsts.SQL_NULL: FbFieldType.ftNull,
+
+  /// SQL nullable NULL (?) mapping (just in case ;))
   FbConsts.SQL_NULL + 1: FbFieldType.ftNull,
 };

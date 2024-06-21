@@ -7,17 +7,37 @@ import "dart:convert";
 import "package:fbdb/fbdb.dart";
 import "package:fbdb/fbclient.dart";
 
-/// The FB client interfaces.
+/// The native Firebird client loader and bindings.
+late FbClient client;
+
+/// The master (IMaster) interface.
 ///
 /// Shared by all objects from the worker isolate.
-/// Those are only the main Firebird interfaces, which can be
-/// safely shared between different objects in the worker isolate.
+/// It can be safely shared between different objects in the
+/// worker isolate.
 /// Interfaces specific to a particular type of object
 /// (like attachments, transactions, queries, statements)
 /// are encapsulated in those objects and not shared between them.
-late FbClient client;
 late IMaster master;
+
+/// The util (IUtil) interface.
+///
+/// Shared by all objects from the worker isolate.
+/// It can be safely shared between different objects in the
+/// worker isolate.
+/// Interfaces specific to a particular type of object
+/// (like attachments, transactions, queries, statements)
+/// are encapsulated in those objects and not shared between them.
 late IUtil util;
+
+/// The provider (IProvider) interface, which encapsulates an attachment.
+///
+/// Shared by all objects from the worker isolate.
+/// It can be safely shared between different objects in the
+/// worker isolate.
+/// Interfaces specific to a particular type of object
+/// (like attachments, transactions, queries, statements)
+/// are encapsulated in those objects and not shared between them.
 late IProvider provider;
 
 /// The worker isolate runner.
@@ -85,24 +105,41 @@ void _disposeClient() {
 /// The worker can be created only by the main isolate function,
 /// it is not intended to be instantiated by the client code.
 class FbDbWorker {
+  /// The receive port for commands from the main isolate.
   ReceivePort fromMain;
+
+  /// The database attachment used by the worker.
   IAttachment? attachment;
+
+  /// The status vector used internally by the worker methods.
   IStatus status;
+
+  /// The connection options, as passed from the main isolate.
   FbOptions? options;
+
+  /// The active explicit transaction (or null if there is none).
   ITransaction? transaction;
+
+  /// All active (opened and not closed yet) queries.
+  ///
+  /// Those are only queries, which communicate with the Firebird
+  /// database via this worker's attachment.
   Map<int, FbDbQueryWorker> activeQueries;
+
+  /// All active (created or opened, but not closed yet) blobs.
   Map<int, FbBlobDef> activeBlobs;
+
   int _tpbLength = 0;
   Pointer<Uint8>? _tpb;
 
-  // Private constructor, so that no foreign code can instantiate
-  // the worker.
+  /// Private constructor, so that no foreign code can instantiate
+  /// the worker.
   FbDbWorker._init(this.fromMain)
       : status = master.getStatus(),
         activeQueries = {},
         activeBlobs = {};
 
-  /// Release the memory resources
+  /// Release the memory resources used by this worker object.
   void _release() {
     if (_tpb != null) {
       mem.free(_tpb!);
@@ -111,7 +148,9 @@ class FbDbWorker {
     }
   }
 
-  // The main message loop.
+  /// The main message loop.
+  ///
+  /// Breaking out of the loop effectively ends the worker isolate.
   Future<void> _run() async {
     try {
       // Read data from the ReceivePort, on which the main isolate
@@ -137,10 +176,11 @@ class FbDbWorker {
     }
   }
 
-  // The message dispatcher.
-  // The returned bool value indicates whether to continue listening
-  // for more messages (true) or end the message loop (false).
-  // The latter effectively ends the worker isolate.
+  /// The message dispatcher.
+  ///
+  /// The returned bool value indicates whether to continue listening
+  /// for more messages (true) or end the message loop (false).
+  /// The latter effectively ends the worker isolate.
   Future<bool> _dispatchMessage(FbDbControlMessage msg) async {
     switch (msg.op) {
       case FbDbControlOp.attach:
@@ -186,7 +226,7 @@ class FbDbWorker {
     return true; // continue the message loop
   }
 
-  // Handles the ping operation.
+  /// Handles the ping operation.
   Future<void> _ping(FbDbControlMessage msg) async {
     if (attachment != null) {
       _sendSuccessResp(msg.resultPort, true);
@@ -195,7 +235,7 @@ class FbDbWorker {
     }
   }
 
-  // Handles the attach operation.
+  /// Handles the attach operation.
   Future<void> _attach(FbDbControlMessage msg) async {
     final Map<String, dynamic> params = msg.data[0];
     options = params.containsKey("options") ? params["options"] : FbOptions();
@@ -216,7 +256,7 @@ class FbDbWorker {
     }
   }
 
-  // Handles the createDatabase operation.
+  /// Handles the createDatabase operation.
   Future<void> _createDatabase(FbDbControlMessage msg) async {
     final Map<String, dynamic> params = msg.data[0];
     options = params.containsKey("options") ? params["options"] : FbOptions();
@@ -243,7 +283,7 @@ class FbDbWorker {
     }
   }
 
-  // Decodes transaction parameters and puts them into [_tpb].
+  /// Decodes transaction parameters and puts them into [_tpb].
   void _prepareTpbFromOptions(FbOptions? options) {
     if (_tpb != null) {
       mem.free(_tpb!);
@@ -258,7 +298,8 @@ class FbDbWorker {
     }
   }
 
-  //
+  /// Prepares a TPB, based on the provided transaction flags
+  /// and (optionally) the lock timeout value.
   (Pointer<Uint8>?, int) _prepareTpb(Set<FbTrFlag>? flags, int? lockTimeout) {
     Pointer<Uint8>? tpb;
     int tpbLength = 0;
@@ -283,8 +324,8 @@ class FbDbWorker {
     return (tpb, tpbLength);
   }
 
-  // Creates the PDB builder instance based on the provided
-  // connection parameters (see [FbDb.attach]).
+  /// Creates the PDB builder instance, based on the provided
+  /// connection parameters (see [FbDb.attach]).
   IXpbBuilder _makeDPB(Map<String, dynamic> params) {
     final dpb = util.getXpbBuilder(status, IXpbBuilder.dpb);
     dpb.insertString(status, FbConsts.isc_dpb_lc_ctype, "UTF8");
@@ -300,8 +341,8 @@ class FbDbWorker {
     return dpb;
   }
 
-  // Prepares the database path string based on the provided
-  // connection parameters (see [FbDb.attach]).
+  /// Prepares the database path string based on the provided
+  /// connection parameters (see [FbDb.attach]).
   String _makeDBPath(Map<String, dynamic> params) {
     final buf = StringBuffer();
     if (params.containsKey("host")) {
@@ -320,7 +361,7 @@ class FbDbWorker {
     return buf.toString();
   }
 
-  // Handles the detach operation.
+  /// Handles the detach operation.
   Future<void> _detach(FbDbControlMessage msg) async {
     _closeAllBlobs();
     transaction?.commit(status);
@@ -338,7 +379,7 @@ class FbDbWorker {
     _sendSuccessResp(msg.resultPort, backInfo);
   }
 
-  // Close all active queries (to close their receive ports).
+  /// Closes all active queries (also closes their receive ports).
   Future<void> _closeActiveQueries() async {
     final keys = List<int>.from(activeQueries.keys);
     for (final key in keys) {
@@ -346,7 +387,7 @@ class FbDbWorker {
     }
   }
 
-  // Handles the dropDatabase operation.
+  /// Handles the dropDatabase operation.
   Future<void> _dropDatabase(FbDbControlMessage msg) async {
     _closeAllBlobs();
     transaction?.commit(status);
@@ -364,7 +405,7 @@ class FbDbWorker {
     _sendSuccessResp(msg.resultPort, backInfo);
   }
 
-  // Handles the startTransaction operation.
+  /// Handles the startTransaction operation.
   Future<void> _startTransaction(FbDbControlMessage msg) async {
     if (attachment == null) {
       throw FbClientException("Drop database: no active attachment");
@@ -383,7 +424,7 @@ class FbDbWorker {
     _sendSuccessResp(msg.resultPort);
   }
 
-  // Handles the commit operation.
+  /// Handles the commit operation.
   Future<void> _commit(FbDbControlMessage msg) async {
     _closeAllBlobs();
     if (attachment == null) {
@@ -397,7 +438,7 @@ class FbDbWorker {
     _sendSuccessResp(msg.resultPort);
   }
 
-  // Handles the rollback operation.
+  /// Handles the rollback operation.
   Future<void> _rollback(FbDbControlMessage msg) async {
     _closeAllBlobs();
     if (attachment == null) {
@@ -411,12 +452,12 @@ class FbDbWorker {
     _sendSuccessResp(msg.resultPort);
   }
 
-  // Handles the inTransaction operation.
+  /// Handles the inTransaction operation.
   Future<void> _inTransaction(FbDbControlMessage msg) async {
     _sendSuccessResp(msg.resultPort, (transaction != null));
   }
 
-  // Handles the queryExec operation.
+  /// Handles the queryExec operation.
   Future<void> _queryExec(FbDbControlMessage msg) async {
     final fromMain = ReceivePort();
     try {
@@ -432,7 +473,7 @@ class FbDbWorker {
     }
   }
 
-  // Handles the queryOpen operation.
+  /// Handles the queryOpen operation.
   Future<void> _queryOpen(FbDbControlMessage msg) async {
     final queryFromMain = ReceivePort();
     try {
@@ -448,7 +489,7 @@ class FbDbWorker {
     }
   }
 
-  // Handles the createBlob operation
+  /// Handles the createBlob operation
   Future<void> _createBlob(FbDbControlMessage msg) async {
     if (attachment == null) {
       throw FbClientException("No active attachment");
@@ -475,7 +516,7 @@ class FbDbWorker {
     _sendSuccessResp(msg.resultPort, id);
   }
 
-  // Handles the openBlob operation
+  /// Handles the openBlob operation
   Future<void> _openBlob(FbDbControlMessage msg) async {
     if (attachment == null) {
       throw FbClientException("No active attachment");
@@ -501,7 +542,7 @@ class FbDbWorker {
     _sendSuccessResp(msg.resultPort, []);
   }
 
-  // Handles the putBlobSegment operation
+  /// Handles the putBlobSegment operation
   Future<void> _putBlobSegment(FbDbControlMessage msg) async {
     final FbBlobId id = msg.data[0];
     ByteBuffer data = FbDbQueryWorker._asByteBuffer(msg.data[1]);
@@ -524,7 +565,7 @@ class FbDbWorker {
     _sendSuccessResp(msg.resultPort, []);
   }
 
-  // Handles the getBlobSegment operation
+  /// Handles the getBlobSegment operation
   Future<void> _getBlobSegment(FbDbControlMessage msg) async {
     final FbBlobId id = msg.data[0];
     final int segmentSize = msg.data[1];
@@ -553,7 +594,7 @@ class FbDbWorker {
     _sendSuccessResp(msg.resultPort, [blobData?.buffer]);
   }
 
-  // Handles the closeBlob operation
+  /// Handles the closeBlob operation
   Future<void> _closeBlob(FbDbControlMessage msg) async {
     final FbBlobId id = msg.data[0];
     final def = activeBlobs[id.idHash];
@@ -564,12 +605,15 @@ class FbDbWorker {
     _sendSuccessResp(msg.resultPort, []);
   }
 
-  // Handles the quit operaton.
+  /// Handles the quit operaton.
+  ///
+  /// The quit command causes an immediate emergency exit
+  /// from the worker isolate.
   Future<void> _quit(FbDbControlMessage _) {
     Isolate.exit();
   }
 
-  // Extract the SQL statement and the parameters from the message data.
+  /// Extracts the SQL statement and the parameters from the message data.
   (String, List<dynamic>, bool) _extractExecData(FbDbControlMessage msg) {
     if (msg.data.isEmpty) {
       throw FbClientException("No SQL statement provided");
@@ -581,23 +625,23 @@ class FbDbWorker {
     return (sql, params, inlineBlobs);
   }
 
-  // Sends a success message with a payload to the main isolate.
-  // If obj is a list, it's being sent as the actual payload.
-  // Every other object is wrapped in a one-item list.
+  /// Sends a success message with a payload to the main isolate.
+  /// If obj is a list, it's being sent as the actual payload.
+  /// Every other object is wrapped in a one-item list.
   void _sendSuccessResp(SendPort toMain, [dynamic obj]) {
     final payload = obj is List ? obj : [if (obj != null) obj];
     toMain.send(FbDbResponse(FbDbResponseOp.success, payload));
   }
 
-  // Sends an error message with a payload to the main isolate.
-  // If obj is a list, it's being sent as the actual payload.
-  // Every other object is wrapped in a one-item list.
+  /// Sends an error message with a payload to the main isolate.
+  /// If obj is a list, it's being sent as the actual payload.
+  /// Every other object is wrapped in a one-item list.
   void _sendErrorResp(SendPort toMain, [dynamic obj]) {
     final payload = obj is List ? obj : [if (obj != null) obj];
     toMain.send(FbDbResponse(FbDbResponseOp.error, payload));
   }
 
-  // Closes all active blobs and clears the [activeBlobs] map.
+  /// Closes all active blobs and clears the [activeBlobs] map.
   void _closeAllBlobs() {
     for (var b in activeBlobs.values) {
       try {
@@ -607,7 +651,7 @@ class FbDbWorker {
     activeBlobs.clear();
   }
 
-  // Adds the blob definition to active blobs.
+  /// Adds a blob definition to active blobs.
   void _addBlobDef(FbBlobDef d) {
     if (d.id != null) {
       activeBlobs[d.id!.idHash] = d;
@@ -616,36 +660,85 @@ class FbDbWorker {
 }
 
 /// The query worker class.
+///
+/// Each query created in the main isolate via a call to [FbDb.query]
+/// causes creation of its peer [FbDbQueryWorker] object
+/// in the worker isolate.
 class FbDbQueryWorker {
+  /// The port, through which commands from the main isolate are received.
   ReceivePort fromMain;
+
+  /// The connection this query will use to talk to the database.
   FbDbWorker db;
 
+  /// An internal transaction, started and ended if no explicit one is present.
   ITransaction? _transaction;
+
+  /// Indicates whether a statement was executed in its own, internal transaction.
   bool _ownTransaction = false;
+
+  /// A prepared statement, ready to be executed.
   IStatement? _statement;
+
+  /// The database cursor to fetch rows from.
   IResultSet? _resultSet;
+
+  /// The input metadata of the current statement.
   IMessageMetadata? _inputMetadata;
+
+  /// The output metadata of the current statement.
   IMessageMetadata? _outputMetadata;
+
+  /// The input message buffer (native memory).
   Pointer<Uint8> _inMsg = nullptr;
+
+  /// The length of the input message.
   int _inMsgLen = 0;
+
+  /// The output message buffer (native memory).
   Pointer<Uint8> _outMsg = nullptr;
+
+  /// The length of the output message.
   int _outMsgLen = 0;
 
   /// The size of the internal query buffer (in native memory).
   static const _internalBufferSize = 1024;
 
-  /// Internal buffer for values and blob chunks
+  /// Internal buffer for values and blob chunks (native memory).
+  ///
+  /// The internal buffer is used in marshalling small data pieces
+  /// (like ints, dates, blob IDs, etc.), to avoid continuous
+  /// allocation and deallocation of small chunks of native memory,
+  /// which is costly.
   Pointer<Uint8> _internalBuffer = nullptr;
 
+  /// Metadata of the fields (columns) of the current result set.
   List<FbFieldDef>? _fieldDefs;
+
+  /// The names of the fields (columns) in the current result set.
   List<String>? _fieldNames;
+
+  /// The kind of query most recently executed.
+  ///
+  /// It indicates whether it's a query with a cursor
+  /// (executed via [FbQuery.openCursor]), or a query without one
+  /// (executed via [FbQuery.execute]).
   FbDbQueryType _type = FbDbQueryType.none;
 
+  /// A flag indicating whether blobs should be passed inline or as IDs.
   bool _inlineBlobs = true;
 
+  /// The default constructor.
+  ///
+  /// To construct a query worker one needs to pass a receive port
+  /// for commands from the main isolate, as well as an active
+  /// database connection.
   FbDbQueryWorker(this.fromMain, this.db);
 
-  // The main message loop.
+  /// The main message loop.
+  ///
+  /// Breaking out of the loop causes the query worker to finish
+  /// and stop responding to any commands from the main isolate.
   Future<void> _run() async {
     try {
       // Read data from the ReceivePort, on which the main isolate
@@ -671,7 +764,7 @@ class FbDbQueryWorker {
     }
   }
 
-  // Message dispatcher.
+  /// Message dispatcher.
   Future<bool> _dispatchMessage(FbDbControlMessage msg) async {
     try {
       switch (msg.op) {
@@ -710,7 +803,10 @@ class FbDbQueryWorker {
     return true;
   }
 
-  // Closes the previously prepared statement's interfaces.
+  /// Closes the previously prepared statement's interfaces.
+  ///
+  /// Before executing another statement, it's necessary to clean up
+  /// allocated interfaces from the previous statement (if there was one).
   void _closeStatement() {
     if (_ownTransaction) {
       _ownTransaction = false;
@@ -753,9 +849,11 @@ class FbDbQueryWorker {
     _type = FbDbQueryType.none;
   }
 
-  // Closes the query. Closes the receive port from the main isolate.
-  // By default, removes the query from the active queries
-  // of the connection.
+  /// Closes the query.
+  ///
+  /// Closes the receive port from the main isolate.
+  /// By default, removes the query from the active queries
+  /// of the connection (but it depends on the provided flag).
   void _close({bool updateActiveQueries = true}) {
     if (updateActiveQueries) {
       db.activeQueries.remove(hashCode);
@@ -876,8 +974,10 @@ class FbDbQueryWorker {
     return _internalBuffer.cast<T>();
   }
 
-  // Prepares the query.
-  // Also fetches and decodes input and output metadata.
+  /// Prepares the query.
+  ///
+  /// It asks the Firebird server to prepare the statement,
+  /// and then fetches and decodes input and output metadata.
   Future<void> _prepare(String sql) async {
     _closeStatement();
     if (db.attachment == null) {
@@ -941,7 +1041,7 @@ class FbDbQueryWorker {
     return defs?.map((e) => e.name).toList(growable: false);
   }
 
-  // Puts all params inside msg, according to the inputMetadata
+  /// Puts all params inside msg, according to the inputMetadata
   void _putQueryParams(Pointer<Uint8> msg, List<dynamic> params) {
     if (_inputMetadata == null) {
       throw FbClientException(
@@ -954,7 +1054,7 @@ class FbDbQueryWorker {
     }
   }
 
-  // get field values from the msg, according to the otputMetadata
+  /// Gets all field values from the msg, according to the otputMetadata.
   List<dynamic> _getRowValues(Pointer<Uint8> msg) {
     if (_outputMetadata == null) {
       throw FbClientException(
@@ -969,8 +1069,8 @@ class FbDbQueryWorker {
     return res;
   }
 
-  // Execute a query either by calling execute, or openCursor,
-  // depending on the allocCursor parameter.
+  /// Executes a query either by calling execute or openCursor,
+  /// depending on the allocCursor parameter.
   Future<void> _exec(String sql, List<dynamic> params,
       {required bool allocCursor, bool inlineBlobs = true}) async {
     _closeStatement();
@@ -1026,7 +1126,7 @@ class FbDbQueryWorker {
     _fieldNames = _namesFrom(_fieldDefs);
   }
 
-  // Handles the closeQuery operation.
+  /// Handles the closeQuery operation.
   Future<void> _closeQuery(FbDbControlMessage msg) async {
     _close();
     db._sendSuccessResp(msg.resultPort);
@@ -1537,6 +1637,9 @@ class FbDbQueryWorker {
     }
   }
 
+  /// Decodes a date from the provided value.
+  ///
+  /// Uses IUtil to do the actual decoding.
   DateTime _decodeDate(int date) {
     Pointer<UnsignedInt> parts = _getInternalBuffer();
     final s = sizeOf<UnsignedInt>();
@@ -1549,6 +1652,9 @@ class FbDbQueryWorker {
     return DateTime(parts[0], parts[1], parts[2]);
   }
 
+  /// Decodes time from the provided value.
+  ///
+  /// Uses IUtil to do the actual decoding.
   DateTime _decodeTime(int time) {
     Pointer<UnsignedInt> parts = _getInternalBuffer();
     final s = sizeOf<UnsignedInt>();
@@ -1571,6 +1677,7 @@ class FbDbQueryWorker {
     );
   }
 
+  /// Decodes date and time, based on the provided native structure.
   DateTime _decodeTimestamp(Pointer<IscTimestamp> ts) {
     final d = _decodeDate(ts.ref.date);
     final t = _decodeTime(ts.ref.time);
@@ -1586,16 +1693,19 @@ class FbDbQueryWorker {
     );
   }
 
+  /// Retrieves a timestamp value from the message.
   DateTime _getTimestamp(Pointer<Uint8> msg, int offset) {
     return _decodeTimestamp((msg + offset).cast());
   }
 
+  /// Retrieves a quad (IscQuad / FbQuad) value from the message.
   FbQuad _getQuad(Pointer<Uint8> msg, int offset) {
     Pointer<IscQuad> q = _getInternalBuffer();
     msg.toNativeMem(q, sizeOf<IscQuad>(), offset);
     return FbQuad(q.ref.iscQuadHigh, q.ref.iscQuadLow);
   }
 
+  /// Retrieves blob data for the blob ID read from the message.
   ByteBuffer _getBlob(Pointer<Uint8> msg, int offset) {
     if (_transaction == null) {
       throw FbClientException(
@@ -1641,10 +1751,16 @@ class FbDbQueryWorker {
     }
   }
 
+  /// Retrieves just a blob ID from the message (not the blob data).
   FbBlobId _getBlobId(Pointer<Uint8> msg, int offset) {
     return FbBlobId.fromIscQuad((msg + offset).cast());
   }
 
+  /// Retrieves an INT128 value from the message.
+  ///
+  /// The implementation is currently inefficient, as it uses
+  /// intermediate string representation to tranlate an INT128
+  /// into a double.
   double _getInt128(IStatus status, Pointer<Uint8> msg, int offset, int scale) {
     final i128 = util.getInt128(status);
     Pointer<FbI128> ii = _getInternalBuffer();
@@ -1718,6 +1834,10 @@ class FbDbQueryWorker {
     );
   }
 
+  /// Gets time with time zone from the message.
+  ///
+  /// Currently, the actual time zone is ignored, as Dart's DateTime
+  /// doesn't support arbitrary time zones.
   DateTime _getTimeTZ(IStatus status, Pointer<Uint8> msg, int offset) {
     Pointer<UnsignedInt> ts = _getInternalBuffer();
     util.decodeTimeTz(
@@ -1742,6 +1862,10 @@ class FbDbQueryWorker {
     );
   }
 
+  /// Gets time with time zone from the message.
+  ///
+  /// Currently, the actual time zone is ignored, as Dart's DateTime
+  /// doesn't support arbitrary time zones.
   DateTime _getTimeTZEx(IStatus status, Pointer<Uint8> msg, int offset) {
     Pointer<UnsignedInt> ts = _getInternalBuffer();
     util.decodeTimeTzEx(
@@ -1766,12 +1890,22 @@ class FbDbQueryWorker {
     );
   }
 
+  /// Retrieves a value of type DECIMAL (DEC16) from the message.
+  ///
+  /// The implementation is currently inefficient, as it uses
+  /// intermediate string representation to tranlate a DEC16
+  /// into a double.
   double _getDec16(IStatus status, Pointer<Uint8> msg, int offset) {
     final iDec = util.getDecFloat16(status);
     final s = iDec.toStr(status, (msg + offset).cast());
     return double.parse(s);
   }
 
+  /// Retrieves a value of type DECIMAL (DEC34) from the message.
+  ///
+  /// The implementation is currently inefficient, as it uses
+  /// intermediate string representation to tranlate an DEC34
+  /// into a double.
   double _getDec34(IStatus status, Pointer<Uint8> msg, int offset) {
     final iDec = util.getDecFloat34(status);
     final s = iDec.toStr(status, (msg + offset).cast());
@@ -1798,11 +1932,17 @@ class FbDbQueryWorker {
 
 /// Possible worker starting modes.
 enum FbDbWorkerCreationMode {
+  /// Attaches the worker object to an existing database.
   attach,
+
+  /// Creates a new database.
   createDatabase,
 }
 
 /// Possible query types.
+///
+/// The query type is needed to differentiate between queries
+/// with and without a database cursor.
 enum FbDbQueryType {
   /// No query has been executed.
   none,
@@ -1819,38 +1959,89 @@ enum FbDbQueryType {
 /// Some operations are handled by FbDbWorker, and some other
 /// by FbDbQueryWorker objects.
 enum FbDbControlOp {
-  // database messages
+  // commands for FbDbWorker
+
+  /// Check the connection.
   ping,
+
+  /// Attach to an existing database.
   attach,
+
+  /// Create a new database.
   createDatabase,
+
+  /// Detach from the database.
   detach,
+
+  /// Drop (remove) the database.
   dropDatabase,
+
+  /// Execute a query without opening a database cursor.
   queryExec,
+
+  /// Execute a query, opening a database cursor for it.
   queryOpen,
+
+  /// Start an explicit transaction.
   startTransaction,
+
+  /// Commit an explicit transaction (if there's one pending).
   commit,
+
+  /// Roll an explicit transaction back (if there's one pending).
   rollback,
+
+  /// Check if there is a pending explicit transaction.
   inTransaction,
+
+  /// Create a blob in the database.
   createBlob,
+
+  /// Open an existing blob in the database.
   openBlob,
+
+  /// Retrieve a single segment of data from a blob.
   getBlobSegment,
+
+  /// Put a single segment of data into a blob.
   putBlobSegment,
+
+  /// Close a blob.
   closeBlob,
+
+  /// Immediately quit the worker
   quit,
 
-  // query messages
+  // commands for FbDbQueryWorker
+
+  /// Execute a statement without a cursor.
   execQuery,
+
+  /// Execute a statement with allocating a cursor.
   openQuery,
+
+  /// Send back field (column) definitions.
   getFieldDefs,
+
+  /// Send back the next (single) row of data.
   fetchNext,
+
+  /// Send back the output parameters (for queries without a cursor).
   getOutput,
+
+  /// Send back the number of rows that have been affected by the last DML query.
   affectedRows,
+
+  /// Close the query and release all resources.
   closeQuery,
 }
 
 /// Possible types of responses to control messages.
 enum FbDbResponseOp {
+  /// Succesful execution of a command.
   success,
+
+  /// Errors occured during command execution.
   error,
 }
 
@@ -1859,10 +2050,18 @@ enum FbDbResponseOp {
 ///
 /// Objects of this class are used both by FbDb and FbQuery.
 class FbDbControlMessage {
+  /// The operation to be executed.
   FbDbControlOp op;
+
+  /// The port used to send back the result of the operation.
   SendPort resultPort;
+
+  /// Parameters (if needed) of the operation.
   List<dynamic> data;
 
+  /// The default constructor.
+  ///
+  /// Attribute initialization only, no extra activities.
   FbDbControlMessage(this.op, this.resultPort, this.data);
 }
 
@@ -1871,20 +2070,34 @@ class FbDbControlMessage {
 ///
 /// Objects of this class are used both by FbDb and FbQuery.
 class FbDbResponse {
+  /// The reponse kind (success / error).
   FbDbResponseOp op;
+
+  /// The response data (varies, depending on the command).
   List<dynamic> data;
 
+  /// The default constructor.
+  ///
+  /// Attribute initialization only, no extra activities.
   FbDbResponse(this.op, this.data);
 }
 
-/// Encapsulates information about open blobs.
+/// Encapsulates information about an open (active) BLOB.
 class FbBlobDef {
+  /// The native IBlob interface.
   IBlob? iblob;
+
+  /// The ID of this blob.
   FbBlobId? id;
 
+  /// The default constructor.
+  ///
+  /// Attribute initialization only, no extra activities.
   FbBlobDef(this.iblob, this.id);
 
-  /// Invalidate the blob info.
+  /// Invalidates the blob info.
+  ///
+  /// Also closes the corresponding BLOB in the database.
   void close(IStatus status) {
     if (iblob != null) {
       try {

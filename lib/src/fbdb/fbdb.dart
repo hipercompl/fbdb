@@ -838,8 +838,14 @@ class FbDb {
 ///   does not support arbitrary time zones (it only supports UTC and the
 ///   local time zone of the host); this issue will be addressed in the
 ///   future releases of fbdb,
-/// - parameters of the SQL `BLOB` type can be passed to a query as `ByteBuffer` objects, any `TypedData` objects (from which a byte buffer can be obtained), as `String` objects (in which case they will be encoded as UTF8 and passed byte-by-byte) or as `FbBlobId` objects (for BLOBs stored beforehand); the returned values are always either `ByteBuffer` objects or `FbBlobId` objects (depending on whether BLOB inlining is turned on or off for a particular query).
-
+/// - SQL `BOOLEAN` is mapped to `bool` in Dart,
+/// - parameters of the SQL `BLOB` type can be passed to a query
+///   as `ByteBuffer` objects, any `TypedData` objects (from which
+///   a byte buffer can be obtained), as `String` objects (in which case
+///   they will be encoded as UTF8 and passed byte-by-byte) or as `FbBlobId`
+///   objects (for BLOBs stored beforehand); the returned values are always
+///   either `ByteBuffer` objects or `FbBlobId` objects (depending
+///   on whether BLOB inlining is turned on or off for a particular query).
 class FbQuery {
   /// Creates a query object associated with the specific database connection.
   FbQuery.forDb(this._db);

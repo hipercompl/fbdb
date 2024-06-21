@@ -20,15 +20,23 @@ class MemException implements Exception {
 
 /// The default allocator used by all parts of fbclient,
 /// whenever a native memory needs to be allocated.
+///
+/// The allocator can be overriden by simply assigning a new value
+/// to this global. See the `example/fbdb/ex_11_mem_benchmark.dart` for some
+/// insights on how to use the tracing allocator to look for memory leaks.
+/// In normal circumstances there's no need to change the allocator,
+/// which by default is the built-in Dart FFI's `calloc`.
 Allocator mem = calloc;
 
 /// Allows to convert an int value to a byte buffer.
 extension IntBytes on int {
   /// Converts an integer to a list of bytes of the given size.
   ///
-  /// [byteCnt] has to be 1, 2, 4 or 8.
+  /// [byteCnt] has to be 1, 2, 4 or 8 (otherwise a [MemException]
+  /// gets thrown).
   /// The value is treated as signed.
   ///
+  /// Example:
   /// ```dart
   ///   final bytes = -1357.toBytesAsSigned(2); // 2-byte short
   /// ```
@@ -51,9 +59,11 @@ extension IntBytes on int {
 
   /// Converts an integer to a list of bytes of the given size.
   ///
-  /// [byteCnt] has to be 1, 2, 4 or 8.
+  /// [byteCnt] has to be 1, 2, 4 or 8 (otherwise a [MemException]
+  /// gets thrown).
   /// The value is treated as unsigned.
   ///
+  /// Example:
   /// ```dart
   ///   final bytes = 1357.toBytesAsUnsigned(2); // 2-byte unsigned short
   /// ```
@@ -75,18 +85,19 @@ extension IntBytes on int {
   }
 }
 
-/// Allows to place an integer value inside a native
-/// memory buffer in the specified place.
+/// Extension to simplify writing / reading integers to / from native memory.
 extension IntMem on int {
   /// Puts an integer value into the [buffer], starting at [offset].
   ///
   /// The value occupies [byteCnt] consecutive bytes in the buffer.
-  /// [byteCnt] has to be 1, 2, 4 or 8.
+  /// [byteCnt] has to be 1, 2, 4 or 8 (otherwise a [MemException]
+  /// gets thrown).
   /// If the index is aligned, that is if ([offset] mod [byteCnt]) = 0,
   /// the method is more efficient. On unaligned data, byte by byte
   /// copying occurs.
   /// The source int value is treated as signed.
   ///
+  /// Example:
   /// ```dart
   ///   -1357.putSigned(buf, 16, 4);
   /// ```
@@ -121,7 +132,8 @@ extension IntMem on int {
   /// Puts an integer value into the [buffer], starting at [offset].
   ///
   /// The value occupies [byteCnt] consecutive bytes in the buffer.
-  /// [byteCnt] has to be 1, 2, 4 or 8.
+  /// [byteCnt] has to be 1, 2, 4 or 8 (otherwise a [MemException]
+  /// gets thrown).
   /// If the index is aligned, that is if ([offset] mod [byteCnt]) = 0,
   /// the method is more efficient. On unaligned data, byte by byte
   /// copying occurs.
@@ -162,8 +174,10 @@ extension IntMem on int {
 /// Convert a list of bytes to an int value.
 ///
 /// The value is treated as signed.
-/// The length of [bytes] has to be 1, 2, 4 or 8.
+/// The length of [bytes] has to be 1, 2, 4 or 8 (any other value
+/// will cause a [MemException]).
 ///
+/// Example:
 /// ```dart
 ///   Uint8List buf = [1, 1];
 ///   int x = fromBytesAsSigned(buf); // x = 257
@@ -187,8 +201,10 @@ int fromBytesAsSigned(Uint8List bytes) {
 /// Convert a list of bytes to an int value.
 ///
 /// The value is treated as unsigned.
-/// The length of [bytes] has to be 1, 2, 4 or 8.
+/// The length of [bytes] has to be 1, 2, 4 or 8 (any other value
+/// will cause a [MemException]).
 ///
+/// Example:
 /// ```dart
 ///   Uint8List buf = [1, 1];
 ///   int x = fromBytesAsUnsigned(buf); // x = 257
@@ -209,12 +225,14 @@ int fromBytesAsUnsigned(Uint8List bytes) {
   }
 }
 
-/// Allows to convert a double value to a byte buffer.
+/// An extension to simplify writing / reading doubles to / from native memory.
 extension DoubleBytes on double {
   /// Converts double value to a list of bytes of the given size.
   ///
-  /// [byteCnt] has to be 4 (float32) or 8 (float64).
+  /// [byteCnt] has to be 4 (float32) or 8 (float64), otherwise
+  /// a [MemException] gets thrown.
   ///
+  /// Example:
   /// ```dart
   /// final bytes = 1234.567.toBytes(8); // 8-byte float64
   /// ```
@@ -238,7 +256,8 @@ extension DoubleBytes on double {
 /// If [offset] is aligned, tat is if ([offset] mod [byteCnt]) = 0,
 /// the function is more efficient.
 /// On unaligned data, byte-by-byte copying takes place.
-/// The only valid values for [byteCnt] 1, 2, 4 and 8.
+/// The only valid values for [byteCnt] 1, 2, 4 and 8 (any other will
+/// cause a [MemException]).
 int readFromBufferAsSigned(Pointer<Uint8> buffer, int offset, int byteCnt) {
   if (offset % byteCnt == 0) {
     // the offset is aligned
@@ -273,9 +292,10 @@ int readFromBufferAsSigned(Pointer<Uint8> buffer, int offset, int byteCnt) {
 /// number (unsigned).
 ///
 /// If [offset] is aligned, tat is if ([offset] mod [byteCnt]) = 0,
-/// the function is more efficient.
+/// the function chooses more efficient implementation.
 /// On unaligned data, byte-by-byte copying takes place.
-/// The only valid values for [byteCnt] 1, 2, 4 and 8.
+/// The only valid values for [byteCnt] are 1, 2, 4 and 8 (any other
+/// will cause a [MemException]).
 int readFromBufferAsUnsigned(Pointer<Uint8> buffer, int offset, int byteCnt) {
   if (offset % byteCnt == 0) {
     // the offset is aligned
@@ -305,17 +325,18 @@ int readFromBufferAsUnsigned(Pointer<Uint8> buffer, int offset, int byteCnt) {
   }
 }
 
-/// Allowis to place a double value inside a native
-/// memory buffer at the given byte offset.
+/// Simplifies writing / reading doubles to / from native memory.
 extension DoubleMem on double {
   /// Puts a double value into the [buffer], starting at [offset].
   ///
   /// The value occupies [byteCnt] consecutive bytes in the buffer.
-  /// [byteCnt] has to be 4 (Float32) or 8 (Float64).
+  /// [byteCnt] has to be 4 (Float32) or 8 (Float64), otherwise
+  /// a [MemException] gets thrown.
   /// If the index is aligned, that is if ([offset] mod [byteCnt]) = 0,
   /// the method is more efficient. On unaligned data, byte by byte
   /// copying occurs.
   ///
+  /// Example:
   /// ```dart
   ///   (-232.77).put(buf, 16, 8);
   /// ```
@@ -344,7 +365,8 @@ extension DoubleMem on double {
 
 /// Convert a list of bytes to floating point value.
 ///
-/// The length of [bytes] has to be 4 or 8.
+/// The length of [bytes] has to be 4 or 8, otherwise a [MemException]
+/// gets thrown.
 /// If [bytes] is 4 bytes long it's treated as Float32,
 /// otherwise it's Float64.
 double fromBytesAsFloat(Uint8List bytes) {
@@ -363,9 +385,10 @@ double fromBytesAsFloat(Uint8List bytes) {
 /// number.
 ///
 /// If [offset] is aligned, tat is if ([offset] mod [byteCnt]) = 0,
-/// the function is more efficient.
+/// the function chooses more efficient implementation.
 /// On unaligned data, byte-by-byte copying takes place.
 /// The only valid values for [byteCnt] are 4 (Float) and 8 (Double).
+/// Any other will cause a [MemException].
 double readFromBufferAsFloat(Pointer<Uint8> buffer, int offset, int byteCnt) {
   if (offset % byteCnt == 0) {
     // offset is aligned
@@ -377,7 +400,7 @@ double readFromBufferAsFloat(Pointer<Uint8> buffer, int offset, int byteCnt) {
         return Pointer<Double>.fromAddress(buffer.address + offset)
             .asTypedList(1)[0];
       default:
-        throw MemException("Invalid byte list length: $byteCnt");
+        throw MemException("Invalid byte count value: $byteCnt");
     }
   } else {
     // offset is not aligned - copying byte by byte
@@ -389,8 +412,12 @@ double readFromBufferAsFloat(Pointer<Uint8> buffer, int offset, int byteCnt) {
   }
 }
 
-/// Allows to place a string inside a native
-/// memory buffer at the given byte offset.
+/// Simplifies writing / reading strings to / from native memory.
+///
+/// Strings that are to be placed in native memory buffers are always
+/// converted to UTF-8 representation, and then stored byte by byte.
+/// The other way around, bytes from a native buffer are treated
+/// as UTF-8 code points and converted back to a Unicode string.
 extension StringMem on String {
   /// Puts a string into the [buffer], starting at [offset].
   ///
@@ -401,6 +428,7 @@ extension StringMem on String {
   /// string or [maxLength] has to be provided to set the upper
   /// bound on the amount of data being written.
   ///
+  /// Example:
   /// ```dart
   ///   "Hello!".put(buf, 6);
   /// ```
@@ -443,7 +471,7 @@ String readFromBufferAsString(Pointer<Uint8> buffer, int offset,
   return utf8.decode(codeUnits, allowMalformed: allowMalformed);
 }
 
-/// Extensions on byte buffers, allowing to read and write
+/// Extension on byte buffers, allowing to read and write
 /// pieces of the buffers as specific data types (numbers, strings, etc.).
 ///
 /// Please note, that all offsets in reading and writing methods do not have
@@ -452,6 +480,7 @@ String readFromBufferAsString(Pointer<Uint8> buffer, int offset,
 /// as they can take advantage of typed_data routines (otherwise a byte-wise
 /// copying between native and Dart memory takes place).
 ///
+/// Example:
 /// ```dart
 /// final Pointer<Uint8> buf = malloc<Uint8>(50);
 /// buf.setAllBytes(50, 0); // zeroes the buffer
@@ -691,8 +720,8 @@ extension ReadWriteData on Pointer<Uint8> {
   }
 }
 
-/// A general extension allowing to copy arbitrary blocks of native
-/// memory.
+/// A general extension, allowing to copy arbitrary blocks of native
+/// memory to / from Dart memory, as well as between native buffers.
 extension MemCopy on Pointer<NativeType> {
   /// Copies a piece of memory to a specified location in the native
   /// memory space.
@@ -763,6 +792,13 @@ extension MemCopy on Pointer<NativeType> {
   /// All [byteCnt] consecutive bytes, starting at the byte offset
   /// [offset] (the offset is measured in bytes, regardless of the
   /// actual type this pointer is pointing to), are set to [value].
+  ///
+  /// Example:
+  /// ```dart
+  /// // allocate and zero a buffer
+  /// Pointer<Uint8> buf = mem.allocate(1024);
+  /// buf.setAllBytes(1024, 0);
+  /// ```
   void setAllBytes(int byteCnt, int value, [int offset = 0]) {
     final dst = Pointer<Uint8>.fromAddress(address + offset);
     for (var i = 0; i < byteCnt; i++) {
@@ -772,11 +808,26 @@ extension MemCopy on Pointer<NativeType> {
 }
 
 /// An extension implementing pointer arithmetic on native pointers.
+///
+/// This extension allows to obtain a new native pointer by shifting
+/// an existing pointer by a specified byte offset.
+///
+/// Example:
+/// ```dart
+/// Pointer<Uint8> buf = mem.alloc(128);
+/// // data points to the part of buf starting at offset 16
+/// // the calculated pointer is cast to the valid type
+/// // so that it can be assigned to data, which is a pointer
+/// // of a different type
+/// Pointer<Int64> data = (buf+16).cast();
+/// ```
 extension PointerArithmetic on Pointer<NativeType> {
+  /// Returns a pointer shifted right (increased) by a specified offset.
   Pointer<NativeType> operator +(int byteOffset) {
     return Pointer<NativeType>.fromAddress(address + byteOffset);
   }
 
+  /// Returns a pointer shifted left (decreased) by a specified offset.
   Pointer<NativeType> operator -(int byteOffset) {
     return Pointer<NativeType>.fromAddress(address - byteOffset);
   }
@@ -812,6 +863,8 @@ int byteCountForUint(int value) {
 /// Can be queried for statistics.
 /// Obviously it's less efficient than a naked calloc, so it's supposed
 /// to be used only for debugging / profiling.
+/// Example code using this allocator can be found in
+/// `example/fbdb/ex_11_mem_benchmark.dart`.
 class TracingAllocator implements Allocator {
   /// The actual allocator
   Allocator alloc = calloc;
@@ -839,7 +892,8 @@ class TracingAllocator implements Allocator {
   /// The number of releases (calls to free).
   int freeCount = 0;
 
-  /// Allocate a native memory block of the given size.
+  /// Allocates a native memory block of the given size,
+  /// updating the statistics.
   @override
   Pointer<T> allocate<T extends NativeType>(int byteCount, {int? alignment}) {
     final block = alloc.allocate<T>(byteCount, alignment: alignment);
@@ -853,7 +907,7 @@ class TracingAllocator implements Allocator {
     return block;
   }
 
-  /// Free a native memory block.
+  /// Frees up a native memory block, updating the statistics.
   @override
   void free(Pointer<NativeType> pointer) {
     freeCount++;
@@ -870,6 +924,8 @@ class TracingAllocator implements Allocator {
     alloc.free(pointer);
   }
 
+  /// Returns the textual representation of the current memory
+  /// statistics.
   @override
   String toString() {
     return """
@@ -882,6 +938,20 @@ Memory allocated now:     ${allocated.toString().padLeft(10)} B
 """;
   }
 
+  /// Returns a structured representation of the current memory statistics.
+  ///
+  /// The keys in the map are:
+  /// - allocationCount - the number of times [TracingAllocator.allocate]
+  ///   has been called
+  /// - freeCount - the number of times [TracingAllocator.free] has been called
+  /// - allocatedSum - the cumulative sum of all allocated memory blocks
+  /// - freedSum - the cumulative sum of all released memory blocks
+  /// - maxAllocated - the maximum amount of native memory allocated so far
+  /// - allocated - the amount of currently allocated native memory
+  ///
+  /// If there are no memory leaks, at the end of the application life
+  /// the allocationCount and freeCount should be equal, as should be
+  /// allocatedSum and freedSum, and the value of allocated should be 0.
   Map<String, int> toMap() {
     return {
       "allocationCount": allocationCount,
