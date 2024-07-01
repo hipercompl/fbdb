@@ -117,6 +117,25 @@ void main() async {
         }
       }); // withNewDb1
     }); // test "selectOne, selectAll utility methods"
+
+    test("NULL handling", () async {
+      await withNewDb1((db) async {
+        final q = db.query();
+        await q.execute(
+            sql: "insert into T(PK_INT, C_5) values (?, ?)",
+            parameters: [4, null]);
+        await q.close();
+        final row = await db.selectOne(
+          sql: "select PK_INT from T where PK_INT=?",
+          parameters: [4],
+        );
+        expect(row, isNotNull);
+        if (row != null) {
+          expect(row["PK_INT"], equals(4));
+          expect(row["C_5"], isNull);
+        }
+      }); // withNewDb1
+    }); // test "selectOne, selectAll utility methods"
   }); // group "SELECT statements"
 
   group("INSERT statements", () {

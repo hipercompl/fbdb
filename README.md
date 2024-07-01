@@ -152,4 +152,5 @@ The following features are planned for the future releases of FbDb:
 - high-level API for Firebird service manager,
 - high-level API for Firebird events,
 - abstractions for server / database statistics,
-- implementation of the Firebird wire protocol to use FbDb without the native client libraries.
+- implementation of the Firebird wire protocol to use FbDb without the native client libraries,
+- support for Firebird's array data types.
