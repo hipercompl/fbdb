@@ -409,13 +409,22 @@ class IUtil extends IVersioned {
   }
 
   String formattedStatus(IStatus status) {
-    const bufSize = 512;
-    Pointer<Utf8> buf = mem.allocate(bufSize);
     try {
-      final len = formatStatus(buf, bufSize, status);
-      return buf.toDartString(length: len);
-    } finally {
-      mem.free(buf);
+      const bufSize = 512;
+      Pointer<Utf8> buf = mem.allocate(bufSize);
+      try {
+        final len = formatStatus(buf, bufSize, status);
+        final codePoints = buf.toDartMem(len);
+        final str = Utf8Decoder(allowMalformed: true).convert(codePoints);
+        return str;
+      } finally {
+        mem.free(buf);
+      }
+    } catch (_) {
+      // automatic format didn't work, will try to return the status
+      // formatted by hand
+      final errors = status.errors.where((e) => e != 0);
+      return "Could not format error message. Error codes: $errors";
     }
   }
 
