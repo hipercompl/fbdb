@@ -90,6 +90,12 @@ class ITransaction extends IReferenceCounted {
                     FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
         .asFunction();
     if (version >= 4) {
+      _deprecatedDisconnect = Pointer<
+              NativeFunction<
+                  Void Function(
+                      FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
+          .asFunction();
+    } else {
       _disconnect = Pointer<
               NativeFunction<
                   Void Function(
