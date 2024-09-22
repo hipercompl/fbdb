@@ -3,7 +3,7 @@ import "package:fbdb/fbclient.dart";
 
 class IRequest extends IReferenceCounted {
   @override
-  int minSupportedVersion() => 4;
+  int minSupportedVersion() => 3;
 
   late void Function(FbInterface self, FbInterface status, int level,
       int msgType, int length, Pointer<Uint8> message) _receive;
@@ -33,7 +33,7 @@ class IRequest extends IReferenceCounted {
 
   IRequest(super.self) {
     startIndex = super.startIndex + super.methodCount;
-    methodCount = 8;
+    methodCount = (version >= 4 ? 8 : 7);
     var idx = startIndex;
     _receive = Pointer<
             NativeFunction<
@@ -77,11 +77,13 @@ class IRequest extends IReferenceCounted {
                 Void Function(
                     FbInterface, FbInterface, Int)>>.fromAddress(vtable[idx++])
         .asFunction();
-    _deprecatedFree = Pointer<
-            NativeFunction<
-                Void Function(
-                    FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
-        .asFunction();
+    if (version >= 4) {
+      _deprecatedFree = Pointer<
+              NativeFunction<
+                  Void Function(
+                      FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
+          .asFunction();
+    }
     _free = Pointer<
             NativeFunction<
                 Void Function(
@@ -126,6 +128,10 @@ class IRequest extends IReferenceCounted {
   }
 
   void deprecatedFree(IStatus status) {
+    if (version < 4) {
+      throw UnimplementedError(
+          "Firebird client library version 4 or later required.");
+    }
     _deprecatedFree(self, status.self);
     status.checkStatus();
   }

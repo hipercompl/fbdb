@@ -4,7 +4,7 @@ import "package:fbdb/fbclient.dart";
 
 class IFirebirdConf extends IReferenceCounted {
   @override
-  int minSupportedVersion() => 4;
+  int minSupportedVersion() => 3;
 
   late int Function(FbInterface self, Pointer<Utf8> name) _getKey;
   late int Function(FbInterface self, int key) _asInteger;
@@ -14,7 +14,7 @@ class IFirebirdConf extends IReferenceCounted {
 
   IFirebirdConf(super.self) {
     startIndex = super.startIndex + super.methodCount;
-    methodCount = 5;
+    methodCount = (version >= 4 ? 5 : 4);
     var idx = startIndex;
     _getKey = Pointer<
             NativeFunction<
@@ -36,11 +36,13 @@ class IFirebirdConf extends IReferenceCounted {
                 FbBoolean Function(
                     FbInterface, UnsignedInt)>>.fromAddress(vtable[idx++])
         .asFunction();
-    _getVersion = Pointer<
-            NativeFunction<
-                UnsignedInt Function(
-                    FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
-        .asFunction();
+    if (version >= 4) {
+      _getVersion = Pointer<
+              NativeFunction<
+                  UnsignedInt Function(
+                      FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
+          .asFunction();
+    }
   }
 
   int getKey(String name) {
@@ -65,6 +67,10 @@ class IFirebirdConf extends IReferenceCounted {
   }
 
   int getVersion(IStatus status) {
+    if (version < 4) {
+      throw UnimplementedError(
+          "Firebird client library version 4 or later required.");
+    }
     final res = _getVersion(self, status.self);
     status.checkStatus();
     return res;

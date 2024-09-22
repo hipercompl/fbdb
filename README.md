@@ -142,7 +142,7 @@ If you need specific commercial support of FbDb, please contact the author (fbdb
 ###  4.4. <a name='Roadmap'></a>Roadmap
 The following features are planned for the future releases of FbDb:
 
-- backward compatibility with Firebird 3.0 client library,
+- ~~backward compatibility with Firebird 3.0 client library~~ *implemented in version 1.1*,
 - more utility methods, similar to selectOne / selectAll (to save typing),
 - multiple explicit concurrent transactions,
 - prepared statements optimized for multiple executions,

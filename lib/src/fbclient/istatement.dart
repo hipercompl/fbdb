@@ -4,7 +4,7 @@ import "package:fbdb/fbclient.dart";
 
 class IStatement extends IReferenceCounted {
   @override
-  int minSupportedVersion() => 5;
+  int minSupportedVersion() => 3;
 
   static const preparePrefetchNone = 0x0;
   static const preparePrefetchType = 0x1;
@@ -65,7 +65,7 @@ class IStatement extends IReferenceCounted {
 
   IStatement(super.self) {
     startIndex = super.startIndex + super.methodCount;
-    methodCount = 15;
+    methodCount = (version >= 4 ? 15 : 11);
     var idx = startIndex;
     _getInfo = Pointer<
             NativeFunction<
@@ -131,11 +131,19 @@ class IStatement extends IReferenceCounted {
                 Void Function(FbInterface, FbInterface,
                     Pointer<Utf8>)>>.fromAddress(vtable[idx++])
         .asFunction();
-    _deprecatedFree = Pointer<
-            NativeFunction<
-                Void Function(
-                    FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
-        .asFunction();
+    if (version >= 4) {
+      _deprecatedFree = Pointer<
+              NativeFunction<
+                  Void Function(
+                      FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
+          .asFunction();
+    } else {
+      _free = Pointer<
+              NativeFunction<
+                  Void Function(
+                      FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
+          .asFunction();
+    }
     _getFlags = Pointer<
             NativeFunction<
                 UnsignedInt Function(
@@ -156,11 +164,13 @@ class IStatement extends IReferenceCounted {
                 FbInterface Function(FbInterface, FbInterface, FbInterface,
                     UnsignedInt, Pointer<Uint8>)>>.fromAddress(vtable[idx++])
         .asFunction();
-    _free = Pointer<
-            NativeFunction<
-                Void Function(
-                    FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
-        .asFunction();
+    if (version >= 4) {
+      _free = Pointer<
+              NativeFunction<
+                  Void Function(
+                      FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
+          .asFunction();
+    }
   }
 
   void getInfo(IStatus status, int itemsLength, Pointer<Uint8> items,
@@ -244,6 +254,10 @@ class IStatement extends IReferenceCounted {
   }
 
   void deprecatedFree(IStatus status) {
+    if (version < 4) {
+      throw UnimplementedError(
+          "Firebird client library version 4 or later required.");
+    }
     _deprecatedFree(self, status.self);
     status.checkStatus();
   }

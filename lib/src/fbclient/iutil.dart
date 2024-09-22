@@ -5,7 +5,7 @@ import "package:fbdb/fbclient.dart";
 
 class IUtil extends IVersioned {
   @override
-  int minSupportedVersion() => 4;
+  int minSupportedVersion() => 2;
 
   late void Function(FbInterface self, FbInterface status,
       FbInterface attachment, FbInterface callback) _getFbVersion;
@@ -132,7 +132,7 @@ class IUtil extends IVersioned {
       Pointer<Utf8> timeZoneBuffer) _decodeTimeStampTzEx;
   IUtil(super.self) {
     startIndex = super.startIndex + super.methodCount;
-    methodCount = 22;
+    methodCount = (version >= 4 ? 22 : 13);
     var idx = startIndex;
     _getFbVersion = Pointer<
             NativeFunction<
@@ -224,106 +224,108 @@ class IUtil extends IVersioned {
                 UnsignedInt Function(FbInterface, FbInterface, FbInterface,
                     FbInterface)>>.fromAddress(vtable[idx++])
         .asFunction();
-    _getDecFloat16 = Pointer<
-            NativeFunction<
-                FbInterface Function(
-                    FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
-        .asFunction();
-    _getDecFloat34 = Pointer<
-            NativeFunction<
-                FbInterface Function(
-                    FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
-        .asFunction();
-    _decodeTimeTz = Pointer<
-            NativeFunction<
-                Void Function(
-                    FbInterface,
-                    FbInterface,
-                    Pointer<IscTimeTz>,
-                    Pointer<UnsignedInt>,
-                    Pointer<UnsignedInt>,
-                    Pointer<UnsignedInt>,
-                    Pointer<UnsignedInt>,
-                    UnsignedInt,
-                    Pointer<Utf8>)>>.fromAddress(vtable[idx++])
-        .asFunction();
-    _decodeTimeStampTz = Pointer<
-            NativeFunction<
-                Void Function(
-                    FbInterface,
-                    FbInterface,
-                    Pointer<IscTimestampTz>,
-                    Pointer<UnsignedInt>,
-                    Pointer<UnsignedInt>,
-                    Pointer<UnsignedInt>,
-                    Pointer<UnsignedInt>,
-                    Pointer<UnsignedInt>,
-                    Pointer<UnsignedInt>,
-                    Pointer<UnsignedInt>,
-                    UnsignedInt,
-                    Pointer<Utf8>)>>.fromAddress(vtable[idx++])
-        .asFunction();
-    _encodeTimeTz = Pointer<
-            NativeFunction<
-                Void Function(
-                    FbInterface,
-                    FbInterface,
-                    Pointer<IscTimeTz>,
-                    UnsignedInt,
-                    UnsignedInt,
-                    UnsignedInt,
-                    UnsignedInt,
-                    Pointer<Utf8>)>>.fromAddress(vtable[idx++])
-        .asFunction();
-    _encodeTimeStampTz = Pointer<
-            NativeFunction<
-                Void Function(
-                    FbInterface,
-                    FbInterface,
-                    Pointer<IscTimestampTz>,
-                    UnsignedInt,
-                    UnsignedInt,
-                    UnsignedInt,
-                    UnsignedInt,
-                    UnsignedInt,
-                    UnsignedInt,
-                    UnsignedInt,
-                    Pointer<Utf8>)>>.fromAddress(vtable[idx++])
-        .asFunction();
-    _getInt128 = Pointer<
-            NativeFunction<
-                FbInterface Function(
-                    FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
-        .asFunction();
-    _decodeTimeTzEx = Pointer<
-            NativeFunction<
-                Void Function(
-                    FbInterface,
-                    FbInterface,
-                    Pointer<IscTimeTzEx>,
-                    Pointer<UnsignedInt>,
-                    Pointer<UnsignedInt>,
-                    Pointer<UnsignedInt>,
-                    Pointer<UnsignedInt>,
-                    UnsignedInt,
-                    Pointer<Utf8>)>>.fromAddress(vtable[idx++])
-        .asFunction();
-    _decodeTimeStampTzEx = Pointer<
-            NativeFunction<
-                Void Function(
-                    FbInterface,
-                    FbInterface,
-                    Pointer<IscTimestampTzEx>,
-                    Pointer<UnsignedInt>,
-                    Pointer<UnsignedInt>,
-                    Pointer<UnsignedInt>,
-                    Pointer<UnsignedInt>,
-                    Pointer<UnsignedInt>,
-                    Pointer<UnsignedInt>,
-                    Pointer<UnsignedInt>,
-                    UnsignedInt,
-                    Pointer<Utf8>)>>.fromAddress(vtable[idx++])
-        .asFunction();
+    if (version >= 4) {
+      _getDecFloat16 = Pointer<
+              NativeFunction<
+                  FbInterface Function(
+                      FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
+          .asFunction();
+      _getDecFloat34 = Pointer<
+              NativeFunction<
+                  FbInterface Function(
+                      FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
+          .asFunction();
+      _decodeTimeTz = Pointer<
+              NativeFunction<
+                  Void Function(
+                      FbInterface,
+                      FbInterface,
+                      Pointer<IscTimeTz>,
+                      Pointer<UnsignedInt>,
+                      Pointer<UnsignedInt>,
+                      Pointer<UnsignedInt>,
+                      Pointer<UnsignedInt>,
+                      UnsignedInt,
+                      Pointer<Utf8>)>>.fromAddress(vtable[idx++])
+          .asFunction();
+      _decodeTimeStampTz = Pointer<
+              NativeFunction<
+                  Void Function(
+                      FbInterface,
+                      FbInterface,
+                      Pointer<IscTimestampTz>,
+                      Pointer<UnsignedInt>,
+                      Pointer<UnsignedInt>,
+                      Pointer<UnsignedInt>,
+                      Pointer<UnsignedInt>,
+                      Pointer<UnsignedInt>,
+                      Pointer<UnsignedInt>,
+                      Pointer<UnsignedInt>,
+                      UnsignedInt,
+                      Pointer<Utf8>)>>.fromAddress(vtable[idx++])
+          .asFunction();
+      _encodeTimeTz = Pointer<
+              NativeFunction<
+                  Void Function(
+                      FbInterface,
+                      FbInterface,
+                      Pointer<IscTimeTz>,
+                      UnsignedInt,
+                      UnsignedInt,
+                      UnsignedInt,
+                      UnsignedInt,
+                      Pointer<Utf8>)>>.fromAddress(vtable[idx++])
+          .asFunction();
+      _encodeTimeStampTz = Pointer<
+              NativeFunction<
+                  Void Function(
+                      FbInterface,
+                      FbInterface,
+                      Pointer<IscTimestampTz>,
+                      UnsignedInt,
+                      UnsignedInt,
+                      UnsignedInt,
+                      UnsignedInt,
+                      UnsignedInt,
+                      UnsignedInt,
+                      UnsignedInt,
+                      Pointer<Utf8>)>>.fromAddress(vtable[idx++])
+          .asFunction();
+      _getInt128 = Pointer<
+              NativeFunction<
+                  FbInterface Function(
+                      FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
+          .asFunction();
+      _decodeTimeTzEx = Pointer<
+              NativeFunction<
+                  Void Function(
+                      FbInterface,
+                      FbInterface,
+                      Pointer<IscTimeTzEx>,
+                      Pointer<UnsignedInt>,
+                      Pointer<UnsignedInt>,
+                      Pointer<UnsignedInt>,
+                      Pointer<UnsignedInt>,
+                      UnsignedInt,
+                      Pointer<Utf8>)>>.fromAddress(vtable[idx++])
+          .asFunction();
+      _decodeTimeStampTzEx = Pointer<
+              NativeFunction<
+                  Void Function(
+                      FbInterface,
+                      FbInterface,
+                      Pointer<IscTimestampTzEx>,
+                      Pointer<UnsignedInt>,
+                      Pointer<UnsignedInt>,
+                      Pointer<UnsignedInt>,
+                      Pointer<UnsignedInt>,
+                      Pointer<UnsignedInt>,
+                      Pointer<UnsignedInt>,
+                      Pointer<UnsignedInt>,
+                      UnsignedInt,
+                      Pointer<Utf8>)>>.fromAddress(vtable[idx++])
+          .asFunction();
+    }
   }
 
   void getFbVersion(
@@ -449,12 +451,20 @@ class IUtil extends IVersioned {
   }
 
   IDecFloat16 getDecFloat16(IStatus status) {
+    if (version < 4) {
+      throw UnimplementedError(
+          "Firebird client library version 4 or later required.");
+    }
     final res = _getDecFloat16(self, status.self);
     status.checkStatus();
     return IDecFloat16(res);
   }
 
   IDecFloat34 getDecFloat34(IStatus status) {
+    if (version < 4) {
+      throw UnimplementedError(
+          "Firebird client library version 4 or later required.");
+    }
     final res = _getDecFloat34(self, status.self);
     status.checkStatus();
     return IDecFloat34(res);
@@ -469,6 +479,10 @@ class IUtil extends IVersioned {
       Pointer<UnsignedInt> fractions,
       int timeZoneBufferLength,
       Pointer<Utf8> timeZoneBuffer) {
+    if (version < 4) {
+      throw UnimplementedError(
+          "Firebird client library version 4 or later required.");
+    }
     _decodeTimeTz(self, status.self, timeTz, hours, minutes, seconds, fractions,
         timeZoneBufferLength, timeZoneBuffer);
     status.checkStatus();
@@ -486,6 +500,10 @@ class IUtil extends IVersioned {
       Pointer<UnsignedInt> fractions,
       int timeZoneBufferLength,
       Pointer<Utf8> timeZoneBuffer) {
+    if (version < 4) {
+      throw UnimplementedError(
+          "Firebird client library version 4 or later required.");
+    }
     _decodeTimeStampTz(self, status.self, timeStampTz, year, month, day, hours,
         minutes, seconds, fractions, timeZoneBufferLength, timeZoneBuffer);
     status.checkStatus();
@@ -493,6 +511,10 @@ class IUtil extends IVersioned {
 
   void encodeTimeTz(IStatus status, Pointer<IscTimeTz> timeTz, int hours,
       int minutes, int seconds, int fractions, String timeZone) {
+    if (version < 4) {
+      throw UnimplementedError(
+          "Firebird client library version 4 or later required.");
+    }
     final timeZoneUtf = timeZone.toNativeUtf8(allocator: mem);
     try {
       _encodeTimeTz(self, status.self, timeTz, hours, minutes, seconds,
@@ -514,6 +536,10 @@ class IUtil extends IVersioned {
       int seconds,
       int fractions,
       String timeZone) {
+    if (version < 4) {
+      throw UnimplementedError(
+          "Firebird client library version 4 or later required.");
+    }
     final timeZoneUtf = timeZone.toNativeUtf8(allocator: mem);
     try {
       _encodeTimeStampTz(self, status.self, timeStampTz, year, month, day,
@@ -525,6 +551,10 @@ class IUtil extends IVersioned {
   }
 
   IInt128 getInt128(IStatus status) {
+    if (version < 4) {
+      throw UnimplementedError(
+          "Firebird client library version 4 or later required.");
+    }
     final res = _getInt128(self, status.self);
     status.checkStatus();
     return IInt128(res);
@@ -539,6 +569,10 @@ class IUtil extends IVersioned {
       Pointer<UnsignedInt> fractions,
       int timeZoneBufferLength,
       Pointer<Utf8> timeZoneBuffer) {
+    if (version < 4) {
+      throw UnimplementedError(
+          "Firebird client library version 4 or later required.");
+    }
     _decodeTimeTzEx(self, status.self, timeTz, hours, minutes, seconds,
         fractions, timeZoneBufferLength, timeZoneBuffer);
     status.checkStatus();
@@ -556,6 +590,10 @@ class IUtil extends IVersioned {
       Pointer<UnsignedInt> fractions,
       int timeZoneBufferLength,
       Pointer<Utf8> timeZoneBuffer) {
+    if (version < 4) {
+      throw UnimplementedError(
+          "Firebird client library version 4 or later required.");
+    }
     _decodeTimeStampTzEx(
         self,
         status.self,

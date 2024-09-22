@@ -4,7 +4,7 @@ import "package:fbdb/fbclient.dart";
 
 class IMetadataBuilder extends IReferenceCounted {
   @override
-  int minSupportedVersion() => 4;
+  int minSupportedVersion() => 3;
 
   late void Function(FbInterface self, FbInterface status, int index, int type)
       _setType;
@@ -37,7 +37,7 @@ class IMetadataBuilder extends IReferenceCounted {
 
   IMetadataBuilder(super.self) {
     startIndex = super.startIndex + super.methodCount;
-    methodCount = 14;
+    methodCount = (version >= 4 ? 14 : 10);
     var idx = startIndex;
     _setType = Pointer<
             NativeFunction<
@@ -89,26 +89,28 @@ class IMetadataBuilder extends IReferenceCounted {
                 FbInterface Function(
                     FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
         .asFunction();
-    _setField = Pointer<
-            NativeFunction<
-                Void Function(FbInterface, FbInterface, UnsignedInt,
-                    Pointer<Utf8>)>>.fromAddress(vtable[idx++])
-        .asFunction();
-    _setRelation = Pointer<
-            NativeFunction<
-                Void Function(FbInterface, FbInterface, UnsignedInt,
-                    Pointer<Utf8>)>>.fromAddress(vtable[idx++])
-        .asFunction();
-    _setOwner = Pointer<
-            NativeFunction<
-                Void Function(FbInterface, FbInterface, UnsignedInt,
-                    Pointer<Utf8>)>>.fromAddress(vtable[idx++])
-        .asFunction();
-    _setAlias = Pointer<
-            NativeFunction<
-                Void Function(FbInterface, FbInterface, UnsignedInt,
-                    Pointer<Utf8>)>>.fromAddress(vtable[idx++])
-        .asFunction();
+    if (version >= 4) {
+      _setField = Pointer<
+              NativeFunction<
+                  Void Function(FbInterface, FbInterface, UnsignedInt,
+                      Pointer<Utf8>)>>.fromAddress(vtable[idx++])
+          .asFunction();
+      _setRelation = Pointer<
+              NativeFunction<
+                  Void Function(FbInterface, FbInterface, UnsignedInt,
+                      Pointer<Utf8>)>>.fromAddress(vtable[idx++])
+          .asFunction();
+      _setOwner = Pointer<
+              NativeFunction<
+                  Void Function(FbInterface, FbInterface, UnsignedInt,
+                      Pointer<Utf8>)>>.fromAddress(vtable[idx++])
+          .asFunction();
+      _setAlias = Pointer<
+              NativeFunction<
+                  Void Function(FbInterface, FbInterface, UnsignedInt,
+                      Pointer<Utf8>)>>.fromAddress(vtable[idx++])
+          .asFunction();
+    }
   }
 
   void setType(IStatus status, int index, int type) {
@@ -169,6 +171,10 @@ class IMetadataBuilder extends IReferenceCounted {
   }
 
   void setField(IStatus status, int index, String field) {
+    if (version < 4) {
+      throw UnimplementedError(
+          "Firebird client library version 4 or later required.");
+    }
     final fieldUtf = field.toNativeUtf8(allocator: mem);
     try {
       _setField(self, status.self, index, fieldUtf);
@@ -179,6 +185,10 @@ class IMetadataBuilder extends IReferenceCounted {
   }
 
   void setRelation(IStatus status, int index, String relation) {
+    if (version < 4) {
+      throw UnimplementedError(
+          "Firebird client library version 4 or later required.");
+    }
     final relationUtf = relation.toNativeUtf8(allocator: mem);
     try {
       _setRelation(self, status.self, index, relationUtf);
@@ -189,6 +199,10 @@ class IMetadataBuilder extends IReferenceCounted {
   }
 
   void setOwner(IStatus status, int index, String owner) {
+    if (version < 4) {
+      throw UnimplementedError(
+          "Firebird client library version 4 or later required.");
+    }
     final ownerUtf = owner.toNativeUtf8(allocator: mem);
     try {
       _setOwner(self, status.self, index, ownerUtf);
@@ -199,6 +213,10 @@ class IMetadataBuilder extends IReferenceCounted {
   }
 
   void setAlias(IStatus status, int index, String alias) {
+    if (version < 4) {
+      throw UnimplementedError(
+          "Firebird client library version 4 or later required.");
+    }
     final aliasUtf = alias.toNativeUtf8(allocator: mem);
     try {
       _setAlias(self, status.self, index, aliasUtf);

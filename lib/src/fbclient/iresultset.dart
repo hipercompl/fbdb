@@ -3,7 +3,7 @@ import "package:fbdb/fbclient.dart";
 
 class IResultSet extends IReferenceCounted {
   @override
-  int minSupportedVersion() => 4;
+  int minSupportedVersion() => 3;
 
   late int Function(
       FbInterface self, FbInterface status, Pointer<Uint8> message) _fetchNext;
@@ -24,10 +24,12 @@ class IResultSet extends IReferenceCounted {
   late void Function(FbInterface self, FbInterface status, FbInterface format)
       _setDelayedOutputFormat;
   late void Function(FbInterface self, FbInterface status) _close;
+  late void Function(FbInterface self, FbInterface status, int itemsLength,
+      Pointer<Uint8> items, int bufferLength, Pointer<Uint8> buffer) _getInfo;
 
   IResultSet(super.self) {
     startIndex = super.startIndex + super.methodCount;
-    methodCount = 12;
+    methodCount = (version >= 5 ? 13 : (version >= 4 ? 12 : 11));
     var idx = startIndex;
     _fetchNext = Pointer<
             NativeFunction<
@@ -74,21 +76,44 @@ class IResultSet extends IReferenceCounted {
                 FbInterface Function(
                     FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
         .asFunction();
-    _deprecatedClose = Pointer<
-            NativeFunction<
-                Void Function(
-                    FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
-        .asFunction();
+    if (version >= 4) {
+      _deprecatedClose = Pointer<
+              NativeFunction<
+                  Void Function(
+                      FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
+          .asFunction();
+    } else {
+      _close = Pointer<
+              NativeFunction<
+                  Void Function(
+                      FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
+          .asFunction();
+    }
     _setDelayedOutputFormat = Pointer<
             NativeFunction<
                 Void Function(FbInterface, FbInterface,
                     FbInterface)>>.fromAddress(vtable[idx++])
         .asFunction();
-    _close = Pointer<
-            NativeFunction<
-                Void Function(
-                    FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
-        .asFunction();
+    if (version >= 4) {
+      _close = Pointer<
+              NativeFunction<
+                  Void Function(
+                      FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
+          .asFunction();
+    }
+    if (version >= 5) {
+      _getInfo = Pointer<
+              NativeFunction<
+                  Void Function(
+                    FbInterface,
+                    FbInterface,
+                    UnsignedInt,
+                    Pointer<Uint8>,
+                    UnsignedInt,
+                    Pointer<Uint8>,
+                  )>>.fromAddress(vtable[idx++])
+          .asFunction();
+    }
   }
 
   int fetchNext(IStatus status, Pointer<Uint8> message) {
@@ -146,6 +171,10 @@ class IResultSet extends IReferenceCounted {
   }
 
   void deprecatedClose(IStatus status) {
+    if (version < 4) {
+      throw UnimplementedError(
+          "Firebird client library version 4 or later required.");
+    }
     _deprecatedClose(self, status.self);
     status.checkStatus();
   }
@@ -157,6 +186,24 @@ class IResultSet extends IReferenceCounted {
 
   void close(IStatus status) {
     _close(self, status.self);
+    status.checkStatus();
+  }
+
+  void getInfo(
+    IStatus status,
+    int itemsLength,
+    Pointer<Uint8> items,
+    int bufferLength,
+    Pointer<Uint8> buffer,
+  ) {
+    _getInfo(
+      self,
+      status.self,
+      itemsLength,
+      items,
+      bufferLength,
+      buffer,
+    );
     status.checkStatus();
   }
 }

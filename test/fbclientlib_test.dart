@@ -95,4 +95,27 @@ void main() {
       0,
     );
   });
+
+  test("Using API from a different client version", () {
+    // This test is supposed to run only if libfbclient
+    // v 3.x has been loaded.
+    // In this case, the IUtil interface does not implement
+    // a number of methods introduced in version 4 of Firebird.
+    final c = FbClient();
+    expect(c, isNotNull);
+    final m = c.fbGetMasterInterface();
+    final u = m.getUtilInterface();
+    final s = m.getStatus();
+
+    if (u.version < 4) {
+      expect(() => u.getInt128(s), throwsUnimplementedError);
+      expect(() => u.getDecFloat16(s), throwsUnimplementedError);
+      expect(() => u.getDecFloat34(s), throwsUnimplementedError);
+      s.dispose();
+    } else {
+      expect(() => u.getInt128(s), returnsNormally);
+      expect(() => u.getDecFloat16(s), returnsNormally);
+      expect(() => u.getDecFloat34(s), returnsNormally);
+    }
+  });
 }

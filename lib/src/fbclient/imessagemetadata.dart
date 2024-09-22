@@ -4,7 +4,7 @@ import "package:fbdb/fbclient.dart";
 
 class IMessageMetadata extends IReferenceCounted {
   @override
-  int minSupportedVersion() => 4;
+  int minSupportedVersion() => 3;
 
   late int Function(FbInterface self, FbInterface status) _getCount;
   late Pointer<Utf8> Function(FbInterface self, FbInterface status, int index)
@@ -33,7 +33,7 @@ class IMessageMetadata extends IReferenceCounted {
   late int Function(FbInterface self, FbInterface status) _getAlignedLength;
   IMessageMetadata(super.self) {
     startIndex = super.startIndex + super.methodCount;
-    methodCount = 17;
+    methodCount = (version >= 4 ? 17 : 15);
     var idx = startIndex;
     _getCount = Pointer<
             NativeFunction<
@@ -110,16 +110,18 @@ class IMessageMetadata extends IReferenceCounted {
                 UnsignedInt Function(
                     FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
         .asFunction();
-    _getAlignment = Pointer<
-            NativeFunction<
-                UnsignedInt Function(
-                    FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
-        .asFunction();
-    _getAlignedLength = Pointer<
-            NativeFunction<
-                UnsignedInt Function(
-                    FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
-        .asFunction();
+    if (version >= 4) {
+      _getAlignment = Pointer<
+              NativeFunction<
+                  UnsignedInt Function(
+                      FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
+          .asFunction();
+      _getAlignedLength = Pointer<
+              NativeFunction<
+                  UnsignedInt Function(
+                      FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
+          .asFunction();
+    }
   }
 
   int getCount(IStatus status) {
@@ -213,12 +215,20 @@ class IMessageMetadata extends IReferenceCounted {
   }
 
   int getAlignment(IStatus status) {
+    if (version < 4) {
+      throw UnimplementedError(
+          "Firebird client library version 4 or later required.");
+    }
     final res = _getAlignment(self, status.self);
     status.checkStatus();
     return res;
   }
 
   int getAlignedLength(IStatus status) {
+    if (version < 4) {
+      throw UnimplementedError(
+          "Firebird client library version 4 or later required.");
+    }
     final res = _getAlignedLength(self, status.self);
     status.checkStatus();
     return res;

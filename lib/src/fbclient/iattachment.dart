@@ -4,7 +4,7 @@ import "package:fbdb/fbclient.dart";
 
 class IAttachment extends IReferenceCounted {
   @override
-  int minSupportedVersion() => 5;
+  int minSupportedVersion() => 3;
 
   late void Function(FbInterface self, FbInterface status, int itemsLength,
       Pointer<Uint8> items, int bufferLength, Pointer<Uint8> buffer) _getInfo;
@@ -146,7 +146,7 @@ class IAttachment extends IReferenceCounted {
 
   IAttachment(super.self) {
     startIndex = super.startIndex + super.methodCount;
-    methodCount = 26;
+    methodCount = (version >= 4 ? 26 : 18);
     var idx = startIndex;
     _getInfo = Pointer<
             NativeFunction<
@@ -294,54 +294,56 @@ class IAttachment extends IReferenceCounted {
                 Void Function(
                     FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
         .asFunction();
-    _deprecatedDetach = Pointer<
-            NativeFunction<
-                Void Function(
-                    FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
-        .asFunction();
-    _deprecatedDropDatabase = Pointer<
-            NativeFunction<
-                Void Function(
-                    FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
-        .asFunction();
-    _getIdleTimeout = Pointer<
-            NativeFunction<
-                UnsignedInt Function(
-                    FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
-        .asFunction();
-    _setIdleTimeout = Pointer<
-            NativeFunction<
-                Void Function(FbInterface, FbInterface,
-                    UnsignedInt)>>.fromAddress(vtable[idx++])
-        .asFunction();
-    _getStatementTimeout = Pointer<
-            NativeFunction<
-                UnsignedInt Function(
-                    FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
-        .asFunction();
-    _setStatementTimeout = Pointer<
-            NativeFunction<
-                Void Function(FbInterface, FbInterface,
-                    UnsignedInt)>>.fromAddress(vtable[idx++])
-        .asFunction();
-    _createBatch = Pointer<
-            NativeFunction<
-                FbInterface Function(
-                    FbInterface,
-                    FbInterface,
-                    FbInterface,
-                    UnsignedInt,
-                    Pointer<Utf8>,
-                    UnsignedInt,
-                    FbInterface,
-                    UnsignedInt,
-                    Pointer<Uint8>)>>.fromAddress(vtable[idx++])
-        .asFunction();
-    _createReplicator = Pointer<
-            NativeFunction<
-                FbInterface Function(
-                    FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
-        .asFunction();
+    if (version >= 4) {
+      _deprecatedDetach = Pointer<
+              NativeFunction<
+                  Void Function(
+                      FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
+          .asFunction();
+      _deprecatedDropDatabase = Pointer<
+              NativeFunction<
+                  Void Function(
+                      FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
+          .asFunction();
+      _getIdleTimeout = Pointer<
+              NativeFunction<
+                  UnsignedInt Function(
+                      FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
+          .asFunction();
+      _setIdleTimeout = Pointer<
+              NativeFunction<
+                  Void Function(FbInterface, FbInterface,
+                      UnsignedInt)>>.fromAddress(vtable[idx++])
+          .asFunction();
+      _getStatementTimeout = Pointer<
+              NativeFunction<
+                  UnsignedInt Function(
+                      FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
+          .asFunction();
+      _setStatementTimeout = Pointer<
+              NativeFunction<
+                  Void Function(FbInterface, FbInterface,
+                      UnsignedInt)>>.fromAddress(vtable[idx++])
+          .asFunction();
+      _createBatch = Pointer<
+              NativeFunction<
+                  FbInterface Function(
+                      FbInterface,
+                      FbInterface,
+                      FbInterface,
+                      UnsignedInt,
+                      Pointer<Utf8>,
+                      UnsignedInt,
+                      FbInterface,
+                      UnsignedInt,
+                      Pointer<Uint8>)>>.fromAddress(vtable[idx++])
+          .asFunction();
+      _createReplicator = Pointer<
+              NativeFunction<
+                  FbInterface Function(
+                      FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
+          .asFunction();
+    }
     _detach = Pointer<
             NativeFunction<
                 Void Function(
@@ -538,33 +540,57 @@ class IAttachment extends IReferenceCounted {
   }
 
   void deprecatedDetach(IStatus status) {
+    if (version < 4) {
+      throw UnimplementedError(
+          "Firebird client library version 4 or later required.");
+    }
     _deprecatedDetach(self, status.self);
     status.checkStatus();
   }
 
   void deprecatedDropDatabase(IStatus status) {
+    if (version < 4) {
+      throw UnimplementedError(
+          "Firebird client library version 4 or later required.");
+    }
     _deprecatedDropDatabase(self, status.self);
     status.checkStatus();
   }
 
   int getIdleTimeout(IStatus status) {
+    if (version < 4) {
+      throw UnimplementedError(
+          "Firebird client library version 4 or later required.");
+    }
     final res = _getIdleTimeout(self, status.self);
     status.checkStatus();
     return res;
   }
 
   void setIdleTimeout(IStatus status, int timeOut) {
+    if (version < 4) {
+      throw UnimplementedError(
+          "Firebird client library version 4 or later required.");
+    }
     _setIdleTimeout(self, status.self, timeOut);
     status.checkStatus();
   }
 
   int getStatementTimeout(IStatus status) {
+    if (version < 4) {
+      throw UnimplementedError(
+          "Firebird client library version 4 or later required.");
+    }
     final res = _getStatementTimeout(self, status.self);
     status.checkStatus();
     return res;
   }
 
   void setStatementTimeout(IStatus status, int timeOut) {
+    if (version < 4) {
+      throw UnimplementedError(
+          "Firebird client library version 4 or later required.");
+    }
     _setStatementTimeout(self, status.self, timeOut);
     status.checkStatus();
   }
@@ -574,6 +600,10 @@ class IAttachment extends IReferenceCounted {
       IMessageMetadata? inMetadata,
       int parLength = 0,
       Pointer<Uint8>? par]) {
+    if (version < 4) {
+      throw UnimplementedError(
+          "Firebird client library version 4 or later required.");
+    }
     final sqlUtf = sqlStmt.toNativeUtf8(allocator: mem);
     try {
       final res = _createBatch(self, status.self, transaction.self, 0, sqlUtf,
@@ -586,6 +616,10 @@ class IAttachment extends IReferenceCounted {
   }
 
   IReplicator createReplicator(IStatus status) {
+    if (version < 4) {
+      throw UnimplementedError(
+          "Firebird client library version 4 or later required.");
+    }
     final res = _createReplicator(self, status.self);
     status.checkStatus();
     return IReplicator(res);

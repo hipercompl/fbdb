@@ -3,7 +3,7 @@ import "package:fbdb/fbclient.dart";
 
 class IService extends IReferenceCounted {
   @override
-  int minSupportedVersion() => 5;
+  int minSupportedVersion() => 3;
 
   late void Function(FbInterface self, FbInterface status) _deprecatedDetach;
   late void Function(
@@ -22,13 +22,21 @@ class IService extends IReferenceCounted {
 
   IService(super.self) {
     startIndex = super.startIndex + super.methodCount;
-    methodCount = 5;
+    methodCount = (version >= 4 ? 5 : 3);
     var idx = startIndex;
-    _deprecatedDetach = Pointer<
-            NativeFunction<
-                Void Function(
-                    FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
-        .asFunction();
+    if (version >= 4) {
+      _deprecatedDetach = Pointer<
+              NativeFunction<
+                  Void Function(
+                      FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
+          .asFunction();
+    } else {
+      _detach = Pointer<
+              NativeFunction<
+                  Void Function(
+                      FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
+          .asFunction();
+    }
     _query = Pointer<
             NativeFunction<
                 Void Function(
@@ -46,19 +54,25 @@ class IService extends IReferenceCounted {
                 Void Function(FbInterface, FbInterface, UnsignedInt,
                     Pointer<Uint8>)>>.fromAddress(vtable[idx++])
         .asFunction();
-    _detach = Pointer<
-            NativeFunction<
-                Void Function(
-                    FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
-        .asFunction();
-    _cancel = Pointer<
-            NativeFunction<
-                Void Function(
-                    FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
-        .asFunction();
+    if (version >= 4) {
+      _detach = Pointer<
+              NativeFunction<
+                  Void Function(
+                      FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
+          .asFunction();
+      _cancel = Pointer<
+              NativeFunction<
+                  Void Function(
+                      FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
+          .asFunction();
+    }
   }
 
   void deprecatedDetach(IStatus status) {
+    if (version < 4) {
+      throw UnimplementedError(
+          "Firebird client library version 4 or later required.");
+    }
     _deprecatedDetach(self, status.self);
     status.checkStatus();
   }
@@ -87,6 +101,10 @@ class IService extends IReferenceCounted {
   }
 
   void cancel(IStatus status) {
+    if (version < 4) {
+      throw UnimplementedError(
+          "Firebird client library version 4 or later required.");
+    }
     _cancel(self, status.self);
     status.checkStatus();
   }
