@@ -311,4 +311,24 @@ void main() async {
       }); // withNewDb1
     }); // test "DROP non-existing table"
   }); // group "DROP statements"
+
+  group("Github issues", () {
+    test("issue #4", () async {
+      await withNewDb2((db) async {
+        final q = db.query();
+        final testData = "3408108B67544334A99AA8FB237D4EE5";
+        await q.execute(
+          sql: "insert into T(PK_INT, VC32) values (?, ?)",
+          parameters: [1, testData],
+        );
+        final dataBack = await db.selectOne(
+          sql: "select VC32 from T where PK_INT=1",
+        );
+        expect(dataBack?.isNotEmpty, isTrue);
+        if (dataBack != null) {
+          expect(dataBack["VC32"], equals(testData));
+        }
+      });
+    });
+  });
 }

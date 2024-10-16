@@ -91,6 +91,27 @@ Future<void> withNewDb1(Future<void> Function(FbDb) testFunc) async {
   }); // withNewEmptyDb
 }
 
+/// Execute an external function with a temporarily created
+/// database, containing a single table with colums designed
+/// to test issue #4 (https://github.com/hipercompl/fbdb/issues/4),
+/// that is truncation of varchar query parameters.
+Future<void> withNewDb2(Future<void> Function(FbDb) testFunc) async {
+  await withNewEmptyDb((db) async {
+    final q = db.query();
+    try {
+      await q.execute(
+        sql: "create table T ( "
+            "PK_INT integer not null primary key, "
+            "VC32 varchar(32) "
+            ") ",
+      );
+    } finally {
+      await q.close();
+    }
+    await testFunc(db);
+  }); // withNewEmptyDb
+}
+
 /// Calculate and return a new, unique temporary database location.
 String getTmpDbLoc() {
   final iid = Isolate.current.hashCode;
