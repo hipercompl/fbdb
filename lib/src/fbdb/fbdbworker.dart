@@ -1169,7 +1169,11 @@ class FbDbQueryWorker {
 
       case FbConsts.SQL_VARYING:
       case FbConsts.SQL_VARYING + 1:
-        msg.writeVarchar(offset, value, length);
+        // length + 2 because length reported by metadata
+        // means the length of the field / parameter,
+        // excluding the 2-byte unsigned short holding
+        // the actual length of the text
+        msg.writeVarchar(offset, value, length + 2);
 
       case FbConsts.SQL_SHORT:
       case FbConsts.SQL_SHORT + 1:
