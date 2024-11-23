@@ -33,6 +33,7 @@ Future<void> withNewDb1(Future<void> Function(FbDb) testFunc) async {
       await q.execute(
         sql: "create table T ( "
             "PK_INT integer not null primary key, "
+            "C_1 char(1), "
             "C_5 char(5), "
             "VC_50 varchar(50), "
             "DP double precision, "
@@ -43,10 +44,11 @@ Future<void> withNewDb1(Future<void> Function(FbDb) testFunc) async {
             ") ",
       );
       await q.execute(
-        sql: "insert into T (PK_INT, C_5, VC_50, DP, DEC_10_3, D, TS, B) "
-            "values (?, ?, ?, ?, ?, ?, ?, ?) ",
+        sql: "insert into T (PK_INT, C_1, C_5, VC_50, DP, DEC_10_3, D, TS, B) "
+            "values (?, ?, ?, ?, ?, ?, ?, ?, ?) ",
         parameters: [
           1,
+          "y",
           "row_1",
           "This is the first row",
           1.1,
@@ -57,10 +59,11 @@ Future<void> withNewDb1(Future<void> Function(FbDb) testFunc) async {
         ],
       );
       await q.execute(
-        sql: "insert into T (PK_INT, C_5, VC_50, DP, DEC_10_3, D, TS, B) "
-            "values (?, ?, ?, ?, ?, ?, ?, ?) ",
+        sql: "insert into T (PK_INT, C_1, C_5, VC_50, DP, DEC_10_3, D, TS, B) "
+            "values (?, ?, ?, ?, ?, ?, ?, ?, ?) ",
         parameters: [
           2,
+          "y",
           "row_2",
           "This is the second row",
           2.2,
@@ -71,10 +74,11 @@ Future<void> withNewDb1(Future<void> Function(FbDb) testFunc) async {
         ],
       );
       await q.execute(
-        sql: "insert into T (PK_INT, C_5, VC_50, DP, DEC_10_3, D, TS, B) "
-            "values (?, ?, ?, ?, ?, ?, ?, ?) ",
+        sql: "insert into T (PK_INT, C_1, C_5, VC_50, DP, DEC_10_3, D, TS, B) "
+            "values (?, ?, ?, ?, ?, ?, ?, ?, ?) ",
         parameters: [
           3,
+          "n",
           "row_3",
           "This is the third row",
           3.3,

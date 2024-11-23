@@ -7,6 +7,8 @@ Provides a convenient, high-level asynchronous API based on futures, async metho
 
 **Requires the availability of the native Firebird client library (depending on the operating system, it's either *fbclient.dll*, *libfbclient.so* or *libfbclient.dylib*), together with its dependencies.**
 
+![human made logo banner](human_made_1080.png)
+
 *Firebird name and logo are registered trademarks of the [Firebird Foundation](https://www.firebirdsql.org/firebird-foundation), used with permssion.*
 
 **TABLE OF CONTENTS**

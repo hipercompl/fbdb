@@ -1,3 +1,7 @@
+## 1.1.1
+
+- Fixed issue [#5](https://github.com/hipercompl/fbdb/issues/5) - `CHAR` fields right-padded with extra spaces due to a potential 4-byte UTF-8 representation of each field character and the fact, that the Firebird client library reports the size of a returned `CHAR` field in bytes, not in characters. Detailed explanation can be found in [this article at StackOverflow](https://stackoverflow.com/questions/54657441/when-use-charset-parameter-pdo-fetchs-blank-spaces-in-fields#54672762).
+
 ## 1.1.0
 
 - Added comatibility with the Firebird client libraries version 3.x (versions older than 3.0 don't work and **will not** work, as they don't expose interfaces-based API to the client code). Please note, that some functionality of the API, introduced in later versions of Firebird, will not be available when using client libraries from the previous versions (e.g. dec16, dec34 and time zones aren't supported when using client libraries from version 3). The appropriate Dart wrappers over native Firebird interfaces now use conditional method binding, throwing `UnimplementedError` when being invoked with an incompatible version of the client library. As a rule of thumb, it's always best to use the most recent officially available Firebird client library with *fbdb*.
