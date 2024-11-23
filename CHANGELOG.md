@@ -1,3 +1,7 @@
+## 1.1.2
+
+- Fixed issue [#5](https://github.com/hipercompl/fbdb/issues/5) - `CHAR` fields right-padded with extra spaces due to a potential 4-byte UTF-8 representation of each field character and the fact, that the Firebird client library reports the size of a returned `CHAR` field in bytes, not in characters. Detailed explanation can be found in [this article at StackOverflow](https://stackoverflow.com/questions/54657441/when-use-charset-parameter-pdo-fetchs-blank-spaces-in-fields#54672762).
+
 ## 1.1.1
 
 - Fixed [issue #4](https://github.com/hipercompl/fbdb/issues/4): parameters being bound as `VARCHAR` could get truncated by 2 characters if they reach the maximum length reported by message metadata. This was due to the fact, that **fbdb** treated the 2-byte character count of a `VARCHAR` parameter as taking 2 bytes out of the reported parameter length (that's why exactly 2 characters were chopped off), while in fact the reported length mean just the maximum number of characters (and the 2-byte character count is not included). When the database used UTF-8 as field encoding, the issue was usually invisible, because in that case the actual number of bytes in the parameter buffer is 4 times the number of characters (and the extra 2-byte length almost always fit in the extra space).

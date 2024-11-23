@@ -41,6 +41,7 @@ void main() async {
         expect(nrow, isNull);
 
         expect(mrow?["PK_INT"], 1);
+        expect(mrow?["C_1"], "y");
         expect(mrow?["C_5"].toString().trimRight(), "row_1");
         expect(mrow?["VC_50"], "This is the first row");
         expect(mrow?["DP"], closeTo(1.1, 0.0001));
@@ -53,14 +54,15 @@ void main() async {
         );
 
         expect(lrow?[0], 2);
-        expect(lrow?[1].toString().trimRight(), "row_2");
-        expect(lrow?[2], "This is the second row");
-        expect(lrow?[3], closeTo(2.2, 0.0001));
-        expect(lrow?[4], closeTo(222.222, 0.0001));
-        expect(lrow?[5], DateTime(2024, 2, 2));
-        expect(lrow?[6], DateTime(2024, 2, 2, 2, 20, 22));
+        expect(lrow?[1], "y");
+        expect(lrow?[2], "row_2");
+        expect(lrow?[3], "This is the second row");
+        expect(lrow?[4], closeTo(2.2, 0.0001));
+        expect(lrow?[5], closeTo(222.222, 0.0001));
+        expect(lrow?[6], DateTime(2024, 2, 2));
+        expect(lrow?[7], DateTime(2024, 2, 2, 2, 20, 22));
         expect(
-          List<int>.from(Uint8List.view(lrow?[7])),
+          List<int>.from(Uint8List.view(lrow?[8])),
           equals([2, 3, 4, 5, 6, 7, 8, 9, 10, 11]),
         );
       }); // with newDb1
@@ -136,6 +138,20 @@ void main() async {
         }
       }); // withNewDb1
     }); // test "selectOne, selectAll utility methods"
+
+    test("SELECT of CHAR field (issue #5)", () async {
+      await withNewDb1((db) async {
+        final row = await db.selectOne(
+          sql: "select C_1, C_5 from T where PK_INT=?",
+          parameters: [1],
+        );
+        expect(row, isNotNull);
+        if (row != null) {
+          expect(row["C_1"], equals("y"));
+          expect(row["C_5"], equals("row_1"));
+        }
+      }); // withNewDb1
+    }); // test "SELECT of CHAR field (issue #5)"
   }); // group "SELECT statements"
 
   group("INSERT statements", () {
@@ -143,6 +159,7 @@ void main() async {
       await withNewDb1((db) async {
         final List<dynamic> testRow = [
           4,
+          "x",
           "row_4",
           "This is the fourth row",
           4.44,
@@ -153,8 +170,8 @@ void main() async {
         ];
         final q = db.query();
         await q.execute(
-          sql: "insert into T(PK_INT, C_5, VC_50, DP, DEC_10_3, D, TS, B) "
-              "values (?, ?, ?, ?, ?, ?, ?, ?)",
+          sql: "insert into T(PK_INT, C_1, C_5, VC_50, DP, DEC_10_3, D, TS, B) "
+              "values (?, ?, ?, ?, ?, ?, ?, ?, ?)",
           parameters: testRow,
         );
         var ar = await q.affectedRows();
@@ -168,8 +185,7 @@ void main() async {
         await q.close();
         expect(row, isNotNull);
         if (row != null) {
-          row[1] = row[1].toString().trimRight();
-          row[7] = Uint8List.view(row[7]);
+          row[8] = Uint8List.view(row[8]);
           expect(row, equals(testRow));
         }
       }); // withNewDb1

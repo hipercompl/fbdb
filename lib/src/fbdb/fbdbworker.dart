@@ -1535,6 +1535,7 @@ class FbDbQueryWorker {
     IMessageMetadata meta,
     int index,
   ) {
+    const maxBytesPerCodePoint = 4;
     int nullOffset = meta.getNullOffset(status, index);
     int isNull = msg.readUint16(nullOffset);
     if (isNull > 0) {
@@ -1548,7 +1549,9 @@ class FbDbQueryWorker {
     switch (type) {
       case FbConsts.SQL_TEXT:
       case FbConsts.SQL_TEXT + 1:
-        return msg.readString(offset, length);
+        final s = msg.readString(offset, length);
+        final sl = length ~/ maxBytesPerCodePoint;
+        return s.length > sl ? s.substring(0, sl) : s;
 
       case FbConsts.SQL_VARYING:
       case FbConsts.SQL_VARYING + 1:
