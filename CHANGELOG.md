@@ -1,3 +1,7 @@
+## 1.1.3
+
+- updated dependencies, fixed some wording in README (roadmap listed array types twice).
+
 ## 1.1.2
 
 - Fixed issue [#5](https://github.com/hipercompl/fbdb/issues/5) - `CHAR` fields right-padded with extra spaces due to 4-byte UTF-8 representation of each field character and the fact, that the Firebird client library reports the size of a returned `CHAR` field in bytes, not in characters. Detailed explanation can be found in [this article at StackOverflow](https://stackoverflow.com/questions/54657441/when-use-charset-parameter-pdo-fetchs-blank-spaces-in-fields#54672762).
