@@ -30,12 +30,13 @@ This guide is copyritht © 2024 Tomasz Tyrakowski (t.tyrakowski @at@ hipercom.pl
 	* 4.4. [Accessing data](#Accessingdata)
 		* 4.4.1. [Methods of the `FbQuery` objects](#MethodsoftheFbQueryobjects)
 		* 4.4.2. [Using row streams](#Usingrowstreams)
-		* 4.4.3. [Utility methods: selectOne, selectAll](#Utilitymethods:selectOneselectAll)
+		* 4.4.3. [Utility methods: selectOne, selectAll, execute](#Utilitymethods:selectOneselectAllexecute)
 	* 4.5. [Queries - examples](#Queries-examples)
 * 5. [Transaction handling](#Transactionhandling)
 	* 5.1. [The model](#Themodel)
 	* 5.2. [Implicit transactions](#Implicittransactions)
 	* 5.3. [Explicit transactions](#Explicittransactions)
+		* 5.3.1. [Utility method: runInTransaction](#Utilitymethod:runInTransaction)
 	* 5.4. [Transaction flags](#Transactionflags)
 	* 5.5. [Transactions - examples](#Transactions-examples)
 * 6. [Working with blobs](#Workingwithblobs)
@@ -586,15 +587,17 @@ The stream returned by `rows` can be used as any other stream in Dart, in partic
 
 >**Warning**. You should not call `rows()` while another stream returned by an earlier call to `rows()` (from the same query object) is still in use. The new call will cause the previous stream to be closed immediately. Similarly, you shouldn't call the `fetchOneAsMap`, `fetchAsLists`, etc. methods while iterating over a stream returned by `rows()`: these methods and the stream operate on the same physical data set.
 
-####  4.4.3. <a name='Utilitymethods:selectOneselectAll'></a>Utility methods: selectOne, selectAll
+####  4.4.3. <a name='Utilitymethods:selectOneselectAllexecute'></a>Utility methods: selectOne, selectAll, execute
 
-It is a common scenario to execute a `SELECT` statement and fetch a single row of the result. Or execute `SELECT` and fetch all rows immediately (as a list).
+It is a common scenario to execute a `SELECT` statement and fetch a single row of the result. Or execute `SELECT` and fetch all rows immediately (as a list). Or execute `INSERT` or `UPDATE` without getting any data back.
 
-For these common tasks, the `FbDb` attachment object contains two utility methods: `selectOne` and `selectAll`.
+For these common tasks, the `FbDb` attachment object contains three utility methods: `selectOne`, `selectAll` and `execute`.
 
-> Note, that `selectOne` and `selectAll` are called directly from an attachment object, not from a query object.
+> Note, that `selectOne`, `selectAll` and `execute` are called directly from an attachment object, not from a query object.
 
-The parameters of both methods are identical to those of `openCursor` (in fact, both methods call `openCursor` internally, passing down all parameters). A temporary query object is instantiated internally in each of these methods, the statement gets executed, the results are fetched (a single row or all rows), and finally query gets closed automatically.
+The parameters of the methods are identical to those of `FbQuery.openCursor` and `FbQuery.execute`, resp. (in fact, underneath the hood the utility methods actually call `openCursor` or `execute` on an internally created `FbQuery` object, passing down all parameters and passing the results back up the call stack). The only exception is that `execute` accepts one more named parameter: `returnAffectedRows`. If set to `true` (the default value is `false`), `execute` will return the number of rows affected by the SQL statement (if `returnAffectedRows` is `false`, `execute` always returns `0`).
+
+A temporary query object is instantiated internally in each of these methods, the statement gets executed, the results (in case of `selectOne` and `selectAll`) are fetched (a single row or all rows), and finally the temporary query gets closed automatically.
 
 So, it's nothing that couldn't be done in code, it just saves some typing.
 
@@ -619,6 +622,16 @@ Examples:
     }
 ```
 
+```dart
+    // db is an attached connection
+    final affected = await db.execute(
+        sql: "update EMPLOYEE set FIRST_NAME=? where EMP_NO=?",
+        parameters: ["Adam", 5],
+        returnAffectedRows: true,
+    );
+    print(affected); // "1"
+```
+
 ###  4.5. <a name='Queries-examples'></a>Queries - examples
 A common case: select the data from a table and process all rows of the result.
 ```dart
@@ -633,9 +646,6 @@ await for (var r in q.rows()) {
 }
 await q.close();
 ```
-
-
-
 
 Update some rows and check how many have been affected by the update.
 ```dart
@@ -685,6 +695,64 @@ For explicit transaction handling, the `FbDb` connection objects publish the fol
 If no transaction has been started with `startTransaction`, then `commit` and `rollback` have no effect (but don't throw an exception).
 
 >You need to take extra care with queries run with `openCursor` in the context of an explicit transaction. Ending a transaction (with `commit` or `rollback`) **invalidates** all data sets obtained in the context of that transaction, including any streams based on those data sets. Trying to fetch another row from such data sets (or streams) will result in an exception. 
+
+####  5.3.1. <a name='Utilitymethod:runInTransaction'></a>Utility method: runInTransaction
+To cover a common use case scenario, in which:
+
+- one starts a transaction,
+- a number of SQL statements get executed in the context of the transaction,
+- if all of the statements complete successfully, the transaction is committed, otherwise it is rolled back and an error is reported up the call stack,
+
+*fbdb* offers a utility method `runInTransaction`, which can be called on an attached `FbDb` connection object and passed a **function**, which gets executed in the context of an automatically managed explicit transaction. Moreover, if the custom function completes without errors (without throwin an exception), the transaction is **automatically** committed. If, on the other hand, an exception coming from the custom function gets caught, the transaction is **automatically** rolled back and the exception gets rethrown up the call stack. The custom function can (but doesn't have to) return a value of any type, and it becomes the return value of `runInTransaction`. If no value is returned, `runInTransaction` returns `null`.
+
+Consider the following example:
+```dart
+    // db is an attached connection
+    // assume COUNTRY is an empty table with a primary key on COUNTRY
+    final cnt = await db.runInTransaction(() async {
+        await db.execute(
+            sql: "insert into COUNTRY (COUNTRY, CURRENCY) " 
+                 "values (?, ?)",
+            parameters: ["Poland", "PLN"],
+        );
+        await db.execute(
+            sql: "insert into COUNTRY (COUNTRY, CURRENCY) " 
+                 "values (?, ?)",
+            parameters: ["USA", "USD"],
+        );
+        return 2;
+    });
+    // cnt == 2
+    // COUNTRY contains 2 rows
+```
+
+In the example above, an anonymous async function is passed to `runInTransaction`. In the body of the function, two consecutive `INSERT` statements get executed, and the function returns `2` as its result. Before the execution of the anonymous function starts, `runInTransaction` starts a new transaction (it's the same explicit transaction, which would be started by calling `FbDb.startTransaction`). Assuming both statements complete without errors, the transaction is automatically committed when the anonymous function returns. The returned value (`2` in this case) becomes the return value of `runInTransaction`, therefore `2` is assigned to the final variable `cnt`.
+
+Now let us consider another example:
+```dart
+    // db is an attached connection
+    // assume COUNTRY is an empty table with a primary key on COUNTRY
+    try {
+        final cnt = await db.runInTransaction(() async {
+            await db.execute(
+                sql: "insert into COUNTRY (COUNTRY, CURRENCY) " 
+                    "values (?, ?)",
+                parameters: ["Poland", "PLN"],
+            );
+            await db.execute(
+                sql: "insert into COUNTRY (COUNTRY, CURRENCY) " 
+                    "values (?, ?)",
+                parameters: ["Poland", "USD"],
+            ); // primary key violation
+            return 2;
+        });
+    } catch (_) {
+        print("Error detected");
+    }
+    // COUNTRY contains 0 rows
+```
+
+This example is similar to the previous one, except that the second `INSERT` statement results in an exception, causing the primary key violation on table `COUNTRY`. The exception is never caught inside the anonymous function, therefore it is passed up the call stack and detected by `runInTransaction`. The latter automatically rolls the transaction back and rethrows the exception, which is later caught by the `catch` block in the calling code (resulting in the `Error detected` message being printed out). Assuming `COUNTRY` was empty when the code started, it remains empty still, even though the first `INSERT` was successful. The exception occuring inside the anonymous function caused the whole transaction to be rolled back, including the first `INSERT`.
 
 ###  5.4. <a name='Transactionflags'></a>Transaction flags
 Firebird supports different *transaction modes*, which are determined by a group of flags set in the *transaction parameter block* (TPB). FbDb abstracts away the actual manipulation of the native memory of a TPB, allowing the programmer to easily set the transaction flags.

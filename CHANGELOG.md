@@ -1,6 +1,11 @@
+## 1.2.0
+
+- Implemented `FbDb.execute` and `FbDb.runInTransaction` utility methods. Together with `FbDb.selectOne` and `FbDb.selectAll` they cover all common scenarios, allowing to interact with databases without explicit creation of query and handling transactions by hand.
+- Fixed a subtle bug, causing an exception thrown by a failing query to be repeated as a result of the next query (even if the next query was in fact executed successfully), but only if both queries were executed in a single explicit transaction. The bug was not reported as a GitHub issue, it manifested itself by accident in some test code for the new `FbDb.runInTransaction` method.
+
 ## 1.1.3
 
-- updated dependencies, fixed some wording in README (roadmap listed array types twice).
+- Updated dependencies, fixed some wording in README (roadmap section listed array types twice).
 
 ## 1.1.2
 

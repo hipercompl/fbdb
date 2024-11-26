@@ -328,6 +328,121 @@ void main() async {
     }); // test "DROP non-existing table"
   }); // group "DROP statements"
 
+  group("FbDb.execute utility method", () {
+    test("without exceptions", () async {
+      await withNewDb1((db) async {
+        await db.execute(
+          sql: "update T set C_5=? where PK_INT=?",
+          parameters: ["row_x", 1],
+        );
+        final r = await db.selectOne(
+          sql: "select C_5 from T where PK_INT=?",
+          parameters: [1],
+        );
+        expect(r, isNotNull);
+        if (r != null) {
+          expect(r["C_5"], "row_x");
+        }
+      }); // withNewDb1
+    }); // test "without exceptions"
+
+    test("with exception", () async {
+      await expectLater((() async {
+        await withNewDb1((db) async {
+          await db.execute(
+            sql: "insert into T (PK_INT) values (?)",
+            parameters: [1],
+          );
+        }); // withNewDb1
+      })(), throwsException); // primary key violation
+    }); // test "with exception"
+
+    test("with SELECT", () async {
+      await expectLater((() async {
+        await withNewDb1((db) async {
+          // running SELECT with execute should not
+          // throw an exception,
+          // the result of the SELECT is simply unavailable
+          // to the client code
+          await db.execute(
+            sql: "select C_5 from T where PK_INT=?",
+            parameters: [1],
+          );
+        }); // withNewDb1
+      })(), completes);
+    }); // test "with SELECT"
+
+    test("returning affected rows", () async {
+      await withNewDb1((db) async {
+        //TODO
+        await db.execute(
+          sql: "update T set C_5=? where PK_INT=?",
+          parameters: ["row_x", 1],
+        );
+        final r = await db.selectOne(
+          sql: "select C_5 from T where PK_INT=?",
+          parameters: [1],
+        );
+        expect(r, isNotNull);
+        if (r != null) {
+          expect(r["C_5"], "row_x");
+        }
+      }); // withNewDb1
+    }); // test "returning affected rows"
+  }); // group "FbDb.execute utility method"
+
+  group("Continuing after errors", () {
+    test("SELECT after failing INSERT", () async {
+      await withNewDb1((db) async {
+        try {
+          await db.execute(
+            sql: "insert into T (PK_INT) values (?)",
+            parameters: [1],
+          ); // key violation
+          expect(true, false); // this code shouldn't be reached
+        } catch (_) {
+          // intentionally blank
+        }
+        try {
+          final c = await db.selectOne(sql: "select count(*) as CNT from T");
+          expect(c, isNotNull);
+          if (c != null) {
+            expect(c["CNT"], isNot(equals(0)));
+          }
+        } catch (e) {
+          expect(true, false); // there shouldn't be any exceptions
+          print(e);
+        }
+      }); // withNewDb1
+    }); // test "SELECT after failing INSERT"
+
+    test("SELECT after failing INSERT in transaction", () async {
+      await withNewDb1((db) async {
+        await db.startTransaction();
+        try {
+          await db.execute(
+            sql: "insert into T (PK_INT) values (?)",
+            parameters: [1],
+          ); // key violation
+          expect(true, false); // this code shouldn't be reached
+        } catch (_) {
+          // intentionally blank
+        }
+        try {
+          final c = await db.selectOne(sql: "select count(*) as CNT from T");
+          expect(c, isNotNull);
+          if (c != null) {
+            expect(c["CNT"], isNot(equals(0)));
+          }
+        } catch (e) {
+          expect(true, false); // there shouldn't be any exceptions
+          print(e);
+        }
+        await db.commit();
+      }); // withNewDb1
+    }); // test "SELECT after failing INSERT in transaction"
+  }); // group "Continuing after errors"
+
   group("Github issues", () {
     test("issue #4", () async {
       await withNewDb2((db) async {

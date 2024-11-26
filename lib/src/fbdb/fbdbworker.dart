@@ -996,6 +996,7 @@ class FbDbQueryWorker {
       if (tra == null) {
         throw FbClientException("No active transaction and couldn't start one");
       }
+      db.status.init();
       _statement = db.attachment?.prepare(
           db.status,
           tra,
@@ -1005,6 +1006,7 @@ class FbDbQueryWorker {
               IStatement.preparePrefetchAffectedRecords);
     } finally {
       if (ownTransaction) {
+        db.status.init();
         tra?.commit(db.status);
       }
     }

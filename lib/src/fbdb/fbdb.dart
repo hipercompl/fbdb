@@ -627,6 +627,111 @@ class FbDb {
     }
   }
 
+  /// Utility method - executes a query which doesn't return any data.
+  ///
+  /// Use this method instead of [FbDb.selectOne] or [FbDb.selectAll]
+  /// when you intend to execute a SQL statement, which doesn't return
+  /// any data, i.e. it doesn't allocate a database cursor.
+  /// In particular, this method is suitable to run `UPDATE`, `INSERT`,
+  /// `DELETE`, `CREATE`, `ALTER` and `DROP` statements.
+  /// See also [FbQuery.execute].
+  ///
+  /// If needed, the method can return the number of rows affected by the query
+  /// (see also [FbQuery.affectedRows]), pass `returnAffectedRows=true`
+  /// in that case.
+  ///
+  /// Example:
+  /// ```dart
+  /// final db = await FbDb.attach(host: "localhost", database: "employee");
+  /// await db.execute(
+  ///   sql: "delete from T where ID=?",
+  ///   parameters: [10]
+  /// );
+  /// await db.detach();
+  /// ```
+  Future<int> execute({
+    required String sql,
+    List<dynamic> parameters = const [],
+    bool inlineBlobs = true,
+    bool returnAffectedRows = false,
+  }) async {
+    final q = query();
+
+    try {
+      await q.execute(
+        sql: sql,
+        parameters: parameters,
+        inlineBlobs: inlineBlobs,
+      );
+      return returnAffectedRows ? await q.affectedRows() : 0;
+    } finally {
+      await q.close();
+    }
+  }
+
+  /// Utility method - execute a sequence of statements in a transaction.
+  ///
+  /// This method allows you to execute a number of SQL statements,
+  /// all within the scope of a single transaction.
+  /// If all statements have been executed successfully, the transaction
+  /// gets automatically committed.
+  /// If any of the statements resulted in an exception, the execution
+  /// of all subsequent statements is cancelled, the transaction is
+  /// automatically rolled back and the exception is passed up to the caller
+  /// (unless [rethrowException] is set intentionally to `false`, in which
+  /// case the exception is consumed and `null` is returned by
+  /// [runInTransaction]).
+  /// The function passed as the parameter can return any data type,
+  /// which gets passed up the stack to the caller as the result
+  /// of [runInTransaction] if the execution is successful.
+  /// This method uses the explicit transaction, starting it if not
+  /// already pending (see [FbDb.startTransaction], [FbDb.commit] and
+  /// [FbDb.rollback]).
+  /// If a transaction has been already started, before the call
+  /// to [runInTransaction], neither commit nor rollback take place,
+  /// i.e. the transaction remains pending after the call completes.
+  ///
+  /// Example:
+  /// ```dart
+  /// final db = await FbDb.attach(host: "localhost", database: "employee");
+  /// final cnt = await db.runInTransaction(() async {
+  ///   final c = await db.selectOne(sql: "select count(*) as CNT from T");
+  ///   await db.execute(sql: "delete from T");
+  ///   return c["CNT"];
+  /// });
+  /// print("Deleted $cnt rows");
+  /// ```
+  Future<T?> runInTransaction<T>(
+    Future<T?> Function() toRun, {
+    bool rethrowException = true,
+  }) async {
+    var ownTransaction = false;
+    try {
+      if (!await inTransaction()) {
+        await startTransaction();
+        ownTransaction = true;
+      }
+      final result = await toRun();
+      if (ownTransaction) {
+        await commit();
+      }
+      return result;
+    } catch (_) {
+      try {
+        if (ownTransaction) {
+          await rollback();
+        }
+      } catch (_) {
+        // intentionally empty
+      }
+      if (rethrowException) {
+        rethrow;
+      } else {
+        return null;
+      }
+    }
+  }
+
   // --------------------------------------------------------------------
   // --------------------------- private API ----------------------------
   // --------------------------------------------------------------------

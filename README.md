@@ -150,7 +150,7 @@ If you need specific commercial support of FbDb, please contact the author (fbdb
 The following features are planned for the future releases of FbDb:
 
 - ~~backward compatibility with Firebird 3.0 client library~~ *implemented in version 1.1*,
-- more utility methods, similar to selectOne / selectAll (to save typing),
+- ~~more utility methods, similar to selectOne / selectAll (to save typing)~~ *implemented in version 1.2*,
 - multiple explicit concurrent transactions,
 - prepared statements optimized for multiple executions,
 - support for time with time zone and timestamp with time zone data types,
