@@ -9,7 +9,7 @@ Provides a convenient, high-level asynchronous API based on futures, async metho
 
 ![human made logo banner](human_made_1080.png)
 
-*Firebird name and logo are registered trademarks of the [Firebird Foundation](https://www.firebirdsql.org/firebird-foundation), used with permssion.*
+*Firebird name and logo are registered trademarks of the [Firebird Foundation](https://www.firebirdsql.org/firebird-foundation), used with permission.*
 
 **TABLE OF CONTENTS**
 <!-- vscode-markdown-toc -->
