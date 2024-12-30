@@ -139,6 +139,20 @@ void main() async {
       }); // withNewDb1
     }); // test "selectOne, selectAll utility methods"
 
+    test("SELECT with `open` shorthand method", () async {
+      await withNewDb1((db) async {
+        var q = db.query();
+        await q.open(sql: "select * from T order by PK_INT");
+        final rows = await q.rows().toList();
+        await q.close();
+
+        expect(rows.length, 3);
+        expect(rows[0]["PK_INT"], 1);
+        expect(rows[1]["PK_INT"], 2);
+        expect(rows[2]["PK_INT"], 3);
+      }); // withNewDb1
+    }); // test "SELECT with `open` shorthand method"
+
     test("SELECT of CHAR field (issue #5)", () async {
       await withNewDb1((db) async {
         final row = await db.selectOne(

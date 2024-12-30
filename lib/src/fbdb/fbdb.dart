@@ -958,8 +958,13 @@ class FbQuery {
   /// Closes the query (if active).
   ///
   /// Releases all internal data associated with the active query.
+  /// If a query contains an explicitly prepared SQL statement
+  /// (i.e. the [FbQuery.prepare] method was called on this query),
+  /// the statement is invalidated and all its internal resources are
+  /// released.
   /// If there is no active (executed but not closed) statement associated
-  /// with this query object, the call has no effect (but will not throw).
+  /// with this query object, nor a prepared one, the call has no effect
+  /// (but will not throw).
   Future<void> close() async {
     if (_db != null && _toWorker != null) {
       final resp = await _db?._askWorker(
@@ -1094,6 +1099,25 @@ class FbQuery {
     _toWorker = r.data[0];
     _db?._activeQueries[hashCode] = this;
     return this;
+  }
+
+  /// An alias for [FbQuery.openCursor].
+  ///
+  /// This method serves only as a shorthand alias of [openCursor],
+  /// because many other database access libraries customarily use
+  /// `open` to execute a query returning a data set.
+  /// For a detailed description of the parameters, please refer to
+  /// the [FbQuery.openCursor] manual.
+  Future<FbQuery> open({
+    required String sql,
+    List<dynamic> parameters = const [],
+    bool inlineBlobs = true,
+  }) async {
+    return openCursor(
+      sql: sql,
+      parameters: parameters,
+      inlineBlobs: inlineBlobs,
+    );
   }
 
   /// Fetches the next set of rows from the data set as maps.
@@ -1506,6 +1530,116 @@ class FbQuery {
     } else {
       return r.data[0];
     }
+  }
+
+  /// Prepares a statement to be executed later.
+  ///
+  /// When an SQL statement is expected to get executed multiple times,
+  /// possibly with different data passed as query parameters,
+  /// it is more efficient to prepare the statement once, and then
+  /// execute it multiple times, without the need to prepare it before
+  /// each execution.
+  /// A query containing a prepared statement exposes
+  /// the [FbQuery.executePrepared] and [FbQuery.openPrepared] methods
+  /// to actually execute the prepared statement.
+  /// The method returns the reference to the target [FbQuery] object,
+  /// to allow for easy chaining.
+  /// Throws exceptions when any errors are encountered.
+  ///
+  /// Example:
+  /// ```dart
+  /// // db is an active attachment
+  /// var q = db.query();
+  /// await q.prepare(sql: "insert into T(FLD_INT, FLD_STR) values (?, ?)");
+  /// await q.executePrepared(parameters: [1, "ABC"]);
+  /// // note: no extra q.prepare() here, we still
+  /// // use the same INSERT statement prepared earlier
+  /// await q.executePrepared(parameters: [2, "DEF"]);
+  /// await q.close();
+  /// ```
+  Future<FbQuery> prepare({required String sql}) async {
+    //TODO
+    return this;
+  }
+
+  /// Executes a prepared query without allocating a database cursor.
+  ///
+  /// This method is an equivalent of [FbQuery.execute], but for a previously
+  /// prepared statement (see also [FbQuery.prepare]).
+  /// You can pass values of query parameters (if the query requires any)
+  /// via the [parameters] list.
+  /// The [inlineBlobs] parameter decides whether blob values should
+  /// be returned as data buffers (`true`) or as blob IDs, to be fetched
+  /// later via blob routines of [FbDb].
+  /// The method returns the reference to the target [FbQuery] object,
+  /// to allow for easy chaining.
+  /// Throws exceptions when any errors are encountered.
+  /// Please see also the documentation of the [FbQuery.execute] method.
+  ///
+  /// Example:
+  /// ```dart
+  /// // db is an active attachment
+  /// var q = db.query();
+  /// await q.prepare(sql: "insert into T(FLD_INT, FLD_STR) values (?, ?)");
+  /// await q.executePrepared(parameters: [1, "ABC"]);
+  /// // note: no extra q.prepare() here, we still
+  /// // use the same INSERT statement prepared earlier
+  /// await q.executePrepared(parameters: [2, "DEF"]);
+  /// await q.close();
+  /// ```
+  Future<FbQuery> executePrepared({
+    List<dynamic> parameters = const [],
+    bool inlineBlobs = true,
+  }) async {
+    //TODO
+    return this;
+  }
+
+  /// Executes a prepared query, allocating a database cursor to fetch records.
+  ///
+  /// This method is an equivalent of [FbQuery.openCursor], but for a previously
+  /// prepared statement (see also [FbQuery.prepare]).
+  /// You can pass values of query parameters (if the query requires any)
+  /// via the [parameters] list.
+  /// The [inlineBlobs] parameter decides whether blob values should
+  /// be returned as data buffers (`true`) or as blob IDs, to be fetched
+  /// later via blob routines of [FbDb].
+  /// The method returns the reference to the target [FbQuery] object,
+  /// to allow for easy chaining.
+  /// Throws exceptions when any errors are encountered.
+  /// Please see also the documentation of the [FbQuery.openCursor] method.
+  ///
+  /// Example:
+  /// ```dart
+  /// // db is an active attachment
+  /// var q = db.query();
+  /// await q.prepare(sql: "select FLD_STR from T where FLD_INT=?");
+  /// await q.openPrepared(parameters: [1]);
+  /// final r1 = await q.fetchOneAsMap();
+  /// // process r1["FLD_STR"]
+  /// // note: no extra q.prepare() here, we still
+  /// // use the same SELECT statement prepared earlier
+  /// await q.openPrepared(parameters: [2]);
+  /// final r2 = await q.fetchOneAsMap();
+  /// // process r2["FLD_STR"]
+  /// await q.close();
+  /// ```
+  Future<FbQuery> openPrepared({
+    List<dynamic> parameters = const [],
+    bool inlineBlobs = true,
+  }) async {
+    //TODO
+    return this;
+  }
+
+  /// Informs whether the query contains a prepared SQL statement.
+  ///
+  /// Yoy can use this method to check whether a particular query
+  /// object currently contains an explicitly prepared SQL statement
+  /// (if the [FbQuery.prepare] method was called for this query).
+  Future<bool> isPrepared() async {
+    //TODO
+    return false;
   }
 
   // --------------------------------------------------------------------

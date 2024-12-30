@@ -129,6 +129,9 @@ class FbDbWorker {
   /// All active (created or opened, but not closed yet) blobs.
   Map<int, FbBlobDef> activeBlobs;
 
+  /// All active prepared statements.
+  //TODO
+
   int _tpbLength = 0;
   Pointer<Uint8>? _tpb;
 
@@ -219,6 +222,12 @@ class FbDbWorker {
         await _closeBlob(msg);
       case FbDbControlOp.quit:
         await _quit(msg);
+      case FbDbControlOp.prepareQuery:
+        await _prepareQuery(msg);
+      case FbDbControlOp.execQueryPrepared:
+        await _execQueryPrepared(msg);
+      case FbDbControlOp.openQueryPrepared:
+        await _openQueryPrepared(msg);
       default:
         throw FbClientException(
             "FbDbWorker operation not supported: ${msg.op.name}");
@@ -487,6 +496,21 @@ class FbDbWorker {
       queryFromMain.close();
       rethrow;
     }
+  }
+
+  /// Handles the prepareQuery operation.
+  Future<void> _prepareQuery(FbDbControlMessage msg) async {
+    //TODO
+  }
+
+  /// Handles the openQueryPrepared operation.
+  Future<void> _openQueryPrepared(FbDbControlMessage msg) async {
+    //TODO
+  }
+
+  /// Handles the execQueryPrepared operation.
+  Future<void> _execQueryPrepared(FbDbControlMessage msg) async {
+    //TODO
   }
 
   /// Handles the createBlob operation
@@ -2021,7 +2045,16 @@ enum FbDbControlOp {
   /// Immediately quit the worker
   quit,
 
-  // commands for FbDbQueryWorker
+  /// Prepare a query for multiple parametrized executions.
+  prepareQuery,
+
+  /// Execute a prepared query without allocating a cursor.
+  execQueryPrepared,
+
+  /// Execute a prepared query with allocating a cursor.
+  openQueryPrepared,
+
+  // ---------- commands for FbDbQueryWorker ----------
 
   /// Execute a statement without a cursor.
   execQuery,
