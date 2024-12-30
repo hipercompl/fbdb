@@ -1537,7 +1537,6 @@ class FbDbQueryWorker {
     IMessageMetadata meta,
     int index,
   ) {
-    const maxBytesPerCodePoint = 4;
     int nullOffset = meta.getNullOffset(status, index);
     int isNull = msg.readUint16(nullOffset);
     if (isNull > 0) {
@@ -1552,8 +1551,7 @@ class FbDbQueryWorker {
       case FbConsts.SQL_TEXT:
       case FbConsts.SQL_TEXT + 1:
         final s = msg.readString(offset, length);
-        final sl = length ~/ maxBytesPerCodePoint;
-        return s.length > sl ? s.substring(0, sl) : s;
+        return _truncTrailingSpaces(s, length);
 
       case FbConsts.SQL_VARYING:
       case FbConsts.SQL_VARYING + 1:
@@ -1936,6 +1934,15 @@ class FbDbQueryWorker {
     } else {
       return data as ByteBuffer;
     }
+  }
+
+  /// Truncates the trailing spaces of a string
+  /// so that the resulting string has up to ceil(length / 4)
+  /// characters.
+  String _truncTrailingSpaces(String txt, int byteLength) {
+    const maxBytesPerCodePoint = 4;
+    final sl = (byteLength / maxBytesPerCodePoint).ceil();
+    return txt.trimRight().padRight(sl);
   }
 }
 

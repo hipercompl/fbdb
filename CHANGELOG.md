@@ -1,3 +1,7 @@
+## 1.2.1
+
+- Fixed issue [#6](https://github.com/hipercompl/fbdb/issues/6), which is a regression caused by a way issue [#5](https://github.com/hipercompl/fbdb/issues/5) was fixed. While truncating the returned number of bytes in a `CHAR` field by 4 (maximum 4 bytes per Unicode character in UTF-8 encoding) works for databases encoded in UTF-8, it doesn't work for databases with character set `NONE` (or any other single-byte encoding for that matter). In this release, the truncating is restricted to trailing spaces only.
+
 ## 1.2.0
 
 - Implemented `FbDb.execute` and `FbDb.runInTransaction` utility methods. Together with `FbDb.selectOne` and `FbDb.selectAll` they cover all common scenarios, allowing to interact with databases without explicit creation of query objects and handling transactions by hand.
