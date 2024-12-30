@@ -9,10 +9,8 @@ import "fbdbworker.dart";
 
 /// Represents a database connection.
 ///
-/// Every object of this class encapsulates a connection
-/// to a Firebird database and is associated with a background
-/// worker isolate to allow for non-blocking I/O operations
-/// on the database.
+/// Every object of this cla/ to a Firebird database and is associated with a background
+//  / worker isolate to /// on the database.
 /// To initialize the connection you should call [attach]
 /// or [createDatabase], to close the connection call [detach]
 /// or [dropDatabase] (the latter physically removes the database
@@ -459,7 +457,7 @@ class FbDb {
   ///
   /// The blob [id] has to correspond with a previously created
   /// blob.
-  /// The method will keep sending data buffers from the <stream> until
+  /// The method will keep sending data buffers from the [stream] until
   /// the stream is completely exhausted.
   ///
   /// Example:

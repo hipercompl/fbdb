@@ -3,6 +3,7 @@ library;
 
 import 'dart:typed_data';
 
+import 'package:fbdb/fbdb.dart';
 import 'package:test/test.dart';
 import "test_utils.dart";
 
@@ -154,18 +155,38 @@ void main() async {
     }); // test "SELECT with `open` shorthand method"
 
     test("SELECT of CHAR field (issue #5)", () async {
-      await withNewDb1((db) async {
-        final row = await db.selectOne(
-          sql: "select C_1, C_5 from T where PK_INT=?",
-          parameters: [1],
-        );
-        expect(row, isNotNull);
-        if (row != null) {
-          expect(row["C_1"], equals("y"));
-          expect(row["C_5"], equals("row_1"));
-        }
-      }); // withNewDb1
+      await withNewDb1(
+        (db) async {
+          final row = await db.selectOne(
+            sql: "select C_1, C_5 from T where PK_INT=?",
+            parameters: [1],
+          );
+          expect(row, isNotNull);
+          if (row != null) {
+            expect(row["C_1"], equals("y"));
+            expect(row["C_5"], equals("row_1"));
+          }
+        },
+      ); // withNewDb1
     }); // test "SELECT of CHAR field (issue #5)"
+
+    test("SELECT of CHAR field (issue #6)", () async {
+      await withNewDb1(
+        (db) async {
+          final row = await db.selectOne(
+            sql: "select C_1, C_5 from T where PK_INT=?",
+            parameters: [1],
+          );
+          expect(row, isNotNull);
+          if (row != null) {
+            expect(row["C_1"], equals("y"));
+            expect(row["C_5"], equals("row_1"));
+          }
+        },
+        // database encoding intentionally set to NONE
+        options: FbOptions(dbCharset: "NONE"),
+      );
+    }); // test "SELECT of CHAR field (issue #6)"
   }); // group "SELECT statements"
 
   group("INSERT statements", () {
@@ -388,7 +409,6 @@ void main() async {
 
     test("returning affected rows", () async {
       await withNewDb1((db) async {
-        //TODO
         await db.execute(
           sql: "update T set C_5=? where PK_INT=?",
           parameters: ["row_x", 1],
