@@ -172,10 +172,7 @@ void main() async {
 
         await q.openPrepared(parameters: [-1]); // non-exixtent key
         final rn1 = await q.fetchOneAsMap();
-        expect(rn1, isNotNull);
-        if (rn1 != null) {
-          expect(rn1.isEmpty, isTrue);
-        }
+        expect(rn1, isNull);
 
         await q.close();
       }); // withNewDb1
