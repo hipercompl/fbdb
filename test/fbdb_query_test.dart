@@ -186,6 +186,21 @@ void main() async {
         // database encoding intentionally set to NONE
         options: FbOptions(dbCharset: "NONE"),
       );
+      await withNewDb1(
+        (db) async {
+          final row = await db.selectOne(
+            sql: "select C_1, C_5 from T where PK_INT=?",
+            parameters: [1],
+          );
+          expect(row, isNotNull);
+          if (row != null) {
+            expect(row["C_1"], equals("y"));
+            expect(row["C_5"], equals("row_1"));
+          }
+        },
+        // database encoding intentionally set to NONE
+        options: FbOptions(dbCharset: "WIN1250"),
+      );
     }); // test "SELECT of CHAR field (issue #6)"
   }); // group "SELECT statements"
 
