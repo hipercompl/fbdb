@@ -156,7 +156,7 @@ void main() async {
       ); // withNewDb1
     }); // test "SELECT of CHAR field (issue #5)"
 
-    test("SELECT of CHAR field (issue #6)", () async {
+    test("SELECT of CHAR field (issue #7) test 1", () async {
       await withNewDb1(
         (db) async {
           final row = await db.selectOne(
@@ -171,8 +171,51 @@ void main() async {
         },
         // database encoding intentionally set to NONE
         options: FbOptions(dbCharset: "NONE"),
-      );
-    }); // test "SELECT of CHAR field (issue #6)"
+      ); // withNewDb1
+    }); // test "SELECT of CHAR field (issue #7) test 1"
+
+    test("SELECT of CHAR field (issue #7) test 2", () async {
+      await withNewDb1(
+        (db) async {
+          final row = await db.selectOne(
+            sql: "select C_1, C_5 from T where PK_INT=?",
+            parameters: [1],
+          );
+          expect(row, isNotNull);
+          if (row != null) {
+            expect(row["C_1"], equals("y"));
+            expect(row["C_5"], equals("row_1"));
+          }
+        },
+        // database encoding intentionally set to NONE
+        options: FbOptions(dbCharset: "WIN1250"),
+      ); // withNewDb1
+    }); // test "SELECT of CHAR field (issue #7) test 2"
+
+    test("SELECT of CHAR field (issue #7) test 3", () async {
+      await withNewDb1(
+        (db) async {
+          await db.execute(
+            sql: "insert into T(PK_INT, C_5) values (?, ?)",
+            parameters: [10, "ab"],
+          );
+
+          final row = await db.selectOne(
+            sql: "select "
+                "cast(C_5 as CHAR(5) character set NONE) as CNONE, "
+                "cast(C_5 as CHAR(5) character set WIN1250) as C1250 "
+                "from T "
+                "where PK_INT=?",
+            parameters: [10],
+          );
+          expect(row, isNotNull);
+          if (row != null) {
+            expect(row["CNONE"], equals("ab   "));
+            expect(row["C1250"], equals("ab   "));
+          }
+        },
+      ); // withNewDb1
+    }); // test "SELECT of CHAR field (issue #7) test 3"
   }); // group "SELECT statements"
 
   group("INSERT statements", () {
