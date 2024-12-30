@@ -1575,7 +1575,8 @@ class FbDbQueryWorker {
       case FbConsts.SQL_TEXT:
       case FbConsts.SQL_TEXT + 1:
         final s = msg.readString(offset, length);
-        return _truncTrailingSpaces(s, length);
+        final enc = meta.getCharSet(status, index);
+        return _truncTrailingSpaces(s, length, enc);
 
       case FbConsts.SQL_VARYING:
       case FbConsts.SQL_VARYING + 1:
@@ -1963,10 +1964,16 @@ class FbDbQueryWorker {
   /// Truncates the trailing spaces of a string
   /// so that the resulting string has up to ceil(length / 4)
   /// characters.
-  String _truncTrailingSpaces(String txt, int byteLength) {
-    const maxBytesPerCodePoint = 4;
-    final sl = (byteLength / maxBytesPerCodePoint).ceil();
-    return txt.trimRight().padRight(sl);
+  String _truncTrailingSpaces(String txt, int byteLength, int encoding) {
+    // encodings: 0 = NONE, 1 = ASCII, 2 = OCTETS
+    // see RDB$CHARACTER_SETS system table
+    if (encoding > 2) {
+      const maxBytesPerCodePoint = 4;
+      final sl = byteLength ~/ maxBytesPerCodePoint;
+      return txt.substring(0, sl).padRight(sl);
+    } else {
+      return txt;
+    }
   }
 }
 

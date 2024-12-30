@@ -1,6 +1,10 @@
+## 1.2.2
+
+- A better solution to issue [#7](https://github.com/hipercompl/fbdb/issues/7) was implemented, taking into account the actual encoding of a particular text value returned as `CHAR(N)` by a query, and truncating the value only if the character set is other than `NONE`, `ASCII` or `OCTETS`. In case of those three no truncation is necessary (truncating might actually remove intentional spaces from the end of the text).
+
 ## 1.2.1
 
-- Fixed issue [#7](https://github.com/hipercompl/fbdb/issues/7), which is a regression caused by a way issue [#5](https://github.com/hipercompl/fbdb/issues/5) was fixed. While truncating the returned number of bytes in a `CHAR` field by 4 (maximum 4 bytes per Unicode character in UTF-8 encoding) works for databases encoded in UTF-8, it doesn't work for databases with character set `NONE` (or any other single-byte encoding for that matter). In this release, the truncating is restricted to trailing spaces only.
+- Fixed issue [#7](https://github.com/hipercompl/fbdb/issues/7), which is a regression caused by a way issue [#5](https://github.com/hipercompl/fbdb/issues/5) was fixed. While truncating the returned text in a `CHAR` field to the reported byte length divided by 4 (maximum 4 bytes per Unicode character in UTF-8 encoding) works fine for databases encoded in UTF-8, it doesn't work for databases with character set `NONE`, `ASCII` or `OCTETS`. In this release, the truncating is restricted to trailing spaces only.
 
 ## 1.2.0
 

@@ -170,7 +170,7 @@ void main() async {
       ); // withNewDb1
     }); // test "SELECT of CHAR field (issue #5)"
 
-    test("SELECT of CHAR field (issue #7)", () async {
+    test("SELECT of CHAR field (issue #7) test 1", () async {
       await withNewDb1(
         (db) async {
           final row = await db.selectOne(
@@ -186,6 +186,9 @@ void main() async {
         // database encoding intentionally set to NONE
         options: FbOptions(dbCharset: "NONE"),
       ); // withNewDb1
+    }); // test "SELECT of CHAR field (issue #7) test 1"
+
+    test("SELECT of CHAR field (issue #7) test 2", () async {
       await withNewDb1(
         (db) async {
           final row = await db.selectOne(
@@ -201,6 +204,9 @@ void main() async {
         // database encoding intentionally set to NONE
         options: FbOptions(dbCharset: "WIN1250"),
       ); // withNewDb1
+    }); // test "SELECT of CHAR field (issue #7) test 2"
+
+    test("SELECT of CHAR field (issue #7) test 3", () async {
       await withNewDb1(
         (db) async {
           await db.execute(
@@ -223,7 +229,7 @@ void main() async {
           }
         },
       ); // withNewDb1
-    }); // test "SELECT of CHAR field (issue #7)"
+    }); // test "SELECT of CHAR field (issue #7) test 3"
   }); // group "SELECT statements"
 
   group("INSERT statements", () {
