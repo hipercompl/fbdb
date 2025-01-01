@@ -200,5 +200,20 @@ void main() async {
         }); // withNewDb1
       }, throwsException);
     }); // test "Prepared key violation"
+
+    test("Executing unprepared query", () async {
+      expectLater(() async {
+        await withNewDb1((db) async {
+          final q = db.query();
+          await q.executePrepared(parameters: []);
+        }); // withNewDb1
+      }, throwsException);
+      expectLater(() async {
+        await withNewDb1((db) async {
+          final q = db.query();
+          await q.openPrepared(parameters: []);
+        }); // withNewDb1
+      }, throwsException);
+    }); // test "Executing unprepared query"
   }); // group "Prepared queries with errors"
 }
