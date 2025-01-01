@@ -670,7 +670,7 @@ While it is possible to use the standard `FbQuery.execute` / `FbQuery.openQuery`
 
 In such cases, it is more efficient to prepare a statement once, and then execute it multiple times, substituting different values for query parameters with each execution.
 
-FbDb, starting with version 1.3, allows the application code to *prepare* a query in a separate step, and then to *executing* it as many times, as necessary, each time providing a different set of parameter values.
+FbDb, starting with version 1.3, allows the application code to *prepare* a query in a separate step, and then to *execute* it as many times, as necessary, each time providing a different set of parameter values.
 
 To prepare a statement, you need a `FbQuery` object, which you obtain as usual, by calling the `FbDb.query` method on an open attachment. Then, you call the `prepare` method on the query, providing an SQL statement to be parsed and prepared by the Firebird database server. The statement may contain any number of the `?` parameter placeholders.
 
