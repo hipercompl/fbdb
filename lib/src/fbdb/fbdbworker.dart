@@ -129,9 +129,6 @@ class FbDbWorker {
   /// All active (created or opened, but not closed yet) blobs.
   Map<int, FbBlobDef> activeBlobs;
 
-  /// All active prepared statements.
-  //TODO
-
   int _tpbLength = 0;
   Pointer<Uint8>? _tpb;
 
@@ -224,10 +221,6 @@ class FbDbWorker {
         await _quit(msg);
       case FbDbControlOp.prepareQuery:
         await _prepareQuery(msg);
-      case FbDbControlOp.execQueryPrepared:
-        await _execQueryPrepared(msg);
-      case FbDbControlOp.openQueryPrepared:
-        await _openQueryPrepared(msg);
       default:
         throw FbClientException(
             "FbDbWorker operation not supported: ${msg.op.name}");
@@ -500,17 +493,21 @@ class FbDbWorker {
 
   /// Handles the prepareQuery operation.
   Future<void> _prepareQuery(FbDbControlMessage msg) async {
-    //TODO
-  }
-
-  /// Handles the openQueryPrepared operation.
-  Future<void> _openQueryPrepared(FbDbControlMessage msg) async {
-    //TODO
-  }
-
-  /// Handles the execQueryPrepared operation.
-  Future<void> _execQueryPrepared(FbDbControlMessage msg) async {
-    //TODO
+    if (msg.data.isEmpty) {
+      throw FbClientException("No SQL statement provided");
+    }
+    String sql = msg.data[0];
+    final fromMain = ReceivePort();
+    try {
+      final q = FbDbQueryWorker(fromMain, this);
+      activeQueries[q.hashCode] = q;
+      await q._prepare(sql);
+      q._run(); // we don't await run() on purpose
+      _sendSuccessResp(msg.resultPort, fromMain.sendPort);
+    } catch (e) {
+      fromMain.close();
+      rethrow;
+    }
   }
 
   /// Handles the createBlob operation
@@ -812,6 +809,15 @@ class FbDbQueryWorker {
         case FbDbControlOp.getOutput:
           await _getOutput(msg);
 
+        case FbDbControlOp.execQueryPrepared:
+          await _execQueryPrepared(msg);
+
+        case FbDbControlOp.openQueryPrepared:
+          await _openQueryPrepared(msg);
+
+        case FbDbControlOp.isQueryPrepared:
+          await _isQueryPrepared(msg);
+
         default:
           throw FbClientException(
               "FbDbQueryWorker operation not supported: ${msg.op.name}");
@@ -986,6 +992,37 @@ class FbDbQueryWorker {
     }
   }
 
+  /// Handles the execQueryPrepared operation.
+  Future<void> _execQueryPrepared(FbDbControlMessage msg) async {
+    if (msg.data.length < 2) {
+      throw FbClientException("Malformed execQueryPrepared message");
+    }
+    await _execPrepared(
+      msg.data[0],
+      allocCursor: false,
+      inlineBlobs: msg.data[1],
+    );
+    db._sendSuccessResp(msg.resultPort);
+  }
+
+  /// Handles the openQueryPrepared operation.
+  Future<void> _openQueryPrepared(FbDbControlMessage msg) async {
+    if (msg.data.length < 2) {
+      throw FbClientException("Malformed execQueryPrepared message");
+    }
+    await _execPrepared(
+      msg.data[0],
+      allocCursor: true,
+      inlineBlobs: msg.data[1],
+    );
+    db._sendSuccessResp(msg.resultPort);
+  }
+
+  /// Handles the isQueryPrepared operation.
+  Future<void> _isQueryPrepared(FbDbControlMessage msg) async {
+    db._sendSuccessResp(msg.resultPort, _statement != null);
+  }
+
   /// Returns the internal native memory buffer.
   ///
   /// Casts the buffer to the native type [T].
@@ -1095,21 +1132,20 @@ class FbDbQueryWorker {
     return res;
   }
 
-  /// Executes a query either by calling execute or openCursor,
-  /// depending on the allocCursor parameter.
-  Future<void> _exec(String sql, List<dynamic> params,
+  /// Executes a previously prepared query, either by calling execute
+  /// or openCursor, depending on the allocCursor parameter.
+  Future<void> _execPrepared(List<dynamic> params,
       {required bool allocCursor, bool inlineBlobs = true}) async {
-    _closeStatement();
-    _inlineBlobs = inlineBlobs;
-    await _prepare(sql);
+    if (_statement == null) {
+      throw FbClientException("No SQL statement is prepared in this query.");
+    }
     final paramCount = _inputMetadata?.getCount(db.status) ?? 0;
     if (paramCount != params.length) {
       throw FbClientException(
         "The number of provided values: ${params.length} "
-        "doesn't match the required number of parameters: $paramCount",
+        "doesn't match the required number of query parameters: $paramCount",
       );
     }
-
     _transaction = db.transaction;
     if (_transaction == null) {
       _transaction = db.attachment?.startTransaction(db.status);
@@ -1150,6 +1186,19 @@ class FbDbQueryWorker {
       }
     }
     _fieldNames = _namesFrom(_fieldDefs);
+  }
+
+  /// Executes a query either by calling execute or openCursor,
+  /// depending on the allocCursor parameter.
+  Future<void> _exec(String sql, List<dynamic> params,
+      {required bool allocCursor, bool inlineBlobs = true}) async {
+    _inlineBlobs = inlineBlobs;
+    await _prepare(sql);
+    await _execPrepared(
+      params,
+      allocCursor: allocCursor,
+      inlineBlobs: inlineBlobs,
+    );
   }
 
   /// Handles the closeQuery operation.
@@ -2062,12 +2111,6 @@ enum FbDbControlOp {
   /// Prepare a query for multiple parametrized executions.
   prepareQuery,
 
-  /// Execute a prepared query without allocating a cursor.
-  execQueryPrepared,
-
-  /// Execute a prepared query with allocating a cursor.
-  openQueryPrepared,
-
   // ---------- commands for FbDbQueryWorker ----------
 
   /// Execute a statement without a cursor.
@@ -2090,6 +2133,15 @@ enum FbDbControlOp {
 
   /// Close the query and release all resources.
   closeQuery,
+
+  /// Execute a prepared query without allocating a cursor.
+  execQueryPrepared,
+
+  /// Execute a prepared query with allocating a cursor.
+  openQueryPrepared,
+
+  /// Check if a query contains an already prepared statement.
+  isQueryPrepared,
 }
 
 /// Possible types of responses to control messages.

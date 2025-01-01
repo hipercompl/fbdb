@@ -1,3 +1,7 @@
+## 1.3.0
+
+- Implemented prepared statements. Now you can prepare a query once, and then execute it multiple times, with different values passed as parameters each time (see section 4.6 of the [FbDb Programmers Guide](https://github.com/hipercompl/fbdb/blob/main/doc/fbdb_guide.md) for more details and an example).
+
 ## 1.2.2
 
 - A better solution to issue [#7](https://github.com/hipercompl/fbdb/issues/7) was implemented, taking into account the actual encoding of a particular text value returned as `CHAR(N)` by a query, and truncating the value only if the character set is other than `NONE`, `ASCII` or `OCTETS`. In case of those three no truncation is necessary (truncating might actually remove intentional spaces from the end of the text).

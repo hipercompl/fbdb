@@ -2,12 +2,10 @@
 library;
 
 import 'package:test/test.dart';
-import 'package:fbdb/fbdb.dart';
-import 'test_config.dart';
 import "test_utils.dart";
 
 void main() async {
-  group("Prepared DML queries", () async {
+  group("Prepared DML queries", () {
     test("Prepared INSERT", () async {
       await withNewDb1((db) async {
         final q = db.query();
@@ -144,7 +142,7 @@ void main() async {
     }); // test "Prepared INSERT in rolled back transaction"
   }); // group "Prepared DML queries"
 
-  group("Prepared DQL queries", () async {
+  group("Prepared DQL queries", () {
     test("Prepared SELECT", () async {
       await withNewDb1((db) async {
         final q = db.query();
@@ -179,7 +177,7 @@ void main() async {
     }); // test "Prepared SELECT"
   }); // group "Prepared DQL queries"
 
-  group("Prepared queries with errors", () async {
+  group("Prepared queries with errors", () {
     test("SQL syntax error", () async {
       expectLater(() async {
         await withNewDb1((db) async {

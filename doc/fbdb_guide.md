@@ -32,6 +32,8 @@ This guide is copyritht © 2024 Tomasz Tyrakowski (t.tyrakowski @at@ hipercom.pl
 		* 4.4.2. [Using row streams](#Usingrowstreams)
 		* 4.4.3. [Utility methods: selectOne, selectAll, execute](#Utilitymethods:selectOneselectAllexecute)
 	* 4.5. [Queries - examples](#Queries-examples)
+	* 4.6. [Prepared SQL statements](#PreparedSQLstatements)
+		* 4.6.1. [Prepared statements - an example](#Preparedstatements-anexample)
 * 5. [Transaction handling](#Transactionhandling)
 	* 5.1. [The model](#Themodel)
 	* 5.2. [Implicit transactions](#Implicittransactions)
@@ -660,6 +662,78 @@ print("$ar employees got a raise");
 ```
 
 For more examples, please take a look at the `example/fbdb/` folder. Most of the examples there use queries of one kind or another.
+
+###  4.6. <a name='PreparedSQLstatements'></a>Prepared SQL statements
+Some scenarios require multiple executions of the same SQL statement, but with different values passed as the query parameters.
+
+While it is possible to use the standard `FbQuery.execute` / `FbQuery.openQuery` procedure, each call to `execute` or `openQuery` causes the SQL statement to be prepared anew, discarding previously prepared and executed one.
+
+In such cases, it is more efficient to prepare a statement once, and then execute it multiple times, substituting different values for query parameters with each execution.
+
+FbDb, starting with version 1.3, allows the application code to *prepare* a query in a separate step, and then to *executing* it as many times, as necessary, each time providing a different set of parameter values.
+
+To prepare a statement, you need a `FbQuery` object, which you obtain as usual, by calling the `FbDb.query` method on an open attachment. Then, you call the `prepare` method on the query, providing an SQL statement to be parsed and prepared by the Firebird database server. The statement may contain any number of the `?` parameter placeholders.
+
+When a query contains a prepared SQL statement, you can then call `executePrepared` or `openPrepared` multiple times, providing a new list of values for the query parameters with each execution. `executePrepared` and `openPrepared` correspond to the `execute` and `openCursor` methods, except they do not accept an SQL statement string, as the statement has beeen already passed and prepared when `prepare` was called.
+
+> **IMPORTANT!** Do not call `close` on a prepared query between subsequent executions of the query. Calling `FbQuery.close` discards the prepared statement associated with the query. Calling `executePrepared` / `openPrepared` after `close` (and before another `prepare`) will cause an exception.
+
+A query executed via `executePrepared` or `openPrepared` can be processed later in exactly the same way, as a query executed via `execute` or `openCursor`. The same rules and restrictions apply.
+
+####  4.6.1. <a name='Preparedstatements-anexample'></a>Prepared statements - an example
+
+Suppose you've got a database table `DICT`, with a dictionary-like structure, consisting of an integer `ID` field and a text `DESCRIPTION` field.
+
+Now suppose you need to fill this table with a predefined data. For the sake of the example, we assume the data is a hardcoded list, but it could as well come from a file, a network connection, etc.
+
+The hardcoded data is as follows:
+```dart
+final data = [
+    [1, 'Description 1'],
+    [2, 'Description 2'],
+    [3, 'Description 3'],
+    // imagine that many more entries follow
+];
+```
+
+One way to put the entries from `data` into the table `DICT` would be:
+
+```dart
+// db is an attached FbDb connection
+final q = db.query();
+for (final [id, desc] in data) {
+    await q.execute(
+        sql: "insert into DICT(ID, DESCRIPTION) "
+            "values (?, ?)",
+        parameters: [id, desc],
+    );
+    await q.close();
+}
+```
+
+This method works fine, but becomes inefficient with the growing number of entries in `data`.
+
+The `INSERT` query is being parsed and prepared in each iteration, despite the fact that the actual SQL statement remains unchanged. It's only the data being inserted that's different in each iteration, not the statement.
+
+To make the above loop more efficient, use a **prepared** query, like this:
+```dart
+// db is an attached FbDb connection
+final q = db.query();
+await q.prepare(
+    sql: "insert into DICT(ID, DESCRIPTION) "
+         "values (?, ?)",
+);
+for (final [id, desc] in data) {
+    await q.executePrepared(
+        parameters: [id, desc],
+    );
+}
+await q.close();
+```
+
+Now the query is prepared once, before the loop. In each loop iteration, the previously prepared query gets executed (with different parameter values), which should be faster than the original loop.
+
+Notice, that you don't call `close` after each `executePrepared` (it's called just once, after the `for` loop ends). Calling `close` discards the prepared statement.
 
 ##  5. <a name='Transactionhandling'></a>Transaction handling
 

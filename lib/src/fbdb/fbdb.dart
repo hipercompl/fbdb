@@ -1556,7 +1556,21 @@ class FbQuery {
   /// await q.close();
   /// ```
   Future<FbQuery> prepare({required String sql}) async {
-    //TODO
+    if (_db == null) {
+      throw FbClientException("No active database connection");
+    }
+    await close(); // close the previously associated worker, if any
+    final msg = await _db?._askWorker(FbDbControlOp.prepareQuery, [sql]);
+    _throwIfErrorResponse(msg);
+    final r = msg as FbDbResponse;
+    if (r.data.isEmpty) {
+      throw FbClientException(
+        "FbQuery: connection worker did not provide "
+        "a send port for the query",
+      );
+    }
+    _toWorker = r.data[0];
+    _db?._activeQueries[hashCode] = this;
     return this;
   }
 
@@ -1589,7 +1603,16 @@ class FbQuery {
     List<dynamic> parameters = const [],
     bool inlineBlobs = true,
   }) async {
-    //TODO
+    if (_toWorker == null) {
+      throw FbClientException(
+          "No active query associated with this query object");
+    }
+    final msg = await _db?._askWorker(
+      FbDbControlOp.execQueryPrepared,
+      [parameters, inlineBlobs],
+      _toWorker,
+    );
+    _throwIfErrorResponse(msg);
     return this;
   }
 
@@ -1626,7 +1649,16 @@ class FbQuery {
     List<dynamic> parameters = const [],
     bool inlineBlobs = true,
   }) async {
-    //TODO
+    if (_toWorker == null) {
+      throw FbClientException(
+          "No active query associated with this query object");
+    }
+    final msg = await _db?._askWorker(
+      FbDbControlOp.openQueryPrepared,
+      [parameters, inlineBlobs],
+      _toWorker,
+    );
+    _throwIfErrorResponse(msg);
     return this;
   }
 
@@ -1636,8 +1668,22 @@ class FbQuery {
   /// object currently contains an explicitly prepared SQL statement
   /// (if the [FbQuery.prepare] method was called for this query).
   Future<bool> isPrepared() async {
-    //TODO
-    return false;
+    if (_toWorker == null) {
+      throw FbClientException(
+          "No active query associated with this query object");
+    }
+    final msg = await _db?._askWorker(
+      FbDbControlOp.isQueryPrepared,
+      [],
+      _toWorker,
+    );
+    _throwIfErrorResponse(msg);
+    final r = msg as FbDbResponse;
+    if (r.data.isEmpty) {
+      return false;
+    } else {
+      return r.data[0];
+    }
   }
 
   // --------------------------------------------------------------------
