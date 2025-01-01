@@ -1159,6 +1159,9 @@ class FbDbQueryWorker {
     db.status.init();
     _putQueryParams(_inMsg, params);
     if (allocCursor) {
+      if (_resultSet != null) {
+        _resultSet?.release();
+      }
       _resultSet = _statement?.openCursor(
         db.status,
         _transaction!,
