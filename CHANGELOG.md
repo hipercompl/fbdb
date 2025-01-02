@@ -1,3 +1,7 @@
+## 1.3.1
+
+- Added a more robust implementation of the fix to issue [#7](https://github.com/hipercompl/fbdb/issues/7), based on runes rather than simple string length. Truncating a string in Dart to the given length truncates in fact UTF-16 code points, and not characters, which may result in too many actual characters being truncated (when the character codes exceed `0xFFFF` and require two UTF-16 code points to encode a single character). Added specific test cases for selecting such character combinations as `CHAR(N)` values.
+
 ## 1.3.0
 
 - Implemented prepared statements. Now you can prepare a query once, and then execute it multiple times, with different values passed as parameters each time (see section 4.6 of the [FbDb Programmers Guide](https://github.com/hipercompl/fbdb/blob/main/doc/fbdb_guide.md) for more details and an example).

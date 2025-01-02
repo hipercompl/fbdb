@@ -201,7 +201,7 @@ void main() async {
             expect(row["C_5"], equals("row_1"));
           }
         },
-        // database encoding intentionally set to NONE
+        // database encoding intentionally set to WIN1250
         options: FbOptions(dbCharset: "WIN1250"),
       ); // withNewDb1
     }); // test "SELECT of CHAR field (issue #7) test 2"
@@ -230,6 +230,47 @@ void main() async {
         },
       ); // withNewDb1
     }); // test "SELECT of CHAR field (issue #7) test 3"
+
+    test("SELECT of CHAR field (issue #7) test 4", () async {
+      await withNewEmptyDb(
+        (db) async {
+          final row = await db.selectOne(
+            sql: "select cast('\u{1F468}\u{1f606}\u2665abc' as char(10) "
+                "   character set UNICODE_FSS) as C1, "
+                "cast('x' as char(10) character set NONE) as C2, "
+                "cast('x' as char(10) character set WIN1250) as C3, "
+                "cast("
+                "   cast('\u{1F468}\u{1f606}\u2665abc' "
+                "     as varchar(32) character set UTF8 "
+                "   ) "
+                "   as char(6) character set UTF8 "
+                ") as C4, "
+                "cast('x' as char(1) character set UNICODE_FSS) as C5, "
+                "cast('x' as char(1) character set OCTETS) as C6, "
+                "cast('x ' as char(2) character set OCTETS) as C7, "
+                "cast('x ' as char(2) character set WIN1250) as C8, "
+                "cast('xyzv' as char(4) character set OCTETS) as C9, "
+                "cast('xyzv' as char(4) character set UTF8) as C10 "
+                "from RDB\$DATABASE",
+          );
+          expect(row, isNotNull);
+          if (row != null) {
+            expect(row["C1"], equals("\u{1F468}\u{1f606}\u2665abc    "));
+            expect(row["C2"], equals("x         "));
+            expect(row["C3"], equals("x         "));
+            expect(row["C4"], equals("\u{1F468}\u{1f606}\u2665abc"));
+            expect(row["C5"], equals("x"));
+            expect(row["C6"], equals("x"));
+            expect(row["C7"], equals("x "));
+            expect(row["C8"], equals("x "));
+            expect(row["C9"], equals("xyzv"));
+            expect(row["C10"], equals("xyzv"));
+          }
+        },
+        // database encoding intentionally set to NONE
+        options: FbOptions(dbCharset: "NONE"),
+      ); // withNewDb1
+    }); // test "SELECT of CHAR field (issue #7) test 4"
   }); // group "SELECT statements"
 
   group("INSERT statements", () {

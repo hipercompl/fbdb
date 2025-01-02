@@ -2022,7 +2022,8 @@ class FbDbQueryWorker {
     if (encoding > 2) {
       const maxBytesPerCodePoint = 4;
       final sl = byteLength ~/ maxBytesPerCodePoint;
-      return txt.substring(0, sl).padRight(sl);
+      return String.fromCharCodes(txt.runes.take(sl)).padRight(sl);
+      //return txt.substring(0, sl).padRight(sl);
     } else {
       return txt;
     }
