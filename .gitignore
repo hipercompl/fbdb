@@ -11,3 +11,6 @@ pubspec.lock
 
 *.pdf
 **/*.pdf
+
+*.log
+**/*.log
