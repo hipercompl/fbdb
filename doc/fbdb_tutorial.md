@@ -6,9 +6,9 @@ Throughout this exercise, you are going to learn how to use FbDb in your Dart / 
 It is best to complete the tasks in order, in which they are described in the tutorial. The complete source code of the final application is available in the source tree of the *fbdb* library, in the directory [`example/tutorial`](https://github.com/hipercompl/fbdb/tree/main/example/tutorial). However, the source alone is not enough to build the fully functional application, please refer to the [Starting the project](#Startingtheproject) section for detailed information on how to prepare your Dart project.
 
 ---
-This tutorial is copyritht © 2024 Tomasz Tyrakowski (t.tyrakowski @at@ hipercom.pl).
+This tutorial is copyritht © 2025 Tomasz Tyrakowski (t.tyrakowski @at@ hipercom.pl).
 
-*fbdb* is copyright © 2024 Tomasz Tyrakowski (t.tyrakowski @at@ hipercom.pl).
+*fbdb* is copyright © 2025 Tomasz Tyrakowski (t.tyrakowski @at@ hipercom.pl).
 
 *fbdb* is licensed under open source BSD license (see the [LICENSE](https://github.com/hipercompl/fbdb/blob/main/LICENSE) file).
 

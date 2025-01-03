@@ -1,7 +1,7 @@
 # FbDb Programmer's Guide
-This guide is copyritht © 2024 Tomasz Tyrakowski (t.tyrakowski @at@ hipercom.pl).
+This guide is copyritht © 2025 Tomasz Tyrakowski (t.tyrakowski @at@ hipercom.pl).
 
-*fbdb* is copyright © 2024 Tomasz Tyrakowski (t.tyrakowski @at@ hipercom.pl).
+*fbdb* is copyright © 2025 Tomasz Tyrakowski (t.tyrakowski @at@ hipercom.pl).
 
 *fbdb* is licensed under open source BSD license (see the [LICENSE](https://github.com/hipercompl/fbdb/blob/main/LICENSE) file).
 
