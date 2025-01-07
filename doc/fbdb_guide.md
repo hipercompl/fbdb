@@ -149,6 +149,11 @@ Before you run your Dart program, make sure the FbDb library can access **libfbc
     - in each of these subdirectories, place the libraries `libfbclient.so` and `libChaCha.so` (the latter probably only if you intend to enable wire encryption), extracted **from the matching Firebird archive**, that is, the libraries from the ARM64 Firebird archive go into `arm64-v8a`, the libraries from the ARM32 archive go into `armeabi-v7a`, and so on,
     - when you build (with `flutter build appbundle` / `flutter build apk`) or run in debug mode (with `flutter run -d <device_id>`) your application, the Firebird shared libraries will be automatically included in the application bundle. Moreover, on a real device, the library matching the actual architecture of the device will be used.
     - Don't specify Firebird client library location while initializing the database connection (let the standard OS resolving mechanism do its job).
+    - Modify the `AdnroidMainfest.xml` file of your Flutter project, located in `android/app/src/main` directory, and add the following permission declaration to the manifest (you can add the line below right after the closing `</application>` tag):
+        ```xml
+        <uses-permission android:name="android.permission.INTERNET"/>
+        ```
+        Otherwise the relase build of your Flutter application won't be able to access the network, which in turn will prevent it from attaching to a Firebird server.
 - For iOS Flutter apps, the procedure is yet to be determined (not tested yet).
 
 
