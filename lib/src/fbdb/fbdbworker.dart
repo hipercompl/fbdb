@@ -1067,7 +1067,6 @@ class FbDbQueryWorker {
               IStatement.preparePrefetchAffectedRecords);
     } finally {
       if (ownTransaction) {
-        db.status.init();
         tra?.commit(db.status);
       }
     }

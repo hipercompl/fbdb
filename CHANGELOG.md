@@ -1,3 +1,7 @@
+## 1.3.3
+
+- Fixed a bug that sometimes prevented Firebird error messages from being passed from the worker isolate to the main isolate (which resulted in an `FbServerException` without the actual error message getting caught in the main isolate).
+
 ## 1.3.2
 
 - Added an example showing how to use prepared queries and what efficiency gain they may give you in some scenarios. See [`examples/fbdb/ex_12_prepared_statements.dart`](https://github.com/hipercompl/fbdb/blob/main/example/fbdb/ex_12_prepared_statements.dart).
