@@ -1,3 +1,7 @@
+## 1.3.4
+
+- No actual code changes. Version bumped to force re-analysis of the packate at pub.dev (code analysis of 1.3.3 at pub.dev broke, resulting in "platforms unknown" and incomplete README at the landing page).
+
 ## 1.3.3
 
 - Fixed a bug that sometimes prevented Firebird error messages from being passed from the worker isolate to the main isolate (which resulted in an `FbServerException` without the actual error message getting caught in the main isolate).
