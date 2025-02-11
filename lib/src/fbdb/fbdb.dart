@@ -325,13 +325,65 @@ class FbDb {
     return (r.data.isNotEmpty && r.data[0] is bool && r.data[0]);
   }
 
+  /// Start a new concurrent, explicit transaction.
+  ///
+  /// Use this method to create (and start) a new explicit transaction,
+  /// which is distinct from the default connection-wise explicit
+  /// transaction (which you start with [FbDb.startTransaction]).
+  /// You get back an [FbTransaction] object, which can be passed
+  /// to relevant methods (like [FbQuery.execute] or [FbQuery.open])
+  /// to execute them in the context of the transaction.
+  ///
+  /// In most everyday database scenarios, you don't actually need to create
+  /// multiple concurrent transactions. It's usually enough to use
+  /// the database-wise explicit transaction, which simplifies the code,
+  /// at the same time providing basic transaction support, sufficient
+  /// for most use cases.
+  ///
+  /// Example:
+  /// ```dart
+  /// // db is an active connection
+  /// final t1 = await db.newTransaction();
+  /// final t2 = await db.newTransaction();
+  /// print(await t1.isActive()); // true
+  /// print(await t2.isActive()); // true
+  /// final q = await db.query();
+  /// await q.execute(
+  ///   sql: "delete from TABLE1",
+  ///   inTransaction: t1, // transaction parameter is optional
+  /// );
+  /// await q.execute(
+  ///   sql: "delete from TABLE2",
+  ///   inTransaction: t2, // transaction parameter is optional
+  /// );
+  /// await t1.rollback(); // cancel the deletion from TABLE1
+  /// await t2.commit(); // commit the deletion from TABLE2
+  /// print(await t1.isActive()); // false
+  /// print(await t2.isActive()); // false
+  /// await q.close();
+  /// ```
+  Future<FbTransaction> newTransaction(
+      {Set<FbTrFlag>? flags, int? lockTimeout}) async {
+    //TODO
+    final hdl = 0; // TODO - contact worker
+    final t = FbTransaction(this, hdl);
+
+    return t;
+  }
+
   /// Creates a new blob in the database.
   ///
   /// Allocates a new blob resource, ready to accept data segments.
   /// Returns the blob ID to be used in subsequent references to the blob.
   /// See also FbDb Programmer's Guide for more information on blob handling.
   ///
-  /// Example:
+  /// Optionally, you can provide a transaction object, in which case
+  /// the blob will be created in the context of this transaction.
+  /// If you do so, remember to provide the same transaction object
+  /// to other blob methods dealing with the newly created blob
+  /// (e.g. [FbDb.putBlobSegment], [FbDb.closeBlob]).
+  ///
+  /// Example 1:
   /// ```dart
   /// final db = await FbDb.attach(host: "localhost", database: "employee");
   /// await db.startTransaction(); // remember to start an explicit transaction
@@ -351,7 +403,31 @@ class FbDb {
   /// await db.commit(); // commit the started transaction
   /// await db.detach();
   /// ```
-  Future<FbBlobId> createBlob() async {
+  ///
+  /// Example 2:
+  /// ```dart
+  /// final db = await FbDb.attach(host: "localhost", database: "employee");
+  /// final t = await db.newTransaction(); // a new concurrent transaction
+  /// final blobId = await db.createBlob(inTransaction: t);
+  /// await db.putBlobFromStream(
+  ///   id: blobId,
+  ///   stream: File("data.bin")
+  ///     .openRead()
+  ///     .map((buf) => Uint8List.fromList(buf).buffer),
+  ///   inTransaction: t,
+  /// );
+  /// final q = db.query();
+  /// // suppose TEST_TABLE.BLOB_COL contains blobs
+  /// await q.execute(
+  ///   sql: "insert into TEST_TABLE(BLOB_COL) values (?)",
+  ///   parameters: [blobId], // just the id, not the data
+  ///   inTransaction: t,
+  /// );
+  /// await t.commit(); // commit the concurrent transaction
+  /// await db.detach();
+  /// ```
+  Future<FbBlobId> createBlob({FbTransaction? inTransaction}) async {
+    //TODO: concurrent transaction
     return (await _askWorker(FbDbControlOp.createBlob, [])).data[0];
   }
 
@@ -384,7 +460,9 @@ class FbDb {
   Future<Stream<ByteBuffer>> openBlob({
     required FbBlobId id,
     int segmentSize = 4096,
+    FbTransaction? inTransaction,
   }) async {
+    //TODO: concurrent transaction
     if (segmentSize <= 0) {
       throw FbClientException("Invalid blob segment size: $segmentSize");
     }
@@ -407,7 +485,11 @@ class FbDb {
   ///
   /// You don't need to close a blob if you depleted its data stream
   /// completely or ended the transaction the blob was in scope of.
-  Future<void> closeBlob({required FbBlobId id}) async {
+  Future<void> closeBlob({
+    required FbBlobId id,
+    FbTransaction? inTransaction,
+  }) async {
+    //TODO: concurrent transaction
     await _askWorker(FbDbControlOp.closeBlob, [id]);
   }
 
@@ -437,7 +519,9 @@ class FbDb {
   Future<void> putBlobSegment({
     required FbBlobId id,
     required ByteBuffer data,
+    FbTransaction? inTransaction,
   }) async {
+    //TODO: concurrent transaction
     await _askWorker(FbDbControlOp.putBlobSegment, [id, data]);
   }
 
@@ -449,8 +533,13 @@ class FbDb {
   Future<void> putBlobSegmentStr({
     required FbBlobId id,
     required String data,
+    FbTransaction? inTransaction,
   }) async {
-    return putBlobSegment(id: id, data: utf8.encode(data).buffer);
+    return putBlobSegment(
+      id: id,
+      data: utf8.encode(data).buffer,
+      inTransaction: inTransaction,
+    );
   }
 
   /// Fills a blob with data from the provided stream.
@@ -483,9 +572,14 @@ class FbDb {
   Future<void> putBlobFromStream({
     required FbBlobId id,
     required Stream<ByteBuffer> stream,
+    FbTransaction? inTransaction,
   }) async {
     await for (var data in stream) {
-      await putBlobSegment(id: id, data: data);
+      await putBlobSegment(
+        id: id,
+        data: data,
+        inTransaction: inTransaction,
+      );
     }
     await closeBlob(id: id);
   }
@@ -520,12 +614,14 @@ class FbDb {
   Future<void> blobFromFile({
     required FbBlobId id,
     required File file,
+    FbTransaction? inTransaction,
   }) async {
     return putBlobFromStream(
       id: id,
       stream: file
           .openRead()
           .map((byteValues) => Uint8List.fromList(byteValues).buffer),
+      inTransaction: inTransaction,
     );
   }
 
@@ -557,7 +653,9 @@ class FbDb {
     required FbBlobId id,
     required File file,
     int segmentSize = 4096,
+    FbTransaction? inTransaction,
   }) async {
+    //TODO: concurrent transaction
     final blobStream = await openBlob(id: id, segmentSize: segmentSize);
     final sink = file.openWrite();
     await sink.addStream(blobStream.map<Uint8List>((buf) => buf.asUint8List()));
@@ -578,6 +676,7 @@ class FbDb {
     required String sql,
     List<dynamic> parameters = const [],
     bool inlineBlobs = true,
+    FbTransaction? inTransaction,
   }) async {
     final q = query();
 
@@ -586,6 +685,7 @@ class FbDb {
         sql: sql,
         parameters: parameters,
         inlineBlobs: inlineBlobs,
+        inTransaction: inTransaction,
       );
       return await q.fetchOneAsMap();
     } finally {
@@ -610,6 +710,7 @@ class FbDb {
     required String sql,
     List<dynamic> parameters = const [],
     bool inlineBlobs = true,
+    FbTransaction? inTransaction,
   }) async {
     final q = query();
 
@@ -618,6 +719,7 @@ class FbDb {
         sql: sql,
         parameters: parameters,
         inlineBlobs: inlineBlobs,
+        inTransaction: inTransaction,
       );
       return await q.fetchAllAsMaps();
     } finally {
@@ -1015,6 +1117,7 @@ class FbQuery {
     required String sql,
     List<dynamic> parameters = const [],
     bool inlineBlobs = true,
+    FbTransaction? inTransaction,
   }) async {
     if (_db == null) {
       throw FbClientException("No active database connection");
@@ -1077,6 +1180,7 @@ class FbQuery {
     required String sql,
     List<dynamic> parameters = const [],
     bool inlineBlobs = true,
+    FbTransaction? inTransaction,
   }) async {
     if (_db == null) {
       throw FbClientException("No active database connection");
@@ -1110,11 +1214,13 @@ class FbQuery {
     required String sql,
     List<dynamic> parameters = const [],
     bool inlineBlobs = true,
+    FbTransaction? inTransaction,
   }) async {
     return openCursor(
       sql: sql,
       parameters: parameters,
       inlineBlobs: inlineBlobs,
+      inTransaction: inTransaction,
     );
   }
 
@@ -1739,5 +1845,27 @@ void _throwIfErrorResponse(dynamic response) {
     } else {
       throw FbClientException(vagueErrorMessage);
     }
+  }
+}
+
+class FbTransaction {
+  FbDb db; // the attachment this DB is related to
+  int handle; // key in worker isolate's ITransaction map
+
+  FbTransaction(this.db, this.handle);
+
+  Future<void> commit() async {
+    //TODO
+    handle = 0; // invalidate this transaction
+  }
+
+  Future<void> rollback() async {
+    //TODO
+    handle = 0; // invalidate this transaction
+  }
+
+  bool isActive() {
+    //TODO
+    return handle != 0;
   }
 }
