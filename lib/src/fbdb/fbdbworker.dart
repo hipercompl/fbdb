@@ -662,7 +662,7 @@ class FbDbWorker {
       throw FbClientException("No active attachment");
     }
     ITransaction? tra =
-        msg.data.isNotEmpty ? getActiveTransaction(msg.data[0]) : transaction;
+        msg.data.length > 1 ? getActiveTransaction(msg.data[1]) : transaction;
     if (tra == null) {
       throw FbClientException("No active transaction");
     }
