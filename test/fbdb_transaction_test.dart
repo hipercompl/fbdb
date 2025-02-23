@@ -131,7 +131,9 @@ void main() async {
             ); // key violation
             expect(true, false); // this code should not be reachable
           });
-        } catch (_) {}
+        } on FbServerException {
+          // intentionally empty
+        }
         expect(await db.inTransaction(), isFalse);
         final cnt2 =
             (await db.selectOne(sql: "select count(*) as CNT from T"))?["CNT"];
@@ -383,7 +385,7 @@ void main() async {
             isTrue,
             reason: 'Should not reach this point, execute should have failed',
           );
-        } catch (_) {
+        } on FbServerException {
           expect(
             await t.isActive(),
             isTrue,
@@ -408,8 +410,7 @@ void main() async {
             isTrue,
             reason: 'Should not reach this point, execute should have failed',
           );
-        } catch (e) {
-          print(e);
+        } on FbClientException {
           expect(
             true,
             isTrue,
@@ -469,19 +470,163 @@ void main() async {
 
     test("Concurrent transactions - isolation flags", () async {
       await withNewDb1((db) async {
-        //TODO
+        final c1 = await db.selectOne(sql: "select count(*) as CNT from T");
+        expect(c1, isNotNull);
+        var c = 0;
+        if (c1 != null) {
+          expect(
+            c1["CNT"] > 0,
+            isTrue,
+            reason: "T should be non empty initially",
+          );
+          c = c1["CNT"];
+        }
+
+        final t1 = await db.newTransaction();
+        final t2 = await db.newTransaction(
+          // SNAPSHOT (can't see changes made by other transactions)
+          flags: {FbTrFlag.concurrency, FbTrFlag.wait},
+        );
+        final t3 = await db.newTransaction(
+          // READ COMMITTED (can see committed changes from other transactions)
+          flags: {FbTrFlag.readCommitted, FbTrFlag.wait, FbTrFlag.noRecVersion},
+        );
+
+        await db.execute(sql: "delete from T", inTransaction: t1);
+        await t1.commit();
+
+        final c2 = await db.selectOne(
+          sql: "select count(*) as CNT from T",
+          inTransaction: t2,
+        );
+
+        final c3 = await db.selectOne(
+          sql: "select count(*) as CNT from T",
+          inTransaction: t3,
+        );
+
+        t2.commit();
+        t3.commit();
+
+        expect(c2, isNotNull);
+        expect(c3, isNotNull);
+
+        if (c2 != null) {
+          expect(c2["CNT"], equals(c),
+              reason: "T should not be empty in a SNAPSHOT transaction");
+        }
+
+        if (c3 != null) {
+          expect(
+            c3["CNT"],
+            equals(0),
+            reason: "T should be empty in a READ COMMITTED transaction",
+          );
+        }
+
+        final c4 = await db.selectOne(sql: "select count(*) as CNT from T");
+        expect(c4, isNotNull);
+        if (c4 != null) {
+          expect(
+            c4["CNT"],
+            equals(0),
+            reason: "T should be empty in a new transaction after COMMIT",
+          );
+        }
       }); // withNewDb1
     }); // test "Concurrent transactions - isolation flags"
 
     test(
-      "Concurrent transactions - lock conflict",
+      "Concurrent transactions - lock conflict with wait",
       () async {
         await withNewDb1((db) async {
-          //TODO
+          final t1 =
+              await db.newTransaction(flags: fbTrWriteWait, lockTimeout: 1);
+          final t2 =
+              await db.newTransaction(flags: fbTrWriteWait, lockTimeout: 1);
+
+          await db.execute(sql: "update T set C_1='x'", inTransaction: t1);
+          try {
+            await db.execute(sql: "update T set C_1='y'", inTransaction: t2);
+            expect(
+              false,
+              isTrue,
+              reason: "Should not reach this point, a deadlock was expected",
+            );
+          } on FbServerException catch (e) {
+            expect(
+              e.message,
+              contains("deadlock"),
+              reason: "Expected a 'deadlock' exception",
+            );
+          }
         }); // withNewDb1
       },
       // longer test timeout to make sure the deadlock occurs
       timeout: Timeout(Duration(seconds: 5)),
-    ); // test "Concurrent transactions - lock conflict"
+    ); // test "Concurrent transactions - lock conflict with wait"
+
+    test(
+      "Concurrent transactions - lock conflict without wait",
+      () async {
+        await withNewDb1((db) async {
+          final t1 = await db.newTransaction(flags: fbTrWriteNoWait);
+          final t2 = await db.newTransaction(flags: fbTrWriteNoWait);
+
+          await db.execute(sql: "update T set C_1='x'", inTransaction: t1);
+          try {
+            await db.execute(sql: "update T set C_1='y'", inTransaction: t2);
+            expect(
+              false,
+              isTrue,
+              reason: "Should not reach this point, a deadlock was expected",
+            );
+          } on FbServerException catch (e) {
+            expect(
+              e.message,
+              contains("deadlock"),
+              reason: "Expected a 'deadlock' exception",
+            );
+          }
+        }); // withNewDb1
+      },
+      // longer test timeout to make sure the deadlock occurs
+      timeout: Timeout(Duration(seconds: 5)),
+    ); // test "Concurrent transactions - lock conflict without wait"
+
+    test("Transaction flags - update in read only transaction", () async {
+      await withNewDb1((db) async {
+        // read-only transaction
+        final t = await db.newTransaction(flags: fbTrRead);
+        try {
+          await db.selectAll(sql: "select * from T", inTransaction: t);
+          expect(
+            true,
+            isTrue,
+            reason: "SELECT in read only transaction should be allowed",
+          );
+        } on FbServerException {
+          expect(
+            false,
+            isTrue,
+            reason: "SELECT in read only transaction should be allowed",
+          );
+        }
+        try {
+          await db.execute(sql: "update T set C_1='x'", inTransaction: t);
+          expect(
+            false,
+            isTrue,
+            reason: "UPDATE in read only transaction should not be allowed",
+          );
+        } on FbServerException {
+          expect(
+            true,
+            isTrue,
+            reason: "UPDATE in read only transaction should not be allowed",
+          );
+        }
+      }); // withNewDb1
+    }); // test "Transaction flags - update in read only transaction"
   }); // group "Multiple concurrent transactions"
 }
