@@ -477,6 +477,8 @@ class FbDbWorker {
   ITransaction? getActiveTransaction(Object? key) {
     if (key != null && key is int && _activeTransactions.containsKey(key)) {
       return _activeTransactions[key];
+    } else if (key != null) {
+      throw FbClientException("Invalid transaction handle: $key");
     } else {
       return null;
     }

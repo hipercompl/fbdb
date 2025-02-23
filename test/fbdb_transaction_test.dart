@@ -370,13 +370,100 @@ void main() async {
 
     test("Independent transaction with errors", () async {
       await withNewDb1((db) async {
-        //TODO
+        final t = await db.newTransaction();
+        try {
+          expect(await t.isActive(), isTrue);
+          await db.execute(
+            sql: 'insert into T (PK_INT) values (?)',
+            parameters: [1], // key violation
+            inTransaction: t,
+          );
+          expect(
+            false,
+            isTrue,
+            reason: 'Should not reach this point, execute should have failed',
+          );
+        } catch (_) {
+          expect(
+            await t.isActive(),
+            isTrue,
+            reason: 'Transaction should still be active after an error',
+          );
+        }
+        await t.commit();
+        expect(await t.isActive(), isFalse);
       }); // withNewDb1
     }); // test "Independent transaction with errors"
 
+    test("Use after commit", () async {
+      await withNewDb1((db) async {
+        final t = await db.newTransaction();
+        expect(await t.isActive(), isTrue);
+        await t.commit();
+        expect(await t.isActive(), isFalse);
+        try {
+          await db.execute(sql: "delete from T", inTransaction: t);
+          expect(
+            false,
+            isTrue,
+            reason: 'Should not reach this point, execute should have failed',
+          );
+        } catch (e) {
+          print(e);
+          expect(
+            true,
+            isTrue,
+            reason: 'An exception should have been thrown',
+          );
+        }
+      }); // withNewDb1
+    }); // test "Use after commit"
+
     test("Concurrent transactions - basic isolation", () async {
       await withNewDb1((db) async {
-        //TODO
+        final c1 = await db.selectOne(sql: "select count(*) as CNT from T");
+        final t1 = await db.newTransaction();
+        final t2 = await db.newTransaction();
+        await db.execute(sql: "delete from T", inTransaction: t1);
+        final c2 = await db.selectOne(
+          sql: "select count(*) as CNT from T",
+          inTransaction: t1,
+        );
+        final c3 = await db.selectOne(
+          sql: "select count(*) as CNT from T",
+          inTransaction: t2,
+        );
+        await t1.commit();
+        await t2.commit();
+        final c4 = await db.selectOne(sql: "select count(*) as CNT from T");
+
+        expect(c1, isNotNull);
+        expect(c2, isNotNull);
+        expect(c3, isNotNull);
+        expect(c4, isNotNull);
+        if (c1 != null && c2 != null && c3 != null && c4 != null) {
+          expect(
+            c1["CNT"] > 0,
+            isTrue,
+            reason: "T should be non empty initially",
+          );
+          final c = c1['CNT'];
+          expect(
+            c2["CNT"],
+            equals(0),
+            reason: "T should be empty after DELETE",
+          );
+          expect(
+            c3["CNT"],
+            equals(c),
+            reason: "T should still be non empty in another transaction view",
+          );
+          expect(
+            c2["CNT"],
+            equals(0),
+            reason: "T should be empty after COMMIT",
+          );
+        }
       }); // withNewDb1
     }); // test "Concurrent transactions - basic isolation"
 

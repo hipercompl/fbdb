@@ -292,6 +292,9 @@ class FbDb {
       FbDbControlOp.commit,
       [if (transaction != null) transaction.handle],
     );
+    if (transaction != null) {
+      transaction.handle = 0; // invalidate the transaction
+    }
   }
 
   /// Rolls back en explicit transaction.
@@ -318,6 +321,9 @@ class FbDb {
       FbDbControlOp.rollback,
       [if (transaction != null) transaction.handle],
     );
+    if (transaction != null) {
+      transaction.handle = 0; // invalidate the transaction
+    }
   }
 
   /// Checks if an explicit transaction is currently pending.
@@ -342,6 +348,11 @@ class FbDb {
   /// However, it is probably more natural to call [FbTransaction.isActive]
   /// instead of passing the transaction to [FbDb.inTransaction].
   Future<bool> inTransaction({FbTransaction? transaction}) async {
+    if (transaction != null && transaction.handle == 0) {
+      // no need to communicate the worker
+      // transaction handle 0 is invalid
+      return false;
+    }
     final r = await _askWorker(
       FbDbControlOp.inTransaction,
       [if (transaction != null) transaction.handle],
@@ -1930,12 +1941,10 @@ class FbTransaction {
 
   Future<void> commit() async {
     await db.commit(transaction: this);
-    handle = 0; // invalidate this transaction
   }
 
   Future<void> rollback() async {
     await db.rollback(transaction: this);
-    handle = 0; // invalidate this transaction
   }
 
   Future<bool> isActive() async {
