@@ -223,13 +223,11 @@ void main() async {
         expect(await t.isActive(), isFalse);
         expect(rows1, isNotNull);
         expect(rows2, isNotNull);
-        if (rows1 != null) {
-          expect(rows1.length, equals(3));
-          expect(rows2.length, equals(rows1.length));
-          for (var i = 0; i < rows1.length; i++) {
-            expect(rows1[i]['PK_INT'], equals(i + 1));
-            expect(rows2[i]['PK_INT'], equals(i + 1));
-          }
+        expect(rows1.length, equals(3));
+        expect(rows2.length, equals(rows1.length));
+        for (var i = 0; i < rows1.length; i++) {
+          expect(rows1[i]['PK_INT'], equals(i + 1));
+          expect(rows2[i]['PK_INT'], equals(i + 1));
         }
       }); // withNewDb1
     }); // test "Independent transaction committed"

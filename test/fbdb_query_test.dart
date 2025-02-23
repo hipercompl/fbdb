@@ -111,12 +111,10 @@ void main() async {
           parameters: [1, 3],
         );
         expect(rows, isNotNull);
-        if (rows != null) {
-          expect(rows.length, equals(3));
-          if (rows.length >= 3) {
-            expect(rows[0]["PK_INT"], equals(1));
-            expect(rows[2]["PK_INT"], equals(3));
-          }
+        expect(rows.length, equals(3));
+        if (rows.length >= 3) {
+          expect(rows[0]["PK_INT"], equals(1));
+          expect(rows[2]["PK_INT"], equals(3));
         }
       }); // withNewDb1
     }); // test "selectOne, selectAll utility methods"
