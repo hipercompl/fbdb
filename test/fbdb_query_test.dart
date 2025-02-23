@@ -321,6 +321,39 @@ void main() async {
         }, throwsException);
       }); // withNewDb1
     }); // test "INSERT with primary key error"
+
+    test("INSERT single row with RETURNING", () async {
+      await withNewDb1((db) async {
+        final q = db.query();
+        await q.execute(
+          sql: "insert into T(PK_INT) values (?) returning PK_INT ",
+          parameters: [10],
+        );
+        final r = await q.getOutputAsMap();
+        await q.close();
+        expect(r['PK_INT'], equals(10));
+      }); // withNewDb1
+    }); // test "INSERT single row with RETURNING"
+
+    test("INSERT multiple rows with RETURNING", () async {
+      await withNewDb1((db) async {
+        final q = db.query();
+        await q.openCursor(
+          sql: "insert into T(PK_INT) "
+              "select 10 as X from RDB\$DATABASE "
+              "union all "
+              "select 11 as X from RDB\$DATABASE "
+              "returning PK_INT ",
+        );
+        final r = await q.fetchAllAsMaps();
+        await q.close();
+        expect(r.length, equals(2));
+        if (r.length >= 2) {
+          expect(r[0]['PK_INT'], equals(10));
+          expect(r[1]['PK_INT'], equals(11));
+        }
+      }); // withNewDb1
+    }); // test "INSERT single row with RETURNING"
   }); // group "INSERT statements"
 
   group("UPDATE statements", () {

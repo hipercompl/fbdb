@@ -202,17 +202,173 @@ void main() async {
   }); // group "Built-in transactions"
 
   group("Multiple concurrent transactions", () {
-    test("Independent transaction committed", () async {
+    test("Selects in independent transaction", () async {
       await withNewDb1((db) async {
-        //TODO
+        final q = db.query();
+        final t = await db.newTransaction();
+        expect(await t.isActive(), isTrue);
+        final rows1 = await db.selectAll(
+          sql: "select * from T where PK_INT between ? and ?",
+          parameters: [1, 3],
+          inTransaction: t,
+        );
+        await q.open(
+          sql: "select * from T where PK_INT between ? and ?",
+          parameters: [1, 3],
+          inTransaction: t,
+        );
+        final rows2 = await q.fetchAllAsMaps();
+        await q.close();
+        await t.commit();
+        expect(await t.isActive(), isFalse);
+        expect(rows1, isNotNull);
+        expect(rows2, isNotNull);
+        if (rows1 != null) {
+          expect(rows1.length, equals(3));
+          expect(rows2.length, equals(rows1.length));
+          for (var i = 0; i < rows1.length; i++) {
+            expect(rows1[i]['PK_INT'], equals(i + 1));
+            expect(rows2[i]['PK_INT'], equals(i + 1));
+          }
+        }
       }); // withNewDb1
     }); // test "Independent transaction committed"
 
+    test("Independent transaction committed", () async {
+      await withNewDb1((db) async {
+        final rows1 = await db.selectAll(sql: "select PK_INT from T");
+        final t = await db.newTransaction();
+        final q = db.query();
+        await q.execute(
+          sql: "delete from T",
+          inTransaction: t,
+        );
+        await q.close();
+        final rows2 = await db.selectAll(
+          sql: "select PK_INT from T",
+          inTransaction: t,
+        );
+        await t.commit();
+        final rows3 = await db.selectAll(sql: "select PK_INT from T");
+
+        expect(
+          rows1.isEmpty,
+          isFalse,
+          reason: 'before DELETE, T should not be empty',
+        );
+        expect(
+          rows2.isEmpty,
+          isTrue,
+          reason: 'after DELETE, T should be empty in the same transaction',
+        );
+        expect(
+          rows3.isEmpty,
+          isTrue,
+          reason: 'after COMMIT, T should be empty in all transactions',
+        );
+      }); // withNewDb1
+    }); // test "Independent transaction committed"
+
+    test("Independent transaction committed, shortcut methods", () async {
+      await withNewDb1((db) async {
+        final rows1 = await db.selectAll(sql: "select PK_INT from T");
+        final t = await db.newTransaction();
+        await db.execute(
+          sql: "delete from T",
+          inTransaction: t,
+        );
+        final rows2 = await db.selectAll(
+          sql: "select PK_INT from T",
+          inTransaction: t,
+        );
+        await t.commit();
+        final rows3 = await db.selectAll(sql: "select PK_INT from T");
+
+        expect(
+          rows1.isEmpty,
+          isFalse,
+          reason: 'before DELETE, T should not be empty',
+        );
+        expect(
+          rows2.isEmpty,
+          isTrue,
+          reason: 'after DELETE, T should be empty in the same transaction',
+        );
+        expect(
+          rows3.isEmpty,
+          isTrue,
+          reason: 'after COMMIT, T should be empty in all transactions',
+        );
+      }); // withNewDb1
+    }); // test "Independent transaction committed, shortcut methods"
+
     test("Independent transaction rolled back", () async {
       await withNewDb1((db) async {
-        //TODO
+        final rows1 = await db.selectAll(sql: "select PK_INT from T");
+        final t = await db.newTransaction();
+        final q = db.query();
+        await q.execute(
+          sql: "delete from T",
+          inTransaction: t,
+        );
+        await q.close();
+        final rows2 = await db.selectAll(
+          sql: "select PK_INT from T",
+          inTransaction: t,
+        );
+        await t.rollback();
+        final rows3 = await db.selectAll(sql: "select PK_INT from T");
+
+        expect(
+          rows1.isEmpty,
+          isFalse,
+          reason: 'before DELETE, T should be not empty',
+        );
+        expect(
+          rows2.isEmpty,
+          isTrue,
+          reason: 'after DELETE, T should be empty in the same transaction',
+        );
+        expect(
+          rows3.isEmpty,
+          isFalse,
+          reason: 'after ROLLBACK, T should return to being non empty',
+        );
       }); // withNewDb1
     }); // test "Independent transaction rolled back"
+
+    test("Independent transaction rolled back, shortcut methods", () async {
+      await withNewDb1((db) async {
+        final rows1 = await db.selectAll(sql: "select PK_INT from T");
+        final t = await db.newTransaction();
+        await db.execute(
+          sql: "delete from T",
+          inTransaction: t,
+        );
+        final rows2 = await db.selectAll(
+          sql: "select PK_INT from T",
+          inTransaction: t,
+        );
+        await t.rollback();
+        final rows3 = await db.selectAll(sql: "select PK_INT from T");
+
+        expect(
+          rows1.isEmpty,
+          isFalse,
+          reason: 'before DELETE, T should be not empty',
+        );
+        expect(
+          rows2.isEmpty,
+          isTrue,
+          reason: 'after DELETE, T should be empty in the same transaction',
+        );
+        expect(
+          rows3.isEmpty,
+          isFalse,
+          reason: 'after ROLLBACK, T should return to being non empty',
+        );
+      }); // withNewDb1
+    }); // test "Independent transaction rolled back, shortcut methods"
 
     test("Independent transaction with errors", () async {
       await withNewDb1((db) async {
@@ -232,10 +388,15 @@ void main() async {
       }); // withNewDb1
     }); // test "Concurrent transactions - isolation flags"
 
-    test("Concurrent transactions - lock conflict", () async {
-      await withNewDb1((db) async {
-        //TODO
-      }); // withNewDb1
-    }); // test "Concurrent transactions - lock conflict"
+    test(
+      "Concurrent transactions - lock conflict",
+      () async {
+        await withNewDb1((db) async {
+          //TODO
+        }); // withNewDb1
+      },
+      // longer test timeout to make sure the deadlock occurs
+      timeout: Timeout(Duration(seconds: 5)),
+    ); // test "Concurrent transactions - lock conflict"
   }); // group "Multiple concurrent transactions"
 }
