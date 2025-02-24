@@ -11,7 +11,6 @@
 // Speedup: 46 %
 
 import "package:fbdb/fbdb.dart";
-import "ex_11_mem_benchmark.dart";
 import "ex_auth.dart";
 
 void main() async {
@@ -32,7 +31,7 @@ void main() async {
     db = await FbDb.createDatabase(
       database: "/tmp/ex_12.fdb",
       user: userName,
-      password: password,
+      password: userPassword,
     );
     print("Database created.");
 
