@@ -25,7 +25,7 @@ void main() async {
 
   FbDb? db;
   try {
-    print("Creating database ex_12.fdb ...");
+    print("Creating database /tmp/ex_12.fdb ...");
     // you may need to change the location of the database
     // and/or authentication data
     db = await FbDb.createDatabase(
