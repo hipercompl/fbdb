@@ -2205,147 +2205,199 @@ enum FbDbControlOp {
   // commands for FbDbWorker
 
   /// Check the connection.
-  /// Message payload: none.
+  /// Input payload: none.
+  /// Output payload:
+  /// payload[0]: `bool` - attached or not
   ping,
 
   /// Attach to an existing database.
-  /// Message payload:
+  /// Input payload:
   /// data[0]: `Map<String, dynamic>` - connection parameters
+  /// Output payload:
+  /// payload[0]: `SendPort` - port to send commands to the worker
   attach,
 
   /// Create a new database.
-  /// Message payload:
+  /// Input payload:
   /// data[0]: `Map<String, dynamic>` - connection and creation parameters
+  /// Output payload:
+  /// payload[0]: `SendPort` - port to send commands to the worker
   createDatabase,
 
   /// Detach from the database.
-  /// Message payload: none.
+  /// Input payload: none.
+  /// Output payload:
+  /// none in the normal case
+  /// or payload[0]: `Map` - statistics from the tracing allocator
+  /// if the worker was created with memory tracing enabled
   detach,
 
   /// Drop (remove) the database.
-  /// Message payload: none.
+  /// Input payload: none.
+  /// Output payload:
+  /// none in the normal case
+  /// or payload[0]: `Map` - statistics from the tracing allocator
+  /// if the worker was created with memory tracing enabled
   dropDatabase,
 
   /// Execute a query without opening a database cursor.
-  /// Message payload:
+  /// Input payload:
   /// data[0]: `String` - the SQL statement
   /// data[1]: `List<dynamic>` - list of query parameters
   /// data[2]: `bool` - return blobs inline
+  /// Output payload:
+  /// payload[0]: `SendPort` - port to send commands to the query worker
   queryExec,
 
   /// Execute a query, opening a database cursor for it.
-  /// Message payload:
+  /// Input payload:
   /// data[0]: `String` - the SQL statement
   /// data[1]: `List<dynamic>` - list of query parameters
   /// data[2]: `bool` - return blobs inline
+  /// Output payload:
+  /// payload[0]: `SendPort` - port to send commands to the query worker
   queryOpen,
 
   /// Start an explicit transaction.
-  /// Message payload:
+  /// Input payload:
   /// data[0]: `Set<FbTrFlag>?` - transaction flags
   /// data[1]: `int?` - lock timeout
+  /// Output payload: none.
   startTransaction,
 
   /// Register, start and return a new concurrent transaction.
-  /// Message payload:
+  /// Input payload:
   /// data[0]: `Set<FbTrFlag>?` - transaction flags
   /// data[1]: `int?` - lock timeout
+  /// Output payload:
+  /// payload[0]: `int` - the handle (hash) of the started transaction
   newTransaction,
 
   /// Commit an explicit transaction (if there's one pending).
-  /// Message payload:
+  /// Input payload:
   /// data[0]: `int?` - transaction ID
+  /// Output payload: none.
   commit,
 
   /// Roll an explicit transaction back (if there's one pending).
-  /// Message payload:
+  /// Input payload:
   /// data[0]: `int?` - transaction ID
+  /// Output payload: none.
   rollback,
 
   /// Check if there is a pending explicit transaction.
-  /// Message payload:
+  /// Input payload:
   /// data[0]: `int?` - transaction ID
+  /// Output payload:
+  /// payload[0]: `bool` - whether the transaction is active or not
   inTransaction,
 
   /// Create a blob in the database.
-  /// Message payload:
+  /// Input payload:
   /// data[0]: `int?` - transaction ID
+  /// Output payload:
+  /// payload[0]: `FbBlobId` - ID of the created blob
   createBlob,
 
   /// Open an existing blob in the database.
-  /// Message payload:
+  /// Input payload:
   /// data[0]: `FbBlobId` - the ID of the blob to open
   /// data[1]: `int?` - transaction ID
+  /// Output payload: none.
   openBlob,
 
   /// Retrieve a single segment of data from a blob.
-  /// Message payload:
+  /// Input payload:
   /// data[0]: `FbBlobId` - the ID of the blob
   /// data[1]: `int` - segment size
+  /// Output payload:
+  /// payload[0]: `ByteBuffer` - the contents of the segment
   getBlobSegment,
 
   /// Put a single segment of data into a blob.
-  /// Message payload:
+  /// Input payload:
   /// data[0]: `FbBlobId` - the ID of the blob
   /// data[1]: `ByteBuffer`, `String` or any type convertible to `ByteBuffer` -
   /// the data to be stored in the blob
+  /// Output payload: none.
   putBlobSegment,
 
   /// Close a blob.
-  /// Message payload:
+  /// Input payload:
   /// data[0]: `FbBlobId` - the ID of the blob
+  /// Output payload: none.
   closeBlob,
 
   /// Immediately quit the worker.
-  /// Message payload: none.
+  /// Input payload: none.
+  /// Output payload: none (no message at all, worker isolate terminates).
   quit,
 
   /// Prepare a query for multiple parametrized executions.
-  /// Message payload:
+  /// Input payload:
   /// data[0]: `String` - the SQL statement to prepare
   /// data[1]: `int?` - transaction ID
+  /// Output payload:
+  /// payload[0]: `SendPort` - port to send commands to the query
   prepareQuery,
 
   // ---------- commands for FbDbQueryWorker ----------
 
   /// Send back field (column) definitions.
-  /// Message payload: none.
+  /// Input payload: none.
+  /// Output payload:
+  /// payload[0]: `List<FbFieldDef>` - field definitions
   getFieldDefs,
 
   /// Send back the next (single) row of data.
-  /// Message payload:
+  /// Input payload:
   /// data[0]: `FbRowFormat` - the format of the record (list or map)
+  /// Output payload:
+  /// payload[0]: `null` or `List<dynamic>` or `Map<String, dynamic>` -
+  /// the contents of the next row (or null if there is none),
+  /// whether a map or a list depends on the requested row format
   fetchNext,
 
   /// Send back the output parameters (for queries without a cursor).
-  /// Message payload:
+  /// Input payload:
   /// data[0]: `FbRowFormat` - the format of the record (list or map)
+  /// Output payload:
+  /// payload[0]: `null` or `List<dynamic>` or `Map<String, dynamic>` -
+  /// the contents of the query output message (or null if there is none),
+  /// whether a map or a list depends on the requested row format
   getOutput,
 
   /// Send back the number of rows that have been affected by the last DML query.
-  /// Message payload: none.
+  /// Input payload: none.
+  /// Output payload:
+  /// payload[0]: `int` - the number of affected rows
   affectedRows,
 
   /// Close the query and release all resources.
-  /// Message payload: none.
+  /// Input payload: none.
+  /// Output payload: none.
   closeQuery,
 
   /// Execute a prepared query without allocating a cursor.
-  /// Message payload:
+  /// Input payload:
   /// data[0]: `List<dynamic>` - list of query parameters
   /// data[1]: `bool` - return blobs inline
   /// data[2]: `int?` - transaction ID
+  /// Output payload: none.
   execQueryPrepared,
 
   /// Execute a prepared query with allocating a cursor.
-  /// Message payload:
+  /// Input payload:
   /// data[0]: `List<dynamic>` - list of query parameters
   /// data[1]: `bool` - return blobs inline
   /// data[2]: `int?` - transaction ID
+  /// Output payload: none.
   openQueryPrepared,
 
   /// Check if a query contains an already prepared statement.
-  /// Message payload: none.
+  /// Input payload: none.
+  /// Output payload:
+  /// payload[0]: `bool` - whether a query contains a prepared statement
   isQueryPrepared,
 }
 
