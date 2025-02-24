@@ -1,3 +1,9 @@
+## 1.4.0
+
+- Implemented multiple concurrent transactions. The [FbDb Programmer's Guide](https://github.com/hipercompl/fbdb/blob/main/doc/fbdb_guide.md) has been updated accordingly, a new example has also been added: [`examples/fbdb/ex_13_concurrent_transactions.dart`](https://github.com/hipercompl/fbdb/blob/main/example/fbdb/ex_13_concurrent_transactions.dart).
+- Added a section in [FbDb Programmer's Guide](https://github.com/hipercompl/fbdb/blob/main/doc/fbdb_guide.md) on how to use fbdb with stored procedures.
+- Changed the return type of `FbDb.selectAll` to be non-nullable (i.e. `List<Map<String, dynamic>>` instead of `List<Map<String, dynamic>>?`). Although it is not a *breaking change* (and therefore does not require bumping the version number to 2.0.0), it may cause some linting hints about unneccessary null checks if the list returned by `selectAll` was explicitly null-checked in client code.
+
 ## 1.3.2
 
 - Added an example showing how to use prepared queries and what efficiency gain they may give you in some scenarios. See [`examples/fbdb/ex_12_prepared_statements.dart`](https://github.com/hipercompl/fbdb/blob/main/example/fbdb/ex_12_prepared_statements.dart).
@@ -8,7 +14,7 @@
 
 ## 1.3.0
 
-- Implemented prepared statements. Now you can prepare a query once, and then execute it multiple times, with different values passed as parameters each time (see section 4.6 of the [FbDb Programmers Guide](https://github.com/hipercompl/fbdb/blob/main/doc/fbdb_guide.md) for more details and an example).
+- Implemented prepared statements. Now you can prepare a query once, and then execute it multiple times, with different values passed as parameters each time (see section 4.6 of the [FbDb Programmer's Guide](https://github.com/hipercompl/fbdb/blob/main/doc/fbdb_guide.md) for more details and an example).
 
 ## 1.2.2
 

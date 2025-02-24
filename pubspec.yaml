@@ -32,7 +32,6 @@ test_on: vm
 environment:
   sdk: ^3.2.0
 
-# Add regular dependencies here.
 dependencies:
   ffi: ^2.1.0
 
