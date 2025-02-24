@@ -1294,6 +1294,15 @@ class FbQuery {
     return res;
   }
 
+  /// An alias for [FbQuery.fetchAsMaps].
+  ///
+  /// Since fetching rows as maps is the most frequently used
+  /// variant, this alias was introduced, to make client
+  /// code shorter.
+  Future<List<Map<String, dynamic>>> fetch([int rowCount = 1]) async {
+    return fetchAsMaps(rowCount);
+  }
+
   /// Fetches the next set of rows from the data set as lists.
   ///
   /// This method, unlike [fetchAsMaps], returns only the values
@@ -1344,6 +1353,15 @@ class FbQuery {
   /// ```
   Future<List<Map<String, dynamic>>> fetchAllAsMaps() async {
     return rows().toList();
+  }
+
+  /// An alias for [FbQuery.fetchAllAsMaps].
+  ///
+  /// Since fetching rows as maps is the most frequently used
+  /// variant, this alias was introduced, to make client
+  /// code shorter.
+  Future<List<Map<String, dynamic>>> fetchAll() async {
+    return fetchAllAsMaps();
   }
 
   /// Fetches all rows from the data set as lists.
@@ -1411,6 +1429,15 @@ class FbQuery {
     } else {
       return r.data[0];
     }
+  }
+
+  /// An alias for [FbQuery.fetchOneAsMap].
+  ///
+  /// Since fetching rows as maps is the most frequently used
+  /// variant, this alias was introduced, to make client
+  /// code shorter.
+  Future<Map<String, dynamic>?> fetchOne() async {
+    return fetchOneAsMap();
   }
 
   /// Fetches the next row from the data set as a list.
@@ -1646,6 +1673,14 @@ class FbQuery {
     } else {
       return r.data[0];
     }
+  }
+
+  /// An alias to [FbQuery.getOutputAsMap] to shorten the calls.
+  ///
+  /// Getting output as maps is the most frequently used variant,
+  /// so to make the client code shorter, this alias was introduced.
+  Future<Map<String, dynamic>> getOutput() async {
+    return getOutputAsMap();
   }
 
   /// Fetches the output data (as a list) of a query without a cursor.
