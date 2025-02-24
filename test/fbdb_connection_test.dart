@@ -23,7 +23,7 @@ void main() async {
     final detFut = db.detach();
     await expectLater(detFut, completes);
 
-    expectLater((() async {
+    await expectLater((() async {
       await db?.ping();
     })(), throwsException);
   });
@@ -45,13 +45,13 @@ void main() async {
       user: TestConfig.dbUser,
       password: TestConfig.dbPassword,
     );
-    expectLater(dbFut, completes);
+    await expectLater(dbFut, completes);
     db = await dbFut;
 
     final dropFut = db.dropDatabase();
     await expectLater(dropFut, completes);
 
-    expectLater(
+    await expectLater(
       (() async {
         return db?.ping();
       })(),

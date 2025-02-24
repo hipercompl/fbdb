@@ -505,8 +505,8 @@ void main() async {
           inTransaction: t3,
         );
 
-        t2.commit();
-        t3.commit();
+        await t2.commit();
+        await t3.commit();
 
         expect(c2, isNotNull);
         expect(c3, isNotNull);

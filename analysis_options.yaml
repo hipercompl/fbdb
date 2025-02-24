@@ -28,3 +28,8 @@ include: package:lints/recommended.yaml
 
 # For additional information about configuring this file, see
 # https://dart.dev/guides/language/analysis-options
+
+linter:
+  rules:
+    - discarded_futures
+    - unawaited_futures

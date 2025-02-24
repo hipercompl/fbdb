@@ -571,7 +571,7 @@ class FbDbWorker {
         inlineBlobs: inlineBlobs,
         withTransaction: withTransaction,
       );
-      q._run(); // we don't await run() on purpose
+      unawaited(q._run()); // we don't await run() on purpose
       _sendSuccessResp(msg.resultPort, fromMain.sendPort);
     } catch (e) {
       fromMain.close();
@@ -598,7 +598,7 @@ class FbDbWorker {
         inlineBlobs: inlineBlobs,
         withTransaction: withTransaction,
       );
-      q._run(); // we don't await _run() on purpose
+      unawaited(q._run()); // we don't await _run() on purpose
       _sendSuccessResp(msg.resultPort, queryFromMain.sendPort);
     } catch (e) {
       queryFromMain.close();
@@ -619,7 +619,7 @@ class FbDbWorker {
       final q = FbDbQueryWorker(fromMain, this);
       activeQueries[q.hashCode] = q;
       await q._prepare(sql, withTransaction: tra);
-      q._run(); // we don't await run() on purpose
+      unawaited(q._run()); // we don't await run() on purpose
       _sendSuccessResp(msg.resultPort, fromMain.sendPort);
     } catch (e) {
       fromMain.close();
