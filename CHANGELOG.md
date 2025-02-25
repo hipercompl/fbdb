@@ -1,6 +1,6 @@
 ## 1.4.0
 
-- Implemented multiple concurrent transactions. The [FbDb Programmer's Guide](https://github.com/hipercompl/fbdb/blob/main/doc/fbdb_guide.md) has been updated accordingly, a new example has also been added: [`examples/fbdb/ex_13_concurrent_transactions.dart`](https://github.com/hipercompl/fbdb/blob/main/example/fbdb/ex_13_concurrent_transactions.dart).
+- Implemented multiple concurrent transactions. The [FbDb Programmer's Guide](https://github.com/hipercompl/fbdb/blob/main/doc/fbdb_guide.md) has been updated accordingly (section 5.4 added), a new example has also been added: [`examples/fbdb/ex_13_concurrent_transactions.dart`](https://github.com/hipercompl/fbdb/blob/main/example/fbdb/ex_13_concurrent_transactions.dart).
 - Added a section in [FbDb Programmer's Guide](https://github.com/hipercompl/fbdb/blob/main/doc/fbdb_guide.md) on how to use fbdb with stored procedures (section 4.7).
 - Added a section (section 4.8) in [FbDb Programmer's Guide](https://github.com/hipercompl/fbdb/blob/main/doc/fbdb_guide.md) on how to process DML queries with the `RETURNING` clause (i.e. queries that modify and return data at the same time).
 - Added some more information in [FbDb Programmer's Guide](https://github.com/hipercompl/fbdb/blob/main/doc/fbdb_guide.md) (in section 6.2) about retrieving blobs in segments (inspired by [issue #9](https://github.com/hipercompl/fbdb/issues/9)).
