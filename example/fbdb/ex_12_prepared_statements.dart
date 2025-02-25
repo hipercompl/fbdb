@@ -79,7 +79,7 @@ void main() async {
     print("Error detected: $e");
   } finally {
     if (db != null) {
-      print("Dropping database ex_12.fdb ...");
+      print("Dropping database /tmp/ex_12.fdb ...");
       await db.dropDatabase();
       print("Done.");
     }
