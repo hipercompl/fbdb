@@ -124,20 +124,29 @@ class FbDbWorker {
   ///
   /// Those are only queries, which communicate with the Firebird
   /// database via this worker's attachment.
-  Map<int, FbDbQueryWorker> activeQueries;
+  final Map<int, FbDbQueryWorker> activeQueries;
 
   /// All active (created or opened, but not closed yet) blobs.
-  Map<int, FbBlobDef> activeBlobs;
+  final Map<int, FbBlobDef> activeBlobs;
 
+  /// The length of the pre-allocated TPB.
   int _tpbLength = 0;
+
+  /// A pre-allocated TPB, to avoid allocating it anew for each transaction.
   Pointer<Uint8>? _tpb;
+
+  /// A set of all explicit concurrent transactions.
+  /// The keys in the map are hashCode values of the transaction objects.
+  /// The values in the map are actual transaction interfaces.
+  final Map<int, ITransaction> _activeTransactions;
 
   /// Private constructor, so that no foreign code can instantiate
   /// the worker.
   FbDbWorker._init(this.fromMain)
       : status = master.getStatus(),
         activeQueries = {},
-        activeBlobs = {};
+        activeBlobs = {},
+        _activeTransactions = {};
 
   /// Release the memory resources used by this worker object.
   void _release() {
@@ -197,6 +206,8 @@ class FbDbWorker {
         return false; // dropping the database closes the connection
       case FbDbControlOp.startTransaction:
         await _startTransaction(msg);
+      case FbDbControlOp.newTransaction:
+        await _newTransaction(msg);
       case FbDbControlOp.commit:
         await _commit(msg);
       case FbDbControlOp.rollback:
@@ -369,6 +380,7 @@ class FbDbWorker {
     transaction?.commit(status);
     transaction = null;
     _closeActiveQueries();
+    _closeActiveTransactions();
     status.init();
     attachment?.detach(status);
     attachment = null; // to prevent calling methods on destroyed FB interface
@@ -382,11 +394,19 @@ class FbDbWorker {
   }
 
   /// Closes all active queries (also closes their receive ports).
-  Future<void> _closeActiveQueries() async {
+  void _closeActiveQueries() {
     final keys = List<int>.from(activeQueries.keys);
     for (final key in keys) {
       activeQueries[key]?._close();
     }
+  }
+
+  /// Closes all active transactions.
+  void _closeActiveTransactions() {
+    for (final k in _activeTransactions.keys) {
+      _activeTransactions[k]?.release();
+    }
+    _activeTransactions.clear();
   }
 
   /// Handles the dropDatabase operation.
@@ -395,6 +415,7 @@ class FbDbWorker {
     transaction?.commit(status);
     transaction = null;
     _closeActiveQueries();
+    _closeActiveTransactions();
     status.init();
     attachment?.dropDatabase(status);
     attachment = null;
@@ -407,12 +428,10 @@ class FbDbWorker {
     _sendSuccessResp(msg.resultPort, backInfo);
   }
 
-  /// Handles the startTransaction operation.
-  Future<void> _startTransaction(FbDbControlMessage msg) async {
-    if (attachment == null) {
-      throw FbClientException("Drop database: no active attachment");
-    }
-    transaction?.release();
+  /// Starts a new transaction with the given flags and lock timeout,
+  /// which it extracts from the message data.
+  /// Returns the transaction object.
+  ITransaction? _makeTransaction(FbDbControlMessage msg) {
     status.init();
     Pointer<Uint8>? tpb = _tpb;
     int tpbLength = _tpbLength;
@@ -421,42 +440,116 @@ class FbDbWorker {
       // specific transaction parameters are provided
       (tpb, tpbLength) = _prepareTpb(msg.data[0], msg.data[1]);
     }
+    return attachment?.startTransaction(status, tpbLength, tpb);
+  }
 
-    transaction = attachment?.startTransaction(status, tpbLength, tpb);
+  /// Handles the startTransaction operation.
+  Future<void> _startTransaction(FbDbControlMessage msg) async {
+    if (attachment == null) {
+      throw FbClientException("Start transaction: no active attachment");
+    }
+    transaction?.release();
+    transaction = _makeTransaction(msg);
     _sendSuccessResp(msg.resultPort);
+  }
+
+  /// Handles the newTransaction operation.
+  Future<void> _newTransaction(FbDbControlMessage msg) async {
+    if (attachment == null) {
+      throw FbClientException("New transaction: no active attachment");
+    }
+    final t = _makeTransaction(msg);
+    if (t != null) {
+      var tid = t.hashCode;
+      _activeTransactions[tid] = t;
+      _sendSuccessResp(msg.resultPort, [tid]);
+    } else {
+      // in fact, if the transaction was not created,
+      // _makeTransaction has most likely already thrown FbStatusException
+      throw FbClientException("Transaction creation failed (no further info)");
+    }
+  }
+
+  /// Retrieves the transaction object from _activeTransactions,
+  /// based on the provided transaction ID (key).
+  /// If the key is null or a transaction assiociated with the key
+  /// was not found, the method returns null.
+  ITransaction? getActiveTransaction(Object? key) {
+    if (key != null && key is int && _activeTransactions.containsKey(key)) {
+      return _activeTransactions[key];
+    } else if (key != null) {
+      throw FbClientException("Invalid transaction handle: $key");
+    } else {
+      return null;
+    }
   }
 
   /// Handles the commit operation.
   Future<void> _commit(FbDbControlMessage msg) async {
-    _closeAllBlobs();
-    if (attachment == null) {
-      throw FbClientException("Drop database: no active attachment");
-    }
-    if (transaction != null) {
-      status.init();
-      transaction?.commit(status);
-      transaction = null;
+    if (msg.data.isNotEmpty && msg.data[0] != null) {
+      // commit an explicit concurrent transaction
+      // data[0] contains the transaction key (hash)
+      final tid = msg.data[0];
+      final t = getActiveTransaction(tid);
+      _activeTransactions.remove(tid);
+      try {
+        status.init();
+        t?.commit(status);
+      } finally {
+        t?.release();
+      }
+    } else {
+      // commit the internal explicit transaction
+      _closeAllBlobs();
+      if (attachment == null) {
+        throw FbClientException("Commit: no active attachment");
+      }
+      if (transaction != null) {
+        status.init();
+        transaction?.commit(status);
+        transaction = null;
+      }
     }
     _sendSuccessResp(msg.resultPort);
   }
 
   /// Handles the rollback operation.
   Future<void> _rollback(FbDbControlMessage msg) async {
-    _closeAllBlobs();
-    if (attachment == null) {
-      throw FbClientException("Drop database: no active attachment");
-    }
-    if (transaction != null) {
-      status.init();
-      transaction?.rollback(status);
-      transaction = null;
+    if (msg.data.isNotEmpty && msg.data[0] != null) {
+      // commit an explicit concurrent transaction
+      // data[0] contains the transaction key (hash)
+      final tid = msg.data[0];
+      final t = getActiveTransaction(tid);
+      _activeTransactions.remove(tid);
+      try {
+        status.init();
+        t?.rollback(status);
+      } finally {
+        t?.release();
+      }
+    } else {
+      _closeAllBlobs();
+      if (attachment == null) {
+        throw FbClientException("Rollback: no active attachment");
+      }
+      if (transaction != null) {
+        status.init();
+        transaction?.rollback(status);
+        transaction = null;
+      }
     }
     _sendSuccessResp(msg.resultPort);
   }
 
   /// Handles the inTransaction operation.
   Future<void> _inTransaction(FbDbControlMessage msg) async {
-    _sendSuccessResp(msg.resultPort, (transaction != null));
+    ITransaction? t;
+    if (msg.data.isNotEmpty && msg.data[0] != null) {
+      t = getActiveTransaction(msg.data[0]);
+    } else {
+      t = transaction;
+    }
+    _sendSuccessResp(msg.resultPort, (t != null));
   }
 
   /// Handles the queryExec operation.
@@ -465,9 +558,20 @@ class FbDbWorker {
     try {
       final q = FbDbQueryWorker(fromMain, this);
       activeQueries[q.hashCode] = q;
-      final (sql, params, _) = _extractExecData(msg);
-      await q._exec(sql, params, allocCursor: false);
-      q._run(); // we don't await run() on purpose
+      final (
+        sql,
+        params,
+        inlineBlobs,
+        withTransaction,
+      ) = _extractExecData(msg);
+      await q._exec(
+        sql,
+        params,
+        allocCursor: false,
+        inlineBlobs: inlineBlobs,
+        withTransaction: withTransaction,
+      );
+      unawaited(q._run()); // we don't await run() on purpose
       _sendSuccessResp(msg.resultPort, fromMain.sendPort);
     } catch (e) {
       fromMain.close();
@@ -481,9 +585,20 @@ class FbDbWorker {
     try {
       final q = FbDbQueryWorker(queryFromMain, this);
       activeQueries[q.hashCode] = q;
-      final (sql, params, inlineBlobs) = _extractExecData(msg);
-      await q._exec(sql, params, allocCursor: true, inlineBlobs: inlineBlobs);
-      q._run(); // we don't await _run() on purpose
+      final (
+        sql,
+        params,
+        inlineBlobs,
+        withTransaction,
+      ) = _extractExecData(msg);
+      await q._exec(
+        sql,
+        params,
+        allocCursor: true,
+        inlineBlobs: inlineBlobs,
+        withTransaction: withTransaction,
+      );
+      unawaited(q._run()); // we don't await _run() on purpose
       _sendSuccessResp(msg.resultPort, queryFromMain.sendPort);
     } catch (e) {
       queryFromMain.close();
@@ -497,12 +612,14 @@ class FbDbWorker {
       throw FbClientException("No SQL statement provided");
     }
     String sql = msg.data[0];
+    ITransaction? tra =
+        msg.data.length > 1 ? getActiveTransaction(msg.data[1]) : null;
     final fromMain = ReceivePort();
     try {
       final q = FbDbQueryWorker(fromMain, this);
       activeQueries[q.hashCode] = q;
-      await q._prepare(sql);
-      q._run(); // we don't await run() on purpose
+      await q._prepare(sql, withTransaction: tra);
+      unawaited(q._run()); // we don't await run() on purpose
       _sendSuccessResp(msg.resultPort, fromMain.sendPort);
     } catch (e) {
       fromMain.close();
@@ -515,7 +632,9 @@ class FbDbWorker {
     if (attachment == null) {
       throw FbClientException("No active attachment");
     }
-    if (transaction == null) {
+    ITransaction? tra =
+        msg.data.isNotEmpty ? getActiveTransaction(msg.data[0]) : transaction;
+    if (tra == null) {
       throw FbClientException("No active transaction");
     }
     IBlob? iblob;
@@ -523,7 +642,7 @@ class FbDbWorker {
     final fbId = IscQuad.allocate(0, 0);
     try {
       try {
-        iblob = attachment!.createBlob(status, transaction!, fbId);
+        iblob = attachment!.createBlob(status, tra, fbId);
       } catch (_) {
         mem.free(fbId);
         rethrow;
@@ -542,7 +661,9 @@ class FbDbWorker {
     if (attachment == null) {
       throw FbClientException("No active attachment");
     }
-    if (transaction == null) {
+    ITransaction? tra =
+        msg.data.length > 1 ? getActiveTransaction(msg.data[1]) : transaction;
+    if (tra == null) {
       throw FbClientException("No active transaction");
     }
     final FbBlobId inId = msg.data[0];
@@ -550,7 +671,7 @@ class FbDbWorker {
     try {
       IBlob? iblob;
       try {
-        iblob = attachment!.openBlob(status, transaction!, fbId);
+        iblob = attachment!.openBlob(status, tra, fbId);
       } catch (_) {
         mem.free(fbId);
         rethrow;
@@ -635,7 +756,13 @@ class FbDbWorker {
   }
 
   /// Extracts the SQL statement and the parameters from the message data.
-  (String, List<dynamic>, bool) _extractExecData(FbDbControlMessage msg) {
+  /// Returns a tuple with:
+  /// - SQL statement text
+  /// - query parameters list
+  /// - inline blobs flag
+  /// - custom transaction hash
+  (String, List<dynamic>, bool, ITransaction?) _extractExecData(
+      FbDbControlMessage msg) {
     if (msg.data.isEmpty) {
       throw FbClientException("No SQL statement provided");
     }
@@ -643,7 +770,9 @@ class FbDbWorker {
     List<dynamic> params =
         (msg.data.length > 1 ? msg.data[1] : const []) ?? const [];
     bool inlineBlobs = (msg.data.length > 2 ? msg.data[2] : true) ?? true;
-    return (sql, params, inlineBlobs);
+    ITransaction? t =
+        (msg.data.length > 3 ? getActiveTransaction(msg.data[3]) : null);
+    return (sql, params, inlineBlobs, t);
   }
 
   /// Sends a success message with a payload to the main isolate.
@@ -1001,6 +1130,8 @@ class FbDbQueryWorker {
       msg.data[0],
       allocCursor: false,
       inlineBlobs: msg.data[1],
+      withTransaction:
+          (msg.data.length > 2 ? db.getActiveTransaction(msg.data[2]) : null),
     );
     db._sendSuccessResp(msg.resultPort);
   }
@@ -1014,6 +1145,8 @@ class FbDbQueryWorker {
       msg.data[0],
       allocCursor: true,
       inlineBlobs: msg.data[1],
+      withTransaction:
+          (msg.data.length > 2 ? db.getActiveTransaction(msg.data[2]) : null),
     );
     db._sendSuccessResp(msg.resultPort);
   }
@@ -1039,13 +1172,13 @@ class FbDbQueryWorker {
   ///
   /// It asks the Firebird server to prepare the statement,
   /// and then fetches and decodes input and output metadata.
-  Future<void> _prepare(String sql) async {
+  Future<void> _prepare(String sql, {ITransaction? withTransaction}) async {
     _closeStatement();
     if (db.attachment == null) {
       throw FbClientException(
           "No active database connection associated with the query object");
     }
-    ITransaction? tra = db.transaction;
+    ITransaction? tra = withTransaction ?? db.transaction;
     bool ownTransaction = false;
     if (db.transaction == null) {
       // we'll use our own transaction
@@ -1133,8 +1266,12 @@ class FbDbQueryWorker {
 
   /// Executes a previously prepared query, either by calling execute
   /// or openCursor, depending on the allocCursor parameter.
-  Future<void> _execPrepared(List<dynamic> params,
-      {required bool allocCursor, bool inlineBlobs = true}) async {
+  Future<void> _execPrepared(
+    List<dynamic> params, {
+    required bool allocCursor,
+    bool inlineBlobs = true,
+    ITransaction? withTransaction,
+  }) async {
     if (_statement == null) {
       throw FbClientException("No SQL statement is prepared in this query.");
     }
@@ -1145,7 +1282,8 @@ class FbDbQueryWorker {
         "doesn't match the required number of query parameters: $paramCount",
       );
     }
-    _transaction = db.transaction;
+    _inlineBlobs = inlineBlobs;
+    _transaction = withTransaction ?? db.transaction;
     if (_transaction == null) {
       _transaction = db.attachment?.startTransaction(db.status);
       _ownTransaction = true;
@@ -1192,14 +1330,20 @@ class FbDbQueryWorker {
 
   /// Executes a query either by calling execute or openCursor,
   /// depending on the allocCursor parameter.
-  Future<void> _exec(String sql, List<dynamic> params,
-      {required bool allocCursor, bool inlineBlobs = true}) async {
+  Future<void> _exec(
+    String sql,
+    List<dynamic> params, {
+    required bool allocCursor,
+    bool inlineBlobs = true,
+    ITransaction? withTransaction,
+  }) async {
     _inlineBlobs = inlineBlobs;
-    await _prepare(sql);
+    await _prepare(sql, withTransaction: withTransaction);
     await _execPrepared(
       params,
       allocCursor: allocCursor,
       inlineBlobs: inlineBlobs,
+      withTransaction: withTransaction,
     );
   }
 
@@ -2061,89 +2205,199 @@ enum FbDbControlOp {
   // commands for FbDbWorker
 
   /// Check the connection.
+  /// Input payload: none.
+  /// Output payload:
+  /// payload[0]: `bool` - attached or not
   ping,
 
   /// Attach to an existing database.
+  /// Input payload:
+  /// data[0]: `Map<String, dynamic>` - connection parameters
+  /// Output payload:
+  /// payload[0]: `SendPort` - port to send commands to the worker
   attach,
 
   /// Create a new database.
+  /// Input payload:
+  /// data[0]: `Map<String, dynamic>` - connection and creation parameters
+  /// Output payload:
+  /// payload[0]: `SendPort` - port to send commands to the worker
   createDatabase,
 
   /// Detach from the database.
+  /// Input payload: none.
+  /// Output payload:
+  /// none in the normal case
+  /// or payload[0]: `Map` - statistics from the tracing allocator
+  /// if the worker was created with memory tracing enabled
   detach,
 
   /// Drop (remove) the database.
+  /// Input payload: none.
+  /// Output payload:
+  /// none in the normal case
+  /// or payload[0]: `Map` - statistics from the tracing allocator
+  /// if the worker was created with memory tracing enabled
   dropDatabase,
 
   /// Execute a query without opening a database cursor.
+  /// Input payload:
+  /// data[0]: `String` - the SQL statement
+  /// data[1]: `List<dynamic>` - list of query parameters
+  /// data[2]: `bool` - return blobs inline
+  /// Output payload:
+  /// payload[0]: `SendPort` - port to send commands to the query worker
   queryExec,
 
   /// Execute a query, opening a database cursor for it.
+  /// Input payload:
+  /// data[0]: `String` - the SQL statement
+  /// data[1]: `List<dynamic>` - list of query parameters
+  /// data[2]: `bool` - return blobs inline
+  /// Output payload:
+  /// payload[0]: `SendPort` - port to send commands to the query worker
   queryOpen,
 
   /// Start an explicit transaction.
+  /// Input payload:
+  /// data[0]: `Set<FbTrFlag>?` - transaction flags
+  /// data[1]: `int?` - lock timeout
+  /// Output payload: none.
   startTransaction,
 
+  /// Register, start and return a new concurrent transaction.
+  /// Input payload:
+  /// data[0]: `Set<FbTrFlag>?` - transaction flags
+  /// data[1]: `int?` - lock timeout
+  /// Output payload:
+  /// payload[0]: `int` - the handle (hash) of the started transaction
+  newTransaction,
+
   /// Commit an explicit transaction (if there's one pending).
+  /// Input payload:
+  /// data[0]: `int?` - transaction ID
+  /// Output payload: none.
   commit,
 
   /// Roll an explicit transaction back (if there's one pending).
+  /// Input payload:
+  /// data[0]: `int?` - transaction ID
+  /// Output payload: none.
   rollback,
 
   /// Check if there is a pending explicit transaction.
+  /// Input payload:
+  /// data[0]: `int?` - transaction ID
+  /// Output payload:
+  /// payload[0]: `bool` - whether the transaction is active or not
   inTransaction,
 
   /// Create a blob in the database.
+  /// Input payload:
+  /// data[0]: `int?` - transaction ID
+  /// Output payload:
+  /// payload[0]: `FbBlobId` - ID of the created blob
   createBlob,
 
   /// Open an existing blob in the database.
+  /// Input payload:
+  /// data[0]: `FbBlobId` - the ID of the blob to open
+  /// data[1]: `int?` - transaction ID
+  /// Output payload: none.
   openBlob,
 
   /// Retrieve a single segment of data from a blob.
+  /// Input payload:
+  /// data[0]: `FbBlobId` - the ID of the blob
+  /// data[1]: `int` - segment size
+  /// Output payload:
+  /// payload[0]: `ByteBuffer` - the contents of the segment
   getBlobSegment,
 
   /// Put a single segment of data into a blob.
+  /// Input payload:
+  /// data[0]: `FbBlobId` - the ID of the blob
+  /// data[1]: `ByteBuffer`, `String` or any type convertible to `ByteBuffer` -
+  /// the data to be stored in the blob
+  /// Output payload: none.
   putBlobSegment,
 
   /// Close a blob.
+  /// Input payload:
+  /// data[0]: `FbBlobId` - the ID of the blob
+  /// Output payload: none.
   closeBlob,
 
-  /// Immediately quit the worker
+  /// Immediately quit the worker.
+  /// Input payload: none.
+  /// Output payload: none (no message at all, worker isolate terminates).
   quit,
 
   /// Prepare a query for multiple parametrized executions.
+  /// Input payload:
+  /// data[0]: `String` - the SQL statement to prepare
+  /// data[1]: `int?` - transaction ID
+  /// Output payload:
+  /// payload[0]: `SendPort` - port to send commands to the query
   prepareQuery,
 
   // ---------- commands for FbDbQueryWorker ----------
 
-  /// Execute a statement without a cursor.
-  execQuery,
-
-  /// Execute a statement with allocating a cursor.
-  openQuery,
-
   /// Send back field (column) definitions.
+  /// Input payload: none.
+  /// Output payload:
+  /// payload[0]: `List<FbFieldDef>` - field definitions
   getFieldDefs,
 
   /// Send back the next (single) row of data.
+  /// Input payload:
+  /// data[0]: `FbRowFormat` - the format of the record (list or map)
+  /// Output payload:
+  /// payload[0]: `null` or `List<dynamic>` or `Map<String, dynamic>` -
+  /// the contents of the next row (or null if there is none),
+  /// whether a map or a list depends on the requested row format
   fetchNext,
 
   /// Send back the output parameters (for queries without a cursor).
+  /// Input payload:
+  /// data[0]: `FbRowFormat` - the format of the record (list or map)
+  /// Output payload:
+  /// payload[0]: `null` or `List<dynamic>` or `Map<String, dynamic>` -
+  /// the contents of the query output message (or null if there is none),
+  /// whether a map or a list depends on the requested row format
   getOutput,
 
   /// Send back the number of rows that have been affected by the last DML query.
+  /// Input payload: none.
+  /// Output payload:
+  /// payload[0]: `int` - the number of affected rows
   affectedRows,
 
   /// Close the query and release all resources.
+  /// Input payload: none.
+  /// Output payload: none.
   closeQuery,
 
   /// Execute a prepared query without allocating a cursor.
+  /// Input payload:
+  /// data[0]: `List<dynamic>` - list of query parameters
+  /// data[1]: `bool` - return blobs inline
+  /// data[2]: `int?` - transaction ID
+  /// Output payload: none.
   execQueryPrepared,
 
   /// Execute a prepared query with allocating a cursor.
+  /// Input payload:
+  /// data[0]: `List<dynamic>` - list of query parameters
+  /// data[1]: `bool` - return blobs inline
+  /// data[2]: `int?` - transaction ID
+  /// Output payload: none.
   openQueryPrepared,
 
   /// Check if a query contains an already prepared statement.
+  /// Input payload: none.
+  /// Output payload:
+  /// payload[0]: `bool` - whether a query contains a prepared statement
   isQueryPrepared,
 }
 

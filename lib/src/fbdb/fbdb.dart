@@ -282,8 +282,19 @@ class FbDb {
   /// await db.detach();
   /// // db cannot be used any more
   /// ```
-  Future<void> commit() async {
-    await _askWorker(FbDbControlOp.commit, []);
+  ///
+  /// If you provide an [FbTransaction] object, the commit operation
+  /// will concern the provided transaction.
+  /// However, it is probably more natural to call [FbTransaction.commit]
+  /// instead of passing the transaction to [FbDb.commit].
+  Future<void> commit({FbTransaction? transaction}) async {
+    await _askWorker(
+      FbDbControlOp.commit,
+      [if (transaction != null) transaction.handle],
+    );
+    if (transaction != null) {
+      transaction.handle = 0; // invalidate the transaction
+    }
   }
 
   /// Rolls back en explicit transaction.
@@ -300,8 +311,19 @@ class FbDb {
   /// await db.detach();
   /// // db cannot be used any more
   /// ```
-  Future<void> rollback() async {
-    await _askWorker(FbDbControlOp.rollback, []);
+  ///
+  /// If you provide an [FbTransaction] object, the rollback operation
+  /// will concern the provided transaction.
+  /// However, it is probably more natural to call [FbTransaction.rollback]
+  /// instead of passing the transaction to [FbDb.rollback].
+  Future<void> rollback({FbTransaction? transaction}) async {
+    await _askWorker(
+      FbDbControlOp.rollback,
+      [if (transaction != null) transaction.handle],
+    );
+    if (transaction != null) {
+      transaction.handle = 0; // invalidate the transaction
+    }
   }
 
   /// Checks if an explicit transaction is currently pending.
@@ -320,9 +342,74 @@ class FbDb {
   /// await db.detach();
   /// // db cannot be used any more
   /// ```
-  Future<bool> inTransaction() async {
-    final r = await _askWorker(FbDbControlOp.inTransaction, []);
+  ///
+  /// If you provide an [FbTransaction] object, the test
+  /// will concern the provided transaction.
+  /// However, it is probably more natural to call [FbTransaction.isActive]
+  /// instead of passing the transaction to [FbDb.inTransaction].
+  Future<bool> inTransaction({FbTransaction? transaction}) async {
+    if (transaction != null && transaction.handle == 0) {
+      // no need to communicate the worker
+      // transaction handle 0 is invalid
+      return false;
+    }
+    final r = await _askWorker(
+      FbDbControlOp.inTransaction,
+      [if (transaction != null) transaction.handle],
+    );
     return (r.data.isNotEmpty && r.data[0] is bool && r.data[0]);
+  }
+
+  /// Start a new concurrent, explicit transaction.
+  ///
+  /// Use this method to create (and start) a new explicit transaction,
+  /// which is distinct from the default connection-wise explicit
+  /// transaction (which you start with [FbDb.startTransaction]).
+  /// You get back an [FbTransaction] object, which can be passed
+  /// to relevant methods (like [FbQuery.execute] or [FbQuery.open])
+  /// to execute them in the context of the transaction.
+  ///
+  /// In most everyday database scenarios, you don't actually need to create
+  /// multiple concurrent transactions. It's usually enough to use
+  /// the database-wise explicit transaction, which simplifies the code,
+  /// at the same time providing basic transaction support, sufficient
+  /// for most use cases.
+  ///
+  /// Example:
+  /// ```dart
+  /// // db is an active connection
+  /// final t1 = await db.newTransaction();
+  /// final t2 = await db.newTransaction();
+  /// print(await t1.isActive()); // true
+  /// print(await t2.isActive()); // true
+  /// final q = await db.query();
+  /// await q.execute(
+  ///   sql: "delete from TABLE1",
+  ///   inTransaction: t1, // transaction parameter is optional
+  /// );
+  /// await q.execute(
+  ///   sql: "delete from TABLE2",
+  ///   inTransaction: t2, // transaction parameter is optional
+  /// );
+  /// await t1.rollback(); // cancel the deletion from TABLE1
+  /// await t2.commit(); // commit the deletion from TABLE2
+  /// print(await t1.isActive()); // false
+  /// print(await t2.isActive()); // false
+  /// await q.close();
+  /// ```
+  Future<FbTransaction> newTransaction(
+      {Set<FbTrFlag>? flags, int? lockTimeout}) async {
+    final r = await _askWorker(
+      FbDbControlOp.newTransaction,
+      [flags, lockTimeout],
+    );
+    if (r.data.isNotEmpty) {
+      return FbTransaction(this, r.data[0]);
+    } else {
+      throw FbClientException(
+        "FbDb.newTransaction did not return a transaction handle.",
+      );
+    }
   }
 
   /// Creates a new blob in the database.
@@ -331,7 +418,13 @@ class FbDb {
   /// Returns the blob ID to be used in subsequent references to the blob.
   /// See also FbDb Programmer's Guide for more information on blob handling.
   ///
-  /// Example:
+  /// Optionally, you can provide a transaction object, in which case
+  /// the blob will be created in the context of this transaction.
+  /// If you do so, remember to provide the same transaction object
+  /// to other blob methods dealing with the newly created blob
+  /// (e.g. [FbDb.putBlobSegment], [FbDb.closeBlob]).
+  ///
+  /// Example 1:
   /// ```dart
   /// final db = await FbDb.attach(host: "localhost", database: "employee");
   /// await db.startTransaction(); // remember to start an explicit transaction
@@ -351,8 +444,35 @@ class FbDb {
   /// await db.commit(); // commit the started transaction
   /// await db.detach();
   /// ```
-  Future<FbBlobId> createBlob() async {
-    return (await _askWorker(FbDbControlOp.createBlob, [])).data[0];
+  ///
+  /// Example 2:
+  /// ```dart
+  /// final db = await FbDb.attach(host: "localhost", database: "employee");
+  /// final t = await db.newTransaction(); // a new concurrent transaction
+  /// final blobId = await db.createBlob(inTransaction: t);
+  /// await db.putBlobFromStream(
+  ///   id: blobId,
+  ///   stream: File("data.bin")
+  ///     .openRead()
+  ///     .map((buf) => Uint8List.fromList(buf).buffer),
+  ///   inTransaction: t,
+  /// );
+  /// final q = db.query();
+  /// // suppose TEST_TABLE.BLOB_COL contains blobs
+  /// await q.execute(
+  ///   sql: "insert into TEST_TABLE(BLOB_COL) values (?)",
+  ///   parameters: [blobId], // just the id, not the data
+  ///   inTransaction: t,
+  /// );
+  /// await t.commit(); // commit the concurrent transaction
+  /// await db.detach();
+  /// ```
+  Future<FbBlobId> createBlob({FbTransaction? inTransaction}) async {
+    return (await _askWorker(
+      FbDbControlOp.createBlob,
+      [if (inTransaction != null) inTransaction.handle],
+    ))
+        .data[0];
   }
 
   /// Opens an existing blob for reading.
@@ -384,11 +504,18 @@ class FbDb {
   Future<Stream<ByteBuffer>> openBlob({
     required FbBlobId id,
     int segmentSize = 4096,
+    FbTransaction? inTransaction,
   }) async {
     if (segmentSize <= 0) {
       throw FbClientException("Invalid blob segment size: $segmentSize");
     }
-    await _askWorker(FbDbControlOp.openBlob, [id]);
+    await _askWorker(
+      FbDbControlOp.openBlob,
+      [
+        id,
+        if (inTransaction != null) inTransaction.handle,
+      ],
+    );
     return () async* {
       for (;;) {
         final r =
@@ -450,7 +577,10 @@ class FbDb {
     required FbBlobId id,
     required String data,
   }) async {
-    return putBlobSegment(id: id, data: utf8.encode(data).buffer);
+    return putBlobSegment(
+      id: id,
+      data: utf8.encode(data).buffer,
+    );
   }
 
   /// Fills a blob with data from the provided stream.
@@ -485,7 +615,10 @@ class FbDb {
     required Stream<ByteBuffer> stream,
   }) async {
     await for (var data in stream) {
-      await putBlobSegment(id: id, data: data);
+      await putBlobSegment(
+        id: id,
+        data: data,
+      );
     }
     await closeBlob(id: id);
   }
@@ -578,6 +711,7 @@ class FbDb {
     required String sql,
     List<dynamic> parameters = const [],
     bool inlineBlobs = true,
+    FbTransaction? inTransaction,
   }) async {
     final q = query();
 
@@ -586,6 +720,7 @@ class FbDb {
         sql: sql,
         parameters: parameters,
         inlineBlobs: inlineBlobs,
+        inTransaction: inTransaction,
       );
       return await q.fetchOneAsMap();
     } finally {
@@ -606,10 +741,11 @@ class FbDb {
   /// Keep in mind, that all rows are cached in the memory, so for
   /// queries returning large data sets, the memory consumption
   /// can be significant.
-  Future<List<Map<String, dynamic>>?> selectAll({
+  Future<List<Map<String, dynamic>>> selectAll({
     required String sql,
     List<dynamic> parameters = const [],
     bool inlineBlobs = true,
+    FbTransaction? inTransaction,
   }) async {
     final q = query();
 
@@ -618,6 +754,7 @@ class FbDb {
         sql: sql,
         parameters: parameters,
         inlineBlobs: inlineBlobs,
+        inTransaction: inTransaction,
       );
       return await q.fetchAllAsMaps();
     } finally {
@@ -652,6 +789,7 @@ class FbDb {
     List<dynamic> parameters = const [],
     bool inlineBlobs = true,
     bool returnAffectedRows = false,
+    FbTransaction? inTransaction,
   }) async {
     final q = query();
 
@@ -660,6 +798,7 @@ class FbDb {
         sql: sql,
         parameters: parameters,
         inlineBlobs: inlineBlobs,
+        inTransaction: inTransaction,
       );
       return returnAffectedRows ? await q.affectedRows() : 0;
     } finally {
@@ -1015,6 +1154,7 @@ class FbQuery {
     required String sql,
     List<dynamic> parameters = const [],
     bool inlineBlobs = true,
+    FbTransaction? inTransaction,
   }) async {
     if (_db == null) {
       throw FbClientException("No active database connection");
@@ -1022,7 +1162,12 @@ class FbQuery {
     await close(); // close the previously associated worker, if any
     final msg = await _db?._askWorker(
       FbDbControlOp.queryExec,
-      [sql, parameters, inlineBlobs],
+      [
+        sql,
+        parameters,
+        inlineBlobs,
+        if (inTransaction != null) inTransaction.handle,
+      ],
     );
     _throwIfErrorResponse(msg);
     final r = msg as FbDbResponse;
@@ -1077,6 +1222,7 @@ class FbQuery {
     required String sql,
     List<dynamic> parameters = const [],
     bool inlineBlobs = true,
+    FbTransaction? inTransaction,
   }) async {
     if (_db == null) {
       throw FbClientException("No active database connection");
@@ -1084,7 +1230,12 @@ class FbQuery {
     await close(); // close the previously associated worker, if any
     final msg = await _db?._askWorker(
       FbDbControlOp.queryOpen,
-      [sql, parameters, inlineBlobs],
+      [
+        sql,
+        parameters,
+        inlineBlobs,
+        if (inTransaction != null) inTransaction.handle,
+      ],
     );
     _throwIfErrorResponse(msg);
     final r = msg as FbDbResponse;
@@ -1110,11 +1261,13 @@ class FbQuery {
     required String sql,
     List<dynamic> parameters = const [],
     bool inlineBlobs = true,
+    FbTransaction? inTransaction,
   }) async {
     return openCursor(
       sql: sql,
       parameters: parameters,
       inlineBlobs: inlineBlobs,
+      inTransaction: inTransaction,
     );
   }
 
@@ -1139,6 +1292,15 @@ class FbQuery {
       }
     }
     return res;
+  }
+
+  /// An alias for [FbQuery.fetchAsMaps].
+  ///
+  /// Since fetching rows as maps is the most frequently used
+  /// variant, this alias was introduced, to make client
+  /// code shorter.
+  Future<List<Map<String, dynamic>>> fetch([int rowCount = 1]) async {
+    return fetchAsMaps(rowCount);
   }
 
   /// Fetches the next set of rows from the data set as lists.
@@ -1191,6 +1353,15 @@ class FbQuery {
   /// ```
   Future<List<Map<String, dynamic>>> fetchAllAsMaps() async {
     return rows().toList();
+  }
+
+  /// An alias for [FbQuery.fetchAllAsMaps].
+  ///
+  /// Since fetching rows as maps is the most frequently used
+  /// variant, this alias was introduced, to make client
+  /// code shorter.
+  Future<List<Map<String, dynamic>>> fetchAll() async {
+    return fetchAllAsMaps();
   }
 
   /// Fetches all rows from the data set as lists.
@@ -1258,6 +1429,15 @@ class FbQuery {
     } else {
       return r.data[0];
     }
+  }
+
+  /// An alias for [FbQuery.fetchOneAsMap].
+  ///
+  /// Since fetching rows as maps is the most frequently used
+  /// variant, this alias was introduced, to make client
+  /// code shorter.
+  Future<Map<String, dynamic>?> fetchOne() async {
+    return fetchOneAsMap();
   }
 
   /// Fetches the next row from the data set as a list.
@@ -1495,6 +1675,14 @@ class FbQuery {
     }
   }
 
+  /// An alias to [FbQuery.getOutputAsMap] to shorten the calls.
+  ///
+  /// Getting output as maps is the most frequently used variant,
+  /// so to make the client code shorter, this alias was introduced.
+  Future<Map<String, dynamic>> getOutput() async {
+    return getOutputAsMap();
+  }
+
   /// Fetches the output data (as a list) of a query without a cursor.
   ///
   /// This method can be used to get output data passed in output
@@ -1542,6 +1730,12 @@ class FbQuery {
   /// to actually execute the prepared statement.
   /// The method returns the reference to the target [FbQuery] object,
   /// to allow for easy chaining.
+  /// If a non-null [FbTransaction] object is provided as [inTransaction],
+  /// the query will be prepared in the context of the transaction.
+  /// Otherwise, it will be prepared in the context of a connection-wise
+  /// explicit transaction (if one has been started), or an internal
+  /// transaction will be spawned and committed immediately after
+  /// preparation of the statement.
   /// Throws exceptions when any errors are encountered.
   ///
   /// Example:
@@ -1555,12 +1749,21 @@ class FbQuery {
   /// await q.executePrepared(parameters: [2, "DEF"]);
   /// await q.close();
   /// ```
-  Future<FbQuery> prepare({required String sql}) async {
+  Future<FbQuery> prepare({
+    required String sql,
+    FbTransaction? inTransaction,
+  }) async {
     if (_db == null) {
       throw FbClientException("No active database connection");
     }
     await close(); // close the previously associated worker, if any
-    final msg = await _db?._askWorker(FbDbControlOp.prepareQuery, [sql]);
+    final msg = await _db?._askWorker(
+      FbDbControlOp.prepareQuery,
+      [
+        sql,
+        if (inTransaction != null) inTransaction.handle,
+      ],
+    );
     _throwIfErrorResponse(msg);
     final r = msg as FbDbResponse;
     if (r.data.isEmpty) {
@@ -1585,6 +1788,12 @@ class FbQuery {
   /// later via blob routines of [FbDb].
   /// The method returns the reference to the target [FbQuery] object,
   /// to allow for easy chaining.
+  /// If a non-null [FbTransaction] object is provided as [inTransaction],
+  /// the query will be executed in the context of the transaction.
+  /// Otherwise, it will be executed in the context of a connection-wise
+  /// explicit transaction (if one has been started), or an internal
+  /// transaction will be spawned and committed immediately after
+  /// execution of the query.
   /// Throws exceptions when any errors are encountered.
   /// Please see also the documentation of the [FbQuery.execute] method.
   ///
@@ -1602,6 +1811,7 @@ class FbQuery {
   Future<FbQuery> executePrepared({
     List<dynamic> parameters = const [],
     bool inlineBlobs = true,
+    FbTransaction? inTransaction,
   }) async {
     if (_toWorker == null) {
       throw FbClientException(
@@ -1609,7 +1819,11 @@ class FbQuery {
     }
     final msg = await _db?._askWorker(
       FbDbControlOp.execQueryPrepared,
-      [parameters, inlineBlobs],
+      [
+        parameters,
+        inlineBlobs,
+        if (inTransaction != null) inTransaction.handle,
+      ],
       _toWorker,
     );
     _throwIfErrorResponse(msg);
@@ -1627,6 +1841,13 @@ class FbQuery {
   /// later via blob routines of [FbDb].
   /// The method returns the reference to the target [FbQuery] object,
   /// to allow for easy chaining.
+  /// If a non-null [FbTransaction] object is provided as [inTransaction],
+  /// the query will be executed in the context of the transaction.
+  /// Otherwise, it will be executed in the context of a connection-wise
+  /// explicit transaction (if one has been started), or an internal
+  /// transaction will be spawned and committed immediately after
+  /// the result set of the query is depleted (or the query is closed
+  /// before that).
   /// Throws exceptions when any errors are encountered.
   /// Please see also the documentation of the [FbQuery.openCursor] method.
   ///
@@ -1648,6 +1869,7 @@ class FbQuery {
   Future<FbQuery> openPrepared({
     List<dynamic> parameters = const [],
     bool inlineBlobs = true,
+    FbTransaction? inTransaction,
   }) async {
     if (_toWorker == null) {
       throw FbClientException(
@@ -1655,7 +1877,11 @@ class FbQuery {
     }
     final msg = await _db?._askWorker(
       FbDbControlOp.openQueryPrepared,
-      [parameters, inlineBlobs],
+      [
+        parameters,
+        inlineBlobs,
+        if (inTransaction != null) inTransaction.handle,
+      ],
       _toWorker,
     );
     _throwIfErrorResponse(msg);
@@ -1739,5 +1965,24 @@ void _throwIfErrorResponse(dynamic response) {
     } else {
       throw FbClientException(vagueErrorMessage);
     }
+  }
+}
+
+class FbTransaction {
+  FbDb db; // the attachment this DB is related to
+  int handle; // key in worker isolate's ITransaction map
+
+  FbTransaction(this.db, this.handle);
+
+  Future<void> commit() async {
+    await db.commit(transaction: this);
+  }
+
+  Future<void> rollback() async {
+    await db.rollback(transaction: this);
+  }
+
+  Future<bool> isActive() async {
+    return handle != 0 && await db.inTransaction(transaction: this);
   }
 }

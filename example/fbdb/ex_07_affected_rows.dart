@@ -21,7 +21,7 @@ void main() async {
     var q = db.query();
 
     print("Creating table TEST_TBL");
-    q.execute(sql: "create table TEST_TBL (F integer)");
+    await q.execute(sql: "create table TEST_TBL (F integer)");
     print("Table created.");
 
     const rowCnt = 10;

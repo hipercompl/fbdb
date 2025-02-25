@@ -179,7 +179,7 @@ void main() async {
 
   group("Prepared queries with errors", () {
     test("SQL syntax error", () async {
-      expectLater(() async {
+      await expectLater(() async {
         await withNewDb1((db) async {
           final q = db.query();
           await q.prepare(
@@ -190,7 +190,7 @@ void main() async {
     }); // test "SQL syntax error"
 
     test("Prepared key violation", () async {
-      expectLater(() async {
+      await expectLater(() async {
         await withNewDb1((db) async {
           final q = db.query();
           await q.prepare(
@@ -202,13 +202,13 @@ void main() async {
     }); // test "Prepared key violation"
 
     test("Executing unprepared query", () async {
-      expectLater(() async {
+      await expectLater(() async {
         await withNewDb1((db) async {
           final q = db.query();
           await q.executePrepared(parameters: []);
         }); // withNewDb1
       }, throwsException);
-      expectLater(() async {
+      await expectLater(() async {
         await withNewDb1((db) async {
           final q = db.query();
           await q.openPrepared(parameters: []);

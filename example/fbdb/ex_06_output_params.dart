@@ -40,7 +40,7 @@ void main() async {
     """;
 
     var q = db.query();
-    q.execute(sql: procSql);
+    await q.execute(sql: procSql);
     print("Procedure created.");
 
     const inTxt = "A.B.C.D.E.F.";

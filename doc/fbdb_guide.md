@@ -28,19 +28,22 @@ This guide is copyritht © 2025 Tomasz Tyrakowski (t.tyrakowski @at@ hipercom.pl
 		* 4.2.3. [Executing queries - examples](#Executingqueries-examples)
 	* 4.3. [Closing the query](#Closingthequery)
 	* 4.4. [Accessing data](#Accessingdata)
-		* 4.4.1. [Methods of the `FbQuery` objects](#MethodsoftheFbQueryobjects)
+		* 4.4.1. [Methods of the *FbQuery* objects](#MethodsoftheFbQueryobjects)
 		* 4.4.2. [Using row streams](#Usingrowstreams)
 		* 4.4.3. [Utility methods: selectOne, selectAll, execute](#Utilitymethods:selectOneselectAllexecute)
 	* 4.5. [Queries - examples](#Queries-examples)
 	* 4.6. [Prepared SQL statements](#PreparedSQLstatements)
 		* 4.6.1. [Prepared statements - an example](#Preparedstatements-anexample)
+	* 4.7. [Working with stored procedures](#Workingwithstoredprocedures)
+	* 4.8. [Queries with *RETURNING* clause](#QuerieswithRETURNINGclause)
 * 5. [Transaction handling](#Transactionhandling)
 	* 5.1. [The model](#Themodel)
 	* 5.2. [Implicit transactions](#Implicittransactions)
 	* 5.3. [Explicit transactions](#Explicittransactions)
 		* 5.3.1. [Utility method: runInTransaction](#Utilitymethod:runInTransaction)
-	* 5.4. [Transaction flags](#Transactionflags)
-	* 5.5. [Transactions - examples](#Transactions-examples)
+	* 5.4. [Multiple concurrent transactions](#Multipleconcurrenttransactions)
+	* 5.5. [Transaction flags](#Transactionflags)
+	* 5.6. [Transactions - examples](#Transactions-examples)
 * 6. [Working with blobs](#Workingwithblobs)
 	* 6.1. [Passing blobs as query parameters](#Passingblobsasqueryparameters)
 	* 6.2. [Fetching blobs from selected rows](#Fetchingblobsfromselectedrows)
@@ -553,7 +556,7 @@ After running a query with `openCursor` (which executes the SQL statement and op
 - using the `FbQuery` methods from the `fetch` family to walk through the data set and fetch individual rows or groups of rows,
 - using the `rows` method to obtain a `Stream` of rows and process them all with an `await for` loop.
 
-####  4.4.1. <a name='MethodsoftheFbQueryobjects'></a>Methods of the `FbQuery` objects
+####  4.4.1. <a name='MethodsoftheFbQueryobjects'></a>Methods of the *FbQuery* objects
 After opening a query, you can use the following methods of the query object:
 - `fieldDefs()` - returns a list of field definitions (`FbFieldDef` objects). Each field definition has the following attributes:
     - `name` - the field name,
@@ -740,6 +743,127 @@ Now the query is prepared once, before the loop. In each loop iteration, the pre
 
 Notice, that you don't call `close` after each `executePrepared` (it's called just once, after the `for` loop ends). Calling `close` discards the prepared statement.
 
+###  4.7. <a name='Workingwithstoredprocedures'></a>Working with stored procedures
+Although stored procedures don't require any special treatment in code using the *fbdb* library, it might be worthwhile to take some time and work out the details.
+
+A stored procedure is a piece of SQL code, which is pre-compiled and stored (hence the name) in the database. It can later be used multiple times, possibly with different input parameters.
+
+It is out of the scope of this guide to teach how to write stored procedures (please refer to the [official Firebird documentation](https://firebirdsql.org/file/documentation/chunk/en/refdocs/fblangref50/fblangref50-psql-storedprocs.html). However, from *fbdb*'s point of view, we need to distinguish two kinds of stored procedures, depending on how they **return** their output:
+
+- procedures returning values via their *output parameters*,
+- procedures returning whole result sets via output parameters and `SUSPEND` statements (so-called *selectable* procedures).
+
+The first group returns just a single set of values (like one record), each value being passed in an output parameter.
+
+For example, this procedure:
+```sql
+create procedure DELTA(
+    A double precision,
+    B double precision,
+    C double precision
+) returns (
+    D double precision
+)
+as
+begin
+    D = B*B - 4*A*C;
+end
+```
+
+calculates the delta of a square equation and returns the value via its output parameter `D`.
+
+To use this kind of stored procedures via *fbdb*, you need to run an `execute procedure` SQL statement, and then access the output data via `getOutputAsMap` or `getOutputAsList` for example:
+```dart
+final q = db.query();
+await q.execute(
+    sql: "execute procedure DELTA(?, ?, ?)",
+    parameters: [4, -3, 2],
+);
+final res = await q.getOutputAsMap();
+if (res != null) {
+    print(res['D']); // should print 40
+}
+```
+
+The second group of stored procedures mentioned above, returns a whole data set (like a query from a table would) instead of a single record.
+
+For example, this procedure:
+```sql
+create procedure RANGE(
+    LOW integer,
+    HIGH integer
+) returns (
+    VAL integer
+)
+as
+begin
+    while (LOW <= HIGH) do
+    begin
+        VAL = LOW;
+        suspend; -- returns a new row each time
+        LOW = LOW + 1;
+    end
+end
+```
+
+potentially returns many different integers via its `VAL` output parameters (depending on the lower and upper bound passed as parameters). Each time `suspend` is executed, a new record (in this case a record with just a single field: `VAL`) is returned from the procedure, but the procedure **keeps running** until the loop condition is false (i.e. `LOW` exceeds `HIGH`).
+
+To use this kind of procedure, you need to **select** from it, just like you would normally select from a table or a view:
+```dart
+final q = db.query();
+await q.openCursor(
+    sql: "select VAL from RANGE(?, ?)",
+    parameters: [3, 5],
+);
+await for (final row in q.rows()) {
+    print(row['VAL']);
+}
+// should print 3, 4 and 5 in subsequent lines
+```
+
+Wrapping up: how to execute a stored procedure, using the *fbdb* library, depends on what kind of procedure it is. If it's a selectable procedure, use `FbQuery.openCursor` and select from the procedure as if from a table. If it's a procedure returning just a single set of values via its output parameters (i.e. does not contain any `suspend` statements in its body), use `FbQuery.execute`, `execute procedure` SQL statement and `FbQuery.getOutputAsMap`.
+
+###  4.8. <a name='QuerieswithRETURNINGclause'></a>Queries with *RETURNING* clause
+Firebird allows to construct DML (data modification) statements, which at the same time return some information (e.g. return some columns from the newly inserted / updated rows).
+
+Such statements end with a `RETURNING ...` clause and, similarly to stored procedures, should be executed via `FbQuery.execute` (and later `FbQuery.getOutputAsMap`) or `FbQuery.openCursor` (and later an `await for` loop), depending on whether they return a **single** row (a single value or a set of related values) or **multiple** rows.
+
+Let's consider an example of an `INSERT` statement, which returns the `ID` column of the inserted row (let's assume the `ID` column is filled up by a trigger):
+```dart
+final q = db.query();
+await q.execute(
+    sql: "insert into ATABLE (ACOLUMN) values (?) "
+        "returning ID ",
+    parameters: ["value of ACOLUMN"],
+);
+final idRow = await q.getOutputAsMap();
+if (idRow != null) {
+    print(idRow["ID"]); // the actual ID assigned by the trigger
+}
+```
+
+This approach is valid for statements that always return a single column (or a set of columns) from a single row.
+
+Now let's consider the other kind of statements with `RETURNING` clause: ones that may return values from many rows:
+```dart
+final q = db.query();
+await q.openCursor(
+    sql: "update ATABLE set AFIELD=? where ID > ?"
+        "returning ID, AFIELD ",
+    parameters: ["new value", 10],
+);
+await for(final row in q.rows()) {
+    // this loop prints multiple rows, the number of which
+    // depends on how many rows were updated, i.e. how many
+    // have their IDs greater than 10
+    print("${row['ID']} : ${row['AFIELD']}");
+}
+```
+
+This time it's hard to say how many rows of data will be returned from the query. It depends on how many rows will actually get updated, and that in turn depends on how many rows have currently their IDs greater than 10 (that's the filtering condition). What's sure is that each returned row will consist of two columns: `ID` and `AFIELD`.
+
+Therefore, the returned set of rows should be processed in the same way as if it was selected from a table, a view or a procedure. You can iterate over the `rows()` stream, or retrieve all rows (as a list of maps) via `fetchAllAsMaps` for example. In general, you've got all methods operating on a data set at your disposal. From the perspective of accessing the data, this query behaves exactly like a standard `SELECT` query and should be processed as such.
+
 ##  5. <a name='Transactionhandling'></a>Transaction handling
 
 ###  5.1. <a name='Themodel'></a>The model
@@ -833,7 +957,78 @@ Now let us consider another example:
 
 This example is similar to the previous one, except that the second `INSERT` statement results in an exception, caused by the primary key violation on table `COUNTRY`. The exception is never caught inside the anonymous function, therefore it is passed up the call stack and detected by `runInTransaction`. The latter automatically rolls the transaction back and rethrows the exception, which is later caught by the `catch` block in the calling code (resulting in the `Error detected` message being printed out). Assuming `COUNTRY` was empty when the code started, it remains empty still, even though the first `INSERT` was successful. The exception occuring inside the anonymous function caused the whole transaction to be rolled back, including the first `INSERT`.
 
-###  5.4. <a name='Transactionflags'></a>Transaction flags
+###  5.4. <a name='Multipleconcurrenttransactions'></a>Multiple concurrent transactions
+Starting with version 1.4.0, *fbdb* offers a possibility to have many transactions open and active at the same time (so-called *concurrent transactions*). Although for most typical use cases the explicit transactions, described earlier, are sufficient, there may be some scenarios, in which having more than one transaction active at the same time may be convenient.
+
+Concurrent transactions have client-side objects associated with them, which means you start a new transaction, store its transaction object in a variable, and later use the variable to commit the transaction or roll it back.
+
+All *fbdb* methods, which requires an open transaction in order to perform their actions (like preparing and executing SQL statements, handling blobs, etc.), accept an additional parameter called **`inTransaction`** of class `FbTransaction`.
+
+Each `FbTransaction` object is associated with a pending transaction in the database. A typical scenario involving a concurrent transaction is as follows:
+
+1. Start a new concurrent transaction by calling `newTransaction` on an active connection (`FbDb` object) and store the result in a variable - that's the transaction object.
+2. To execute SQL statements in the context of the concurrent transaction, pass the transaction object as a named `inTransaction` parameter to each query method (like `execute`, `openCursor`, etc.).
+3. End the transaction by calling either `commit` or `rollback` on the transaction object.
+
+A quick example:
+```dart
+// db is an attached FbDb connection
+final t = await db.newTransaction();
+final q = db.query();
+await q.execute(
+    sql: "delete from EMPLOYEE", 
+    inTransaction: t, // <- execute in transaction t
+);
+await q.close();
+await t.rollback(); // or commit()
+```
+
+One might ask, what the difference between using `newTransaction` and `startTransaction` really is. Well, as long as you have just one transaction object (a single active transaction), there's no advantage in using `newTransaction`. However, consider the following snippet:
+
+```dart
+final t1 = await db.newTransaction();
+final t2 = await db.newTransaction();
+await db.execute(
+    sql: "delete from EMPLOYEE",
+    inTransaction: t1,
+);
+await db.execute(
+    sql: "delete from DEPARTMENT",
+    inTransaction: t2,
+);
+await t1.commit();
+await t2.rollback();
+```
+
+Having two independent active transactions gives you the flexibility to execute some statements in the context of one transaction, and other statements in the context of the other one. Next, you may commit one while rollin back the other (or commit both, or roll both back - depending on your business logic). It is not possible to achieve the same result with just one transaction active at any given moment.
+
+As was mentioned at the beginning of this section: multiple concurrent transactions are a tool for specific scenarios, in many cases there's no need to complicate the client code by explicitly creating and maintaining transaction objects.
+
+The `newTransaction` method accepts optional transaction flags and lock timeout, the same way `startTransaction` does (see the next section).
+
+The methods accepting a `FbTransaction` object as the `inTransaction` named parameter are:
+
+- `FbDb.createBlob`,
+- `FbDb.openBlob`,
+- `FbDb.selectOne`,
+- `FbDb.selectAll`,
+- `FbDb.execute`,
+- `FbDb.commit` (in this case the parameter name is `transaction`, not `inTransaction`),
+- `FbDb.rollback` (in this case the parameter name is `transaction`, not `inTransaction`),
+- `FbDb.inTransaction` (in this case the parameter name is `transaction`, not `inTransaction`),
+- `FbQuery.execute`,
+- `FbQuery.openCursor` and `FbQuery.open`,
+- `FbQuery.prepare`,
+- `FbQuery.executePrepared`,
+- `FbQuery.openPrepared`.
+
+The public methods of the `FbTransaction` class are few and rather self-explanatory:
+
+- `commit`,
+- `rollback`,
+- `isActive` (is this an active transaction or a committed / rolled back one).
+
+###  5.5. <a name='Transactionflags'></a>Transaction flags
 Firebird supports different *transaction modes*, which are determined by a group of flags set in the *transaction parameter block* (TPB). FbDb abstracts away the actual manipulation of the native memory of a TPB, allowing the programmer to easily set the transaction flags.
 
 There are two places, in which the transaction flags can be specified. 
@@ -859,9 +1054,9 @@ await db.startTransaction(
 
 Please take a look at `example/fbdb/ex_09_lock_wait.dart` for a demo showing the difference between wait and no-wait transactions.
 
-###  5.5. <a name='Transactions-examples'></a>Transactions - examples
+###  5.6. <a name='Transactions-examples'></a>Transactions - examples
 
-Two updates in a transaction.
+Two updates in a single transaction:
 ```dart
 var q = db.query();
 await db.startTransaction();
@@ -878,7 +1073,7 @@ await q.execute(
 await db.commit(); // commits both updates
 ```
 
-Rolling back changes.
+Rolling back changes:
 ```dart
 var q = db.query();
 await db.startTransaction();
@@ -889,7 +1084,30 @@ await q.execute(
 await db.rollback();
 ```
 
-You may also be interested in `example/fbdb/ex_03_transactions.dart` and `example/fbdb/ex_09_lock_wait.dart` (the latter shows also how to specify different transaction flags than the connection default ones).
+Two independent transactions:
+```dart
+final t1 = await db.newTransaction();
+final t2 = await db.newTransaction();
+
+db.execute(
+    sql: "delete from DEPARTMENT "
+        "where DEPARTMENT=? ",
+    parameters: ["Software Development"],
+    inTransaction: t1,
+);
+
+db.execute(
+    sql: "insert into DEPARTMENT (DEPARTMENT) ",
+        "values (?) ",
+    parameters: ["LLM"],
+    inTransaction: t2,
+);
+
+await t2.commit();
+await t1.rollback(); // we might need the developers after all
+```
+
+You may also be interested in `example/fbdb/ex_03_transactions.dart`, `example/fbdb/ex_09_lock_wait.dart` (the latter shows also how to specify different transaction flags than the connection default ones) and `example/fbdb/ex_13_concurrent_transactions.dart`. Please visit the [GitHub repository](https://github.com/hipercompl/fbdb/tree/main/example) and take a look.
 
 ##  6. <a name='Workingwithblobs'></a>Working with blobs
 Although *blob* stands for *binary large object*, there are blobs and there are blobs. Not all of them are actually "large" in terms of contemporary computers' memory.
@@ -995,6 +1213,17 @@ For larger blobs, or if you specifically need to fetch blob data in chunks / seg
         // it's up to you how you interpret the actual
         // bytes from the buffer
     }
+    ```
+    For example, to read a whole blob in segments and put all its conents inside an `int` array (the array would contain the blob contents byte-by-byte), you can write the following code:
+    ```dart
+    final contents = List<int>.empty(growable: true);
+    final blobStream = await db.openBlob(id: myBlobId);
+    await for (final segment in blobStream) {
+        // segment is a ByteBuffer instance, so you can
+        // view it as a list of integer byte values
+        contents.addAll(segment.asUint8List);
+    }
+    // now contents contains the whole blob, byte by byte
     ```
 6. As an alternative, if you wish to write the contents of the blob directly to a file, you can use a utility method:
     ```dart    

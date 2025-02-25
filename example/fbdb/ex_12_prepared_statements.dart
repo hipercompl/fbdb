@@ -11,7 +11,6 @@
 // Speedup: 46 %
 
 import "package:fbdb/fbdb.dart";
-import "ex_11_mem_benchmark.dart";
 import "ex_auth.dart";
 
 void main() async {
@@ -26,13 +25,13 @@ void main() async {
 
   FbDb? db;
   try {
-    print("Creating database ex_12.fdb ...");
+    print("Creating database /tmp/ex_12.fdb ...");
     // you may need to change the location of the database
     // and/or authentication data
     db = await FbDb.createDatabase(
       database: "/tmp/ex_12.fdb",
       user: userName,
-      password: password,
+      password: userPassword,
     );
     print("Database created.");
 
@@ -80,7 +79,7 @@ void main() async {
     print("Error detected: $e");
   } finally {
     if (db != null) {
-      print("Dropping database ex_12.fdb ...");
+      print("Dropping database /tmp/ex_12.fdb ...");
       await db.dropDatabase();
       print("Done.");
     }

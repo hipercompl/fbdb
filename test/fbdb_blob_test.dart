@@ -25,7 +25,7 @@ void main() async {
       }); // withNewDb1
     }); // test "Reading BLOB inline"
 
-    test("Readin BLOB in segments", () async {
+    test("Reading BLOB in segments", () async {
       await withNewDb1((db) async {
         final q = db.query();
         await db.startTransaction();
@@ -154,4 +154,64 @@ void main() async {
       }); // withNewDb1
     }); // test "Blob from/to file"
   }); // group "BLOB from/to file"
+
+  group("BLOBs in concurrent transactions", () {
+    test("Reading BLOB in segments in a concurrent transaction", () async {
+      await withNewDb1((db) async {
+        final q = db.query();
+        final t = await db.newTransaction();
+        await q.openCursor(
+          sql: "select B from T where PK_INT=1",
+          inlineBlobs: false,
+          inTransaction: t,
+        );
+        final row = await q.fetchOneAsMap();
+        expect(row, isNotNull);
+        await q.close();
+        if (row == null) {
+          return;
+        }
+        FbBlobId blobId = row["B"];
+        final data = List<int>.empty(growable: true);
+        await for (var segment
+            in await db.openBlob(id: blobId, inTransaction: t)) {
+          data.addAll(Uint8List.view(segment));
+        }
+        await t.commit();
+        expect(data, equals([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]));
+      }); // withNewDb1
+    }); // test "Reading BLOB in segments in a concurrent transaction"
+
+    test("Writing BLOB in segments in a concurrent transaction", () async {
+      await withNewDb1((db) async {
+        final data = Uint8List.fromList([10, 9, 8, 7, 6, 5, 4, 3, 2, 1]);
+        // divide data into 2 segments
+        final seg1 = data.sublist(0, 5);
+        final seg2 = data.sublist(5);
+        final t = await db.newTransaction();
+        final blobId = await db.createBlob(inTransaction: t);
+        // put each segment separately
+        await db.putBlobSegment(id: blobId, data: seg1.buffer);
+        await db.putBlobSegment(id: blobId, data: seg2.buffer);
+        await db.closeBlob(id: blobId);
+
+        final q = db.query();
+        await q.execute(
+          sql: "insert into T(PK_INT, B) values(?, ?)",
+          parameters: [4, blobId],
+          inTransaction: t,
+        );
+        final ar = await q.affectedRows();
+        expect(ar, equals(1));
+        await t.commit();
+
+        await q.openCursor(sql: "select B from T where PK_INT=4");
+        final row = await q.fetchOneAsList();
+        expect(row, isNotNull);
+        final dataBack = Uint8List.view(row?[0]);
+        await q.close();
+        expect(dataBack, equals(data));
+      }); // withNewDb1
+    }); // test "Reading BLOB in segments in a concurrent transaction"
+  }); // group "BLOBs in concurrent transactions"
 }

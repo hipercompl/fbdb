@@ -1,3 +1,12 @@
+## 1.4.0
+
+- Implemented multiple concurrent transactions. The [FbDb Programmer's Guide](https://github.com/hipercompl/fbdb/blob/main/doc/fbdb_guide.md) has been updated accordingly (section 5.4 added), a new example has also been added: [`examples/fbdb/ex_13_concurrent_transactions.dart`](https://github.com/hipercompl/fbdb/blob/main/example/fbdb/ex_13_concurrent_transactions.dart).
+- Added a section in [FbDb Programmer's Guide](https://github.com/hipercompl/fbdb/blob/main/doc/fbdb_guide.md) on how to use fbdb with stored procedures (section 4.7).
+- Added a section (section 4.8) in [FbDb Programmer's Guide](https://github.com/hipercompl/fbdb/blob/main/doc/fbdb_guide.md) on how to process DML queries with the `RETURNING` clause (i.e. queries that modify and return data at the same time).
+- Added some more information in [FbDb Programmer's Guide](https://github.com/hipercompl/fbdb/blob/main/doc/fbdb_guide.md) (in section 6.2) about retrieving blobs in segments (inspired by [issue #9](https://github.com/hipercompl/fbdb/issues/9)).
+- Changed the return type of `FbDb.selectAll` to be non-nullable (i.e. `List<Map<String, dynamic>>` instead of `List<Map<String, dynamic>>?`). Although it is not a *breaking change* (and therefore does not justify bumping the version number to 2.0.0), it may cause some linting hints about unneccessary null checks if the list returned by `selectAll` was explicitly checked against null in client code.
+- Added some convenient aliases for `FbQuery` methods: `fetch` is an alias for `fetchAsMaps`, `fetchOne` is an alias for `fetchOneAsMap`, `fetchAll` is an alias for `fetchAllAsMaps` and `getOutput` is an alias for `getOutputAsMap`. Since getting data from queries as maps seems to be the most frequently used way, the aliases may make the client code more concise and elegant.
+
 ## 1.3.4
 
 - No actual code changes. Version bumped to force re-analysis of the package at pub.dev (code analysis of 1.3.3 at pub.dev broke, resulting in "platforms unknown" and incomplete README at the landing page).
@@ -16,7 +25,7 @@
 
 ## 1.3.0
 
-- Implemented prepared statements. Now you can prepare a query once, and then execute it multiple times, with different values passed as parameters each time (see section 4.6 of the [FbDb Programmers Guide](https://github.com/hipercompl/fbdb/blob/main/doc/fbdb_guide.md) for more details and an example).
+- Implemented prepared statements. Now you can prepare a query once, and then execute it multiple times, with different values passed as parameters each time (see section 4.6 of the [FbDb Programmer's Guide](https://github.com/hipercompl/fbdb/blob/main/doc/fbdb_guide.md) for more details and an example).
 
 ## 1.2.2
 
