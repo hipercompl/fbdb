@@ -103,6 +103,10 @@ void main() async {
       sql: "select * from CRITICAL_DATA order by ID",
     );
     for (final r in rows) {
+      // should print changed values,
+      // because t1 and t2 have been committed,
+      // rolling back mutexTransaction should have no effect
+      // on queries executed in contexts of t1 and t2
       print(r);
     }
   } catch (e) {
