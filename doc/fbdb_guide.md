@@ -1000,7 +1000,7 @@ await t1.commit();
 await t2.rollback();
 ```
 
-Having two independent active transactions gives you the flexibility to execute some statements in the context of one transaction, and other statements in the context of the other one. Next, you may commit one while rollin back the other (or commit both, or roll both back - depending on your business logic). It is not possible to achieve the same result with just one transaction active at any given moment.
+Having two independent active transactions gives you the flexibility to execute some statements in the context of one transaction, and other statements in the context of the other one. Next, you may commit one while rolling back the other (or commit both, or roll both back - depending on your business logic). It is not possible to achieve the same result with just one transaction active at any given moment.
 
 As was mentioned at the beginning of this section: multiple concurrent transactions are a tool for specific scenarios, in many cases there's no need to complicate the client code by explicitly creating and maintaining transaction objects.
 
