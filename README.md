@@ -149,14 +149,16 @@ If you need specific commercial support of FbDb, please contact the author (fbdb
 ###  4.4. <a name='Roadmap'></a>Roadmap
 The following features are planned for the future releases of FbDb:
 
-- ~~backward compatibility with Firebird 3.0 client library~~ *implemented in version 1.1*,
-- ~~more utility methods, similar to selectOne / selectAll (to save typing)~~ *implemented in version 1.2*,
-- ~~multiple explicit concurrent transactions~~ *implemented in version 1.4*,
-- ~~prepared statements optimized for multiple executions~~ *implemented in version 1.3*,
-- support for time with time zone and timestamp with time zone data types,
-- abstractions for metadata querying (table structure, constraints, indices, relationships, etc.),
-- support for Firebird array types,
-- high-level API for Firebird service manager,
-- high-level API for Firebird events,
-- abstractions for server / database statistics,
-- implementation of the Firebird wire protocol to use FbDb without the native client libraries.
+|Feature|Status|Implemented in|
+|-------|:----:|:----------:|
+|Backward compatibility with Firebird 3.0 client library.|✅|1.1|
+|More utility methods, similar to selectOne / selectAll (to save typing)|✅|1.2|
+|Prepared statements optimized for multiple executions.|✅|1.3|
+|Multiple explicit concurrent transactions.|✅|1.4|
+|Support for time with time zone and timestamp with time zone data types|☐||
+|Abstractions for metadata querying (table structure, constraints, indices, relationships, etc.).|☐||
+|Support for Firebird array types.|☐||
+|High-level API for Firebird service manager.|☐||
+|High-level API for Firebird events.|☐||
+|Abstractions for server / database statistics.|☐||
+|Implementation of the Firebird wire protocol to use FbDb without the native client libraries.|☐||
