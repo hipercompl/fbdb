@@ -30,7 +30,7 @@ topics:
 test_on: vm
 
 environment:
-  sdk: ^3.2.0
+  sdk: ^3.7.0
 
 dependencies:
   ffi: ^2.1.0
