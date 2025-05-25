@@ -17,3 +17,4 @@ export "src/fbdb/fbdb.dart";
 export "src/fbclient/fbconsts.dart";
 export "src/fbclient/types.dart";
 export "src/fbclient/mem.dart";
+export "src/fbdb/fbdatetime.dart";

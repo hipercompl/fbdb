@@ -1,3 +1,8 @@
+## 1.5.0
+- Upgraded Dart SDK to 3.8.0 and all dependencies to their current versions.
+- Added support for the `TIME WITH TIME ZONE` and `TIMESTAMP WITH TIME ZONE`
+  Firebird data types. Please refer to the [FbDb Programmer's Guide](https://github.com/hipercompl/fbdb/blob/main/doc/fbdb_guide.md) section x.x for more details.
+
 ## 1.4.0
 
 - Implemented multiple concurrent transactions. The [FbDb Programmer's Guide](https://github.com/hipercompl/fbdb/blob/main/doc/fbdb_guide.md) has been updated accordingly (section 5.4 added), a new example has also been added: [`examples/fbdb/ex_13_concurrent_transactions.dart`](https://github.com/hipercompl/fbdb/blob/main/example/fbdb/ex_13_concurrent_transactions.dart).

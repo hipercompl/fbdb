@@ -6,6 +6,7 @@ import "dart:typed_data";
 import "dart:convert";
 import "package:fbdb/fbdb.dart";
 import "package:fbdb/fbclient.dart";
+import "package:ffi/ffi.dart";
 
 /// The native Firebird client loader and bindings.
 late FbClient client;
@@ -143,10 +144,10 @@ class FbDbWorker {
   /// Private constructor, so that no foreign code can instantiate
   /// the worker.
   FbDbWorker._init(this.fromMain)
-      : status = master.getStatus(),
-        activeQueries = {},
-        activeBlobs = {},
-        _activeTransactions = {};
+    : status = master.getStatus(),
+      activeQueries = {},
+      activeBlobs = {},
+      _activeTransactions = {};
 
   /// Release the memory resources used by this worker object.
   void _release() {
@@ -173,8 +174,10 @@ class FbDbWorker {
           }
         } on FbStatusException catch (se) {
           // encapsulate the exception and send it to the main isolate
-          _sendErrorResp((msg as FbDbControlMessage).resultPort,
-              FbServerException.fromStatus(se.status, util: util));
+          _sendErrorResp(
+            (msg as FbDbControlMessage).resultPort,
+            FbServerException.fromStatus(se.status, util: util),
+          );
         } catch (e) {
           // encapsulate the exception and send it to the main isolate
           _sendErrorResp((msg as FbDbControlMessage).resultPort, e);
@@ -234,7 +237,8 @@ class FbDbWorker {
         await _prepareQuery(msg);
       default:
         throw FbClientException(
-            "FbDbWorker operation not supported: ${msg.op.name}");
+          "FbDbWorker operation not supported: ${msg.op.name}",
+        );
     }
     return true; // continue the message loop
   }
@@ -304,8 +308,10 @@ class FbDbWorker {
       _tpbLength = 0;
     }
     if (options != null && !options.transactionFlagsDefault()) {
-      final (tpb, tpbLength) =
-          _prepareTpb(options.transactionFlags, options.lockTimeout);
+      final (tpb, tpbLength) = _prepareTpb(
+        options.transactionFlags,
+        options.lockTimeout,
+      );
       _tpb = tpb;
       _tpbLength = tpbLength;
     }
@@ -350,6 +356,17 @@ class FbDbWorker {
     }
     if (params.containsKey("role")) {
       dpb.insertString(status, FbConsts.isc_dpb_sql_role_name, params["role"]);
+    }
+    // Bind time zone to extended representation (to receive
+    // ISC_TIME_TZ_EX instead of ISC_TIME_TZ and ISC_TIMESTAMP_TZ_EX
+    // instead of ISC_TIMESTAMP_TZ).
+    // This feature is requires Firebird version >= 4.0.
+    if (util.getClientVersion() >= 0x400) {
+      dpb.insertString(
+        status,
+        FbConsts.isc_dpb_set_bind,
+        "TIME ZONE TO EXTENDED",
+      );
     }
     return dpb;
   }
@@ -558,12 +575,7 @@ class FbDbWorker {
     try {
       final q = FbDbQueryWorker(fromMain, this);
       activeQueries[q.hashCode] = q;
-      final (
-        sql,
-        params,
-        inlineBlobs,
-        withTransaction,
-      ) = _extractExecData(msg);
+      final (sql, params, inlineBlobs, withTransaction) = _extractExecData(msg);
       await q._exec(
         sql,
         params,
@@ -585,12 +597,7 @@ class FbDbWorker {
     try {
       final q = FbDbQueryWorker(queryFromMain, this);
       activeQueries[q.hashCode] = q;
-      final (
-        sql,
-        params,
-        inlineBlobs,
-        withTransaction,
-      ) = _extractExecData(msg);
+      final (sql, params, inlineBlobs, withTransaction) = _extractExecData(msg);
       await q._exec(
         sql,
         params,
@@ -612,8 +619,9 @@ class FbDbWorker {
       throw FbClientException("No SQL statement provided");
     }
     String sql = msg.data[0];
-    ITransaction? tra =
-        msg.data.length > 1 ? getActiveTransaction(msg.data[1]) : null;
+    ITransaction? tra = msg.data.length > 1
+        ? getActiveTransaction(msg.data[1])
+        : null;
     final fromMain = ReceivePort();
     try {
       final q = FbDbQueryWorker(fromMain, this);
@@ -632,8 +640,9 @@ class FbDbWorker {
     if (attachment == null) {
       throw FbClientException("No active attachment");
     }
-    ITransaction? tra =
-        msg.data.isNotEmpty ? getActiveTransaction(msg.data[0]) : transaction;
+    ITransaction? tra = msg.data.isNotEmpty
+        ? getActiveTransaction(msg.data[0])
+        : transaction;
     if (tra == null) {
       throw FbClientException("No active transaction");
     }
@@ -661,8 +670,9 @@ class FbDbWorker {
     if (attachment == null) {
       throw FbClientException("No active attachment");
     }
-    ITransaction? tra =
-        msg.data.length > 1 ? getActiveTransaction(msg.data[1]) : transaction;
+    ITransaction? tra = msg.data.length > 1
+        ? getActiveTransaction(msg.data[1])
+        : transaction;
     if (tra == null) {
       throw FbClientException("No active transaction");
     }
@@ -762,7 +772,8 @@ class FbDbWorker {
   /// - inline blobs flag
   /// - custom transaction hash
   (String, List<dynamic>, bool, ITransaction?) _extractExecData(
-      FbDbControlMessage msg) {
+    FbDbControlMessage msg,
+  ) {
     if (msg.data.isEmpty) {
       throw FbClientException("No SQL statement provided");
     }
@@ -770,8 +781,9 @@ class FbDbWorker {
     List<dynamic> params =
         (msg.data.length > 1 ? msg.data[1] : const []) ?? const [];
     bool inlineBlobs = (msg.data.length > 2 ? msg.data[2] : true) ?? true;
-    ITransaction? t =
-        (msg.data.length > 3 ? getActiveTransaction(msg.data[3]) : null);
+    ITransaction? t = (msg.data.length > 3
+        ? getActiveTransaction(msg.data[3])
+        : null);
     return (sql, params, inlineBlobs, t);
   }
 
@@ -902,8 +914,10 @@ class FbDbQueryWorker {
           }
         } on FbStatusException catch (se) {
           // encapsulate the exception and send it to the main isolate
-          db._sendErrorResp((msg as FbDbControlMessage).resultPort,
-              FbServerException.fromStatus(se.status, util: util));
+          db._sendErrorResp(
+            (msg as FbDbControlMessage).resultPort,
+            FbServerException.fromStatus(se.status, util: util),
+          );
         } catch (e) {
           // encapsulate the exception and send it to the main isolate
           db._sendErrorResp((msg as FbDbControlMessage).resultPort, e);
@@ -949,7 +963,8 @@ class FbDbQueryWorker {
 
         default:
           throw FbClientException(
-              "FbDbQueryWorker operation not supported: ${msg.op.name}");
+            "FbDbQueryWorker operation not supported: ${msg.op.name}",
+          );
       }
     } on FbStatusException catch (se) {
       db._sendErrorResp(
@@ -1067,14 +1082,17 @@ class FbDbQueryWorker {
       }
     }
     if (r == IStatus.resultOK) {
-      final FbRowFormat format =
-          msg.data.isNotEmpty ? msg.data[0] : FbRowFormat.asMap;
+      final FbRowFormat format = msg.data.isNotEmpty
+          ? msg.data[0]
+          : FbRowFormat.asMap;
       final values = _getRowValues(_outMsg);
       if (format == FbRowFormat.asList) {
         db._sendSuccessResp(msg.resultPort, [values]);
       } else {
-        final rec =
-            Map<String, dynamic>.fromIterables(_fieldNames ?? [], values);
+        final rec = Map<String, dynamic>.fromIterables(
+          _fieldNames ?? [],
+          values,
+        );
         db._sendSuccessResp(msg.resultPort, rec);
       }
     } else {
@@ -1092,10 +1110,13 @@ class FbDbQueryWorker {
     if (_type == FbDbQueryType.withoutCursor) {
       db.status.init();
       db._sendSuccessResp(
-          msg.resultPort, _statement?.getAffectedRecords(db.status) ?? 0);
+        msg.resultPort,
+        _statement?.getAffectedRecords(db.status) ?? 0,
+      );
     } else {
       throw FbClientException(
-          "affectedRows not available: no active DML query");
+        "affectedRows not available: no active DML query",
+      );
     }
   }
 
@@ -1110,8 +1131,9 @@ class FbDbQueryWorker {
     if (_type != FbDbQueryType.withoutCursor) {
       throw FbClientException("No output data available for the query");
     }
-    final FbRowFormat format =
-        msg.data.isNotEmpty ? msg.data[0] : FbRowFormat.asMap;
+    final FbRowFormat format = msg.data.isNotEmpty
+        ? msg.data[0]
+        : FbRowFormat.asMap;
     final values = _getRowValues(_outMsg);
     if (format == FbRowFormat.asList) {
       db._sendSuccessResp(msg.resultPort, values);
@@ -1130,8 +1152,9 @@ class FbDbQueryWorker {
       msg.data[0],
       allocCursor: false,
       inlineBlobs: msg.data[1],
-      withTransaction:
-          (msg.data.length > 2 ? db.getActiveTransaction(msg.data[2]) : null),
+      withTransaction: (msg.data.length > 2
+          ? db.getActiveTransaction(msg.data[2])
+          : null),
     );
     db._sendSuccessResp(msg.resultPort);
   }
@@ -1145,8 +1168,9 @@ class FbDbQueryWorker {
       msg.data[0],
       allocCursor: true,
       inlineBlobs: msg.data[1],
-      withTransaction:
-          (msg.data.length > 2 ? db.getActiveTransaction(msg.data[2]) : null),
+      withTransaction: (msg.data.length > 2
+          ? db.getActiveTransaction(msg.data[2])
+          : null),
     );
     db._sendSuccessResp(msg.resultPort);
   }
@@ -1176,7 +1200,8 @@ class FbDbQueryWorker {
     _closeStatement();
     if (db.attachment == null) {
       throw FbClientException(
-          "No active database connection associated with the query object");
+        "No active database connection associated with the query object",
+      );
     }
     ITransaction? tra = withTransaction ?? db.transaction;
     bool ownTransaction = false;
@@ -1192,12 +1217,13 @@ class FbDbQueryWorker {
       }
       db.status.init();
       _statement = db.attachment?.prepare(
-          db.status,
-          tra,
-          sql,
-          FbConsts.sqlDialectCurrent,
-          IStatement.preparePrefetchMetadata |
-              IStatement.preparePrefetchAffectedRecords);
+        db.status,
+        tra,
+        sql,
+        FbConsts.sqlDialectCurrent,
+        IStatement.preparePrefetchMetadata |
+            IStatement.preparePrefetchAffectedRecords,
+      );
     } finally {
       if (ownTransaction) {
         tra?.commit(db.status);
@@ -1240,7 +1266,8 @@ class FbDbQueryWorker {
   void _putQueryParams(Pointer<Uint8> msg, List<dynamic> params) {
     if (_inputMetadata == null) {
       throw FbClientException(
-          "Cannot parametrize query - no input metadata available");
+        "Cannot parametrize query - no input metadata available",
+      );
     }
     final totalLen = _inputMetadata!.getMessageLength(db.status);
     msg.setAllBytes(totalLen, 0);
@@ -1253,7 +1280,8 @@ class FbDbQueryWorker {
   List<dynamic> _getRowValues(Pointer<Uint8> msg) {
     if (_outputMetadata == null) {
       throw FbClientException(
-          "Cannot access row data - no output metadata available");
+        "Cannot access row data - no output metadata available",
+      );
     }
     final List<dynamic> res = [];
     int colCount = _outputMetadata?.getCount(db.status) ?? 0;
@@ -1372,7 +1400,8 @@ class FbDbQueryWorker {
     if (value == null) {
       if (!meta.isNullable(status, index)) {
         throw FbClientException(
-            "Parameter at index $index is not nullable (null requested)");
+          "Parameter at index $index is not nullable (null requested)",
+        );
       }
       msg.writeUint16(nullOffset, 1); // null value
       return;
@@ -1398,13 +1427,17 @@ class FbDbQueryWorker {
 
       case FbConsts.SQL_SHORT:
       case FbConsts.SQL_SHORT + 1:
-        msg.writeInt16(offset,
-            scale != 0 ? _scaled(value, scale) : (value as num).toInt());
+        msg.writeInt16(
+          offset,
+          scale != 0 ? _scaled(value, scale) : (value as num).toInt(),
+        );
 
       case FbConsts.SQL_LONG:
       case FbConsts.SQL_LONG + 1:
-        msg.writeInt32(offset,
-            scale != 0 ? _scaled(value, scale) : (value as num).toInt());
+        msg.writeInt32(
+          offset,
+          scale != 0 ? _scaled(value, scale) : (value as num).toInt(),
+        );
 
       case FbConsts.SQL_FLOAT:
       case FbConsts.SQL_FLOAT + 1:
@@ -1436,8 +1469,10 @@ class FbDbQueryWorker {
 
       case FbConsts.SQL_INT64:
       case FbConsts.SQL_INT64 + 1:
-        msg.writeInt64(offset,
-            scale != 0 ? _scaled(value, scale) : (value as num).toInt());
+        msg.writeInt64(
+          offset,
+          scale != 0 ? _scaled(value, scale) : (value as num).toInt(),
+        );
 
       case FbConsts.SQL_INT128:
       case FbConsts.SQL_INT128 + 1:
@@ -1447,13 +1482,17 @@ class FbDbQueryWorker {
       case FbConsts.SQL_TIMESTAMP_TZ + 1:
         _putTimestampTZ(status, msg, offset, value);
 
+      case FbConsts.SQL_TIMESTAMP_TZ_EX:
+      case FbConsts.SQL_TIMESTAMP_TZ_EX + 1:
+        _putTimestampTZEx(status, msg, offset, value);
+
       case FbConsts.SQL_TIME_TZ:
       case FbConsts.SQL_TIME_TZ + 1:
         _putTimeTZ(status, msg, offset, value);
 
-      // note: SQL_TIME_TZ_EX and SQL_TIMESTAMP_TZ_EX shouldn't appear
-      // in input message, because IUtil doesn't provide encoding
-      // methods for them, only decoding ones
+      case FbConsts.SQL_TIME_TZ_EX:
+      case FbConsts.SQL_TIME_TZ_EX + 1:
+        _putTimeTZEx(status, msg, offset, value);
 
       case FbConsts.SQL_DEC16:
       case FbConsts.SQL_DEC16 + 1:
@@ -1472,7 +1511,8 @@ class FbDbQueryWorker {
 
       default:
         throw FbClientException(
-            "Firebird data type (code $type) not implemented");
+          "Firebird data type (code $type) not implemented",
+        );
     }
   }
 
@@ -1483,8 +1523,14 @@ class FbDbQueryWorker {
   /// For character set OCTETS the string is padded with 0x00, for all other
   /// character sets it's padded with 0x20 (spaces).
   /// See https://groups.google.com/g/firebird-support/c/06aNT1ZieOk
-  void _putChar(Pointer<Uint8> msg, int offset, String value, int length,
-      IMessageMetadata meta, int index) {
+  void _putChar(
+    Pointer<Uint8> msg,
+    int offset,
+    String value,
+    int length,
+    IMessageMetadata meta,
+    int index,
+  ) {
     var encoded = utf8.encode(value);
     Uint8List toWrite;
     if (encoded.length < length) {
@@ -1502,66 +1548,123 @@ class FbDbQueryWorker {
   }
 
   /// Puts date part from [dt] into the message [msg] at offset [offset].
-  void _putDate(
-    Pointer<Uint8> msg,
-    int offset,
-    DateTime dt,
-  ) {
-    int encoded = util.encodeDate(dt.year, dt.month, dt.day);
+  void _putDate(Pointer<Uint8> msg, int offset, DateTime dt) {
+    int encoded;
+    if (dt is FbDateTimeTZ) {
+      encoded = util.encodeDate(dt.db.year, dt.db.month, dt.db.day);
+    } else {
+      encoded = util.encodeDate(dt.year, dt.month, dt.day);
+    }
     msg.writeInt32(offset, encoded);
   }
 
   /// Puts time part from [dt] into the message [msg] at offset [offset].
-  void _putTime(
-    Pointer<Uint8> msg,
-    int offset,
-    DateTime dt,
-  ) {
-    int encoded = util.encodeTime(dt.hour, dt.minute, dt.second,
-        dt.millisecond * 10 + dt.microsecond ~/ 100);
+  void _putTime(Pointer<Uint8> msg, int offset, DateTime dt) {
+    int encoded;
+    if (dt is FbDateTimeTZ) {
+      encoded = util.encodeTime(
+        dt.db.hour,
+        dt.db.minute,
+        dt.db.second,
+        dt.db.millisecond * 10 + dt.db.tenthMillisecond,
+      );
+    } else {
+      encoded = util.encodeTime(
+        dt.hour,
+        dt.minute,
+        dt.second,
+        dt.millisecond * 10 + dt.microsecond ~/ 100,
+      );
+    }
     msg.writeUint32(offset, encoded);
   }
 
   /// Puts time part from [dt] into the message [msg] at offset [offset].
   ///
   /// Appends time zone info.
-  void _putTimeTZ(
-    IStatus status,
-    Pointer<Uint8> msg,
-    int offset,
-    DateTime dt,
-  ) {
+  void _putTimeTZ(IStatus status, Pointer<Uint8> msg, int offset, DateTime dt) {
     final Pointer<IscTimeTz> t = _getInternalBuffer();
-    try {
+    if (dt is FbDateTimeTZ) {
+      util.encodeTimeTz(
+        status,
+        t,
+        dt.db.hour,
+        dt.db.minute,
+        dt.db.second,
+        dt.db.millisecond * 10 + dt.db.tenthMillisecond,
+        dt.db.timeZone,
+      );
+    } else {
       util.encodeTimeTz(
         status,
         t,
         dt.hour,
         dt.minute,
         dt.second,
-        dt.millisecond + dt.microsecond ~/ 100,
+        dt.millisecond * 10 + dt.microsecond ~/ 100,
         dt.timeZoneName,
       );
-      msg.fromNativeMem(t, sizeOf<IscTimeTz>(), 0, offset);
-    } finally {
-      IscTimeTz.free(t);
     }
+    msg.fromNativeMem(t, sizeOf<IscTimeTz>(), 0, offset);
   }
 
-  /// Puts date and time from [dt] into the message [msg] at offset [offset].
-  void _putTimestamp(
+  /// Puts time part from [dt] into the message [msg] at offset [offset].
+  ///
+  /// Appends time zone info. Uses the extended ISC timestamp structure,
+  /// setting the time zone offset in its extOffset field.
+  void _putTimeTZEx(
+    IStatus status,
     Pointer<Uint8> msg,
     int offset,
     DateTime dt,
   ) {
+    final Pointer<IscTimeTzEx> t = _getInternalBuffer();
+    if (dt is FbDateTimeTZ) {
+      util.encodeTimeTz(
+        status,
+        t.cast(),
+        dt.db.hour,
+        dt.db.minute,
+        dt.db.second,
+        dt.db.millisecond * 10 + dt.db.tenthMillisecond,
+        dt.db.timeZone,
+      );
+      t.ref.extOffset = dt.db.timeZoneOffset.inMinutes;
+    } else {
+      util.encodeTimeTz(
+        status,
+        t.cast(),
+        dt.hour,
+        dt.minute,
+        dt.second,
+        dt.millisecond * 10 + dt.microsecond ~/ 100,
+        dt.timeZoneName,
+      );
+      t.ref.extOffset = dt.timeZoneOffset.inMinutes;
+    }
+    msg.fromNativeMem(t, sizeOf<IscTimeTz>(), 0, offset);
+  }
+
+  /// Puts date and time from [dt] into the message [msg] at offset [offset].
+  void _putTimestamp(Pointer<Uint8> msg, int offset, DateTime dt) {
     final Pointer<IscTimestamp> ts = _getInternalBuffer();
-    ts.ref.date = util.encodeDate(dt.year, dt.month, dt.day);
-    ts.ref.time = util.encodeTime(
-      dt.hour,
-      dt.minute,
-      dt.second,
-      dt.millisecond * 10 + dt.microsecond ~/ 100,
-    );
+    if (dt is FbDateTimeTZ) {
+      ts.ref.date = util.encodeDate(dt.db.year, dt.db.month, dt.db.day);
+      ts.ref.time = util.encodeTime(
+        dt.db.hour,
+        dt.db.minute,
+        dt.db.second,
+        dt.db.millisecond * 10 + dt.db.tenthMillisecond,
+      );
+    } else {
+      ts.ref.date = util.encodeDate(dt.year, dt.month, dt.day);
+      ts.ref.time = util.encodeTime(
+        dt.hour,
+        dt.minute,
+        dt.second,
+        dt.millisecond * 10 + dt.microsecond ~/ 100,
+      );
+    }
     msg.fromNativeMem(ts, sizeOf<IscTimestamp>(), 0, offset);
   }
 
@@ -1575,18 +1678,76 @@ class FbDbQueryWorker {
     DateTime dt,
   ) {
     final Pointer<IscTimestampTz> ts = _getInternalBuffer();
-    util.encodeTimeStampTz(
-      status,
-      ts,
-      dt.year,
-      dt.month,
-      dt.day,
-      dt.hour,
-      dt.minute,
-      dt.second,
-      dt.millisecond + dt.microsecond ~/ 100,
-      dt.timeZoneName,
-    );
+    if (dt is FbDateTimeTZ) {
+      util.encodeTimeStampTz(
+        status,
+        ts,
+        dt.db.year,
+        dt.db.month,
+        dt.db.day,
+        dt.db.hour,
+        dt.db.minute,
+        dt.db.second,
+        dt.db.millisecond * 10 + dt.db.tenthMillisecond,
+        dt.db.timeZone,
+      );
+    } else {
+      util.encodeTimeStampTz(
+        status,
+        ts,
+        dt.year,
+        dt.month,
+        dt.day,
+        dt.hour,
+        dt.minute,
+        dt.second,
+        dt.millisecond * 10 + dt.microsecond ~/ 100,
+        dt.timeZoneName,
+      );
+    }
+    msg.fromNativeMem(ts, sizeOf<IscTimestampTz>(), 0, offset);
+  }
+
+  /// Puts date and time from [dt] into the message [msg] at offset [offset].
+  ///
+  /// Appends time zone info. Uses the extended ISC timestamp structure,
+  /// setting the time zone offset in its extOffset field.
+  void _putTimestampTZEx(
+    IStatus status,
+    Pointer<Uint8> msg,
+    int offset,
+    DateTime dt,
+  ) {
+    final Pointer<IscTimestampTzEx> ts = _getInternalBuffer();
+    if (dt is FbDateTimeTZ) {
+      util.encodeTimeStampTz(
+        status,
+        ts.cast(),
+        dt.db.year,
+        dt.db.month,
+        dt.db.day,
+        dt.db.hour,
+        dt.db.minute,
+        dt.db.second,
+        dt.db.millisecond * 10 + dt.db.tenthMillisecond,
+        dt.db.timeZone,
+      );
+      ts.ref.extOffset = dt.db.timeZoneOffset.inMinutes;
+    } else {
+      util.encodeTimeStampTz(
+        status,
+        ts.cast(),
+        dt.year,
+        dt.month,
+        dt.day,
+        dt.hour,
+        dt.minute,
+        dt.second,
+        dt.millisecond * 10 + dt.microsecond ~/ 100,
+        dt.timeZoneName,
+      );
+      ts.ref.extOffset = dt.timeZoneOffset.inMinutes;
+    }
     msg.fromNativeMem(ts, sizeOf<IscTimestampTz>(), 0, offset);
   }
 
@@ -1652,7 +1813,12 @@ class FbDbQueryWorker {
   /// from optimal in terms of efficiency. Will be re-implemented in future
   /// versions.
   void _putInt128(
-      IStatus status, Pointer<Uint8> msg, int offset, double value, int scale) {
+    IStatus status,
+    Pointer<Uint8> msg,
+    int offset,
+    double value,
+    int scale,
+  ) {
     // Current implementation converts the double value to string
     // and then uses Int128 interface to convert the string to
     // the int128-backed scaled value.
@@ -1729,7 +1895,9 @@ class FbDbQueryWorker {
         while (stored < toStore) {
           final chunkSize = min(toStore - stored, _internalBufferSize);
           blobBuf.fromDartMem(
-              binData.asUint8List(stored, chunkSize), chunkSize);
+            binData.asUint8List(stored, chunkSize),
+            chunkSize,
+          );
           blob.putSegment(db.status, chunkSize, blobBuf);
           stored += chunkSize;
         }
@@ -1826,9 +1994,6 @@ class FbDbQueryWorker {
 
       case FbConsts.SQL_TIMESTAMP_TZ:
       case FbConsts.SQL_TIMESTAMP_TZ + 1:
-        // for now timestamp with TZ ignores the time zone,
-        // because Dart's DateTime class doesn't allow setting
-        // arbitrary time zones
         return _getTimestampTZ(status, msg, offset);
 
       case FbConsts.SQL_TIME_TZ:
@@ -1860,7 +2025,8 @@ class FbDbQueryWorker {
 
       default:
         throw FbClientException(
-            "Firebird data type (code $type) not implemented");
+          "Firebird data type (code $type) not implemented",
+        );
     }
   }
 
@@ -1936,7 +2102,8 @@ class FbDbQueryWorker {
   ByteBuffer _getBlob(Pointer<Uint8> msg, int offset) {
     if (_transaction == null) {
       throw FbClientException(
-          "Cannot retrieve blobs outside transaction context");
+        "Cannot retrieve blobs outside transaction context",
+      );
     }
     Pointer<IscQuad> blobId = (msg + offset).cast();
     IBlob? blob = db.attachment?.openBlob(db.status, _transaction!, blobId);
@@ -1951,8 +2118,8 @@ class FbDbQueryWorker {
       // The first sizeOf<UnsignedInt> bytes are used by segmentLength,
       // the rest of the internal buffer constitute blobBuf.
       Pointer<UnsignedInt> segmentLength = _getInternalBuffer().cast();
-      Pointer<Uint8> blobBuf =
-          (_getInternalBuffer() + sizeOf<UnsignedInt>()).cast();
+      Pointer<Uint8> blobBuf = (_getInternalBuffer() + sizeOf<UnsignedInt>())
+          .cast();
       int maxCnt = _internalBufferSize - sizeOf<UnsignedInt>();
       for (;;) {
         final rc = blob.getSegment(db.status, maxCnt, blobBuf, segmentLength);
@@ -2003,18 +2170,18 @@ class FbDbQueryWorker {
   DateTime _getTimestampTZ(IStatus status, Pointer<Uint8> msg, int offset) {
     Pointer<UnsignedInt> ts = _getInternalBuffer();
     util.decodeTimeStampTz(
-        status,
-        (msg + offset).cast(),
-        ts, // year
-        (ts + sizeOf<UnsignedInt>()).cast(), // month
-        (ts + 2 * sizeOf<UnsignedInt>()).cast(), // day
-        (ts + 3 * sizeOf<UnsignedInt>()).cast(), // hours
-        (ts + 4 * sizeOf<UnsignedInt>()).cast(), // minutes
-        (ts + 5 * sizeOf<UnsignedInt>()).cast(), // seconds
-        (ts + 6 * sizeOf<UnsignedInt>()).cast(), // fractions
-        0, // timeZoneBufferLength
-        nullptr // timeZoneBuffer
-        );
+      status,
+      (msg + offset).cast(),
+      ts, // year
+      (ts + sizeOf<UnsignedInt>()).cast(), // month
+      (ts + 2 * sizeOf<UnsignedInt>()).cast(), // day
+      (ts + 3 * sizeOf<UnsignedInt>()).cast(), // hours
+      (ts + 4 * sizeOf<UnsignedInt>()).cast(), // minutes
+      (ts + 5 * sizeOf<UnsignedInt>()).cast(), // seconds
+      (ts + 6 * sizeOf<UnsignedInt>()).cast(), // fractions
+      0, // timeZoneBufferLength
+      nullptr, // timeZoneBuffer
+    );
 
     return DateTime(
       ts[0], // year
@@ -2035,29 +2202,34 @@ class FbDbQueryWorker {
   /// the timestamp.
   DateTime _getTimestampTZEx(IStatus status, Pointer<Uint8> msg, int offset) {
     Pointer<UnsignedInt> ts = _getInternalBuffer();
+    final soui = sizeOf<UnsignedInt>();
     util.decodeTimeStampTzEx(
-        status,
-        (msg + offset).cast(),
-        ts, // year
-        (ts + sizeOf<UnsignedInt>()).cast(), // month
-        (ts + 2 * sizeOf<UnsignedInt>()).cast(), // day
-        (ts + 3 * sizeOf<UnsignedInt>()).cast(), // hours
-        (ts + 4 * sizeOf<UnsignedInt>()).cast(), // minutes
-        (ts + 5 * sizeOf<UnsignedInt>()).cast(), // seconds
-        (ts + 6 * sizeOf<UnsignedInt>()).cast(), // fractions
-        0, // timeZoneBufferLength
-        nullptr // timeZoneBuffer
-        );
+      status,
+      (msg + offset).cast(),
+      ts, // year
+      (ts + soui).cast(), // month
+      (ts + 2 * soui).cast(), // day
+      (ts + 3 * soui).cast(), // hours
+      (ts + 4 * soui).cast(), // minutes
+      (ts + 5 * soui).cast(), // seconds
+      (ts + 6 * soui).cast(), // fractions
+      _internalBufferSize - 7 * soui, // timeZoneBufferLength
+      (ts + 7 * soui).cast(), // timeZoneBuffer
+    );
 
-    return DateTime(
-      ts[0], // year
-      ts[1], // month
-      ts[2], // day
-      ts[3], // hour
-      ts[4], // minute
-      ts[5], // second
-      ts[6] ~/ 10, // millisecond
-      (ts[6] % 10) * 100, // microsecond
+    final Pointer<IscTimestampTzEx> ttzBuf = (msg + offset).cast();
+
+    return FbDateTimeTZ(
+      year: ts[0],
+      month: ts[1],
+      day: ts[2],
+      hour: ts[3],
+      minute: ts[4],
+      second: ts[5],
+      millisecond: ts[6] ~/ 10,
+      tenthMillisecond: ts[6] % 10,
+      timeZoneName: (ts + 7 * soui).cast<Utf8>().toDartString(),
+      timeZoneOffset: Duration(minutes: ttzBuf.ref.extOffset),
     );
   }
 
@@ -2072,8 +2244,8 @@ class FbDbQueryWorker {
       (msg + offset).cast(),
       ts, // hours
       (ts + sizeOf<UnsignedInt>()).cast(), // minutes
-      (ts + sizeOf<UnsignedInt>()).cast(), // seconds
-      (ts + sizeOf<UnsignedInt>()).cast(), // fractions
+      (ts + 2 * sizeOf<UnsignedInt>()).cast(), // seconds
+      (ts + 3 * sizeOf<UnsignedInt>()).cast(), // fractions
       0,
       nullptr,
     );
@@ -2095,25 +2267,29 @@ class FbDbQueryWorker {
   /// doesn't support arbitrary time zones.
   DateTime _getTimeTZEx(IStatus status, Pointer<Uint8> msg, int offset) {
     Pointer<UnsignedInt> ts = _getInternalBuffer();
+    final soui = sizeOf<UnsignedInt>();
+
     util.decodeTimeTzEx(
       status,
       (msg + offset).cast(),
       ts, // hours
-      (ts + sizeOf<UnsignedInt>()).cast(), // minutes
-      (ts + sizeOf<UnsignedInt>()).cast(), // seconds
-      (ts + sizeOf<UnsignedInt>()).cast(), // fractions
-      0,
-      nullptr,
+      (ts + soui).cast(), // minutes
+      (ts + 2 * soui).cast(), // seconds
+      (ts + 3 * soui).cast(), // fractions
+      _internalBufferSize - 4 * soui,
+      (ts + 4 * soui).cast(),
     );
-    return DateTime(
-      1, // year
-      1, // month
-      1, // day
-      ts[0], // hour
-      ts[1], // minute
-      ts[2], // second
-      ts[3] ~/ 10, // millisecond
-      (ts[3] % 10) * 100, // microsecond
+
+    final Pointer<IscTimeTzEx> ttzBuf = (msg + offset).cast();
+
+    return FbDateTimeTZ(
+      hour: ts[0],
+      minute: ts[1],
+      second: ts[2],
+      millisecond: ts[3] ~/ 10,
+      tenthMillisecond: ts[3] % 10,
+      timeZoneName: (ts + 4 * soui).cast<Utf8>().toDartString(),
+      timeZoneOffset: Duration(minutes: ttzBuf.ref.extOffset),
     );
   }
 
@@ -2194,7 +2370,7 @@ enum FbDbQueryType {
   withCursor,
 
   /// The query was created with execute.
-  withoutCursor
+  withoutCursor,
 }
 
 /// Possible operations for control messages.

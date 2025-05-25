@@ -152,10 +152,10 @@ The following features are planned for the future releases of FbDb:
 |Feature|Status|Implemented in|
 |-------|:----:|:----------:|
 |Backward compatibility with Firebird 3.0 client library.|✅|1.1|
-|More utility methods, similar to selectOne / selectAll (to save typing)|✅|1.2|
+|More utility methods, similar to `selectOne` / `selectAll` (to save typing)|✅|1.2|
 |Prepared statements optimized for multiple executions.|✅|1.3|
 |Multiple explicit concurrent transactions.|✅|1.4|
-|Support for time with time zone and timestamp with time zone data types|☐||
+|Support for `TIME WITH TIME ZONE` and `TIMESTAMP WITH TIME ZONE` data types|✅|1.5|
 |Abstractions for metadata querying (table structure, constraints, indices, relationships, etc.).|☐||
 |Support for Firebird array types.|☐||
 |High-level API for Firebird service manager.|☐||
