@@ -48,6 +48,10 @@ This guide is copyritht © 2025 Tomasz Tyrakowski (t.tyrakowski @at@ hipercom.pl
 	* 6.1. [Passing blobs as query parameters](#Passingblobsasqueryparameters)
 	* 6.2. [Fetching blobs from selected rows](#Fetchingblobsfromselectedrows)
 	* 6.3. [Examples - blobs](#Examples-blobs)
+* 7. [Working with time zones](#Workingwithtimezones)
+	* 7.1. [Getting time or timestamp with time zone from the database](#Gettingtimeortimestampwithtimezonefromthedatabase)
+	* 7.2. [Time-only values](#Time-onlyvalues)
+	* 7.3. [Storing time or timestamp with time zone in the database](#Storingtimeortimestampwithtimezoneinthedatabase)
 
 <!-- vscode-markdown-toc-config
 	numbering=true
@@ -495,7 +499,7 @@ The type mappings are as follows:
 - SQL integer type `INT128` is mapped to `double` in Dart (there's no 128-bit integer type available),
 - SQL real numbers (`DOUBLE PRECISION`, `NUMERIC(N,M)`, `DECIMAL(N,M)`) are mapped to `double` in Dart,
 - SQL date and time types (`DATE`, `TIME`, `TIMESTAMP`) are mapped to Dart `DateTime` objects,
-- the same applies to SQL types `TIME WITH TIME ZONE` and `TIMESTAMP WITH TIME ZONE` (they are both mapped to `DateTime` in Dart), which is unfortunate, because currently Dart's `DateTime` does not support arbitrary time zones (it only supports UTC and the local time zone of the host); this issue will be addressed in future releases of *fbdb*,
+- SQL date and time types anchored in a particular time zone (i.e. values of type `TIME WITH TIME ZONE` and `TIMESTAMP WITH TIME ZONE`) are mapped to a custom class `FbDateTimeTZ`, which is an extension of `dart:core.DateTime`, and keeps the original date/time components (and time zone data) as read from the database in its internal `FbDateTime.db` object (of type `DbDateTimeTZ`). The Dart's core `DateTime` class doesn't support arbitrary time zones (it can represent time instants either in the local time zone of the client machine, or in UTC), so an extension currently seems a necessity,
 - SQL `BOOLEAN` is mapped to `bool` in Dart,
 - parameters of the SQL `BLOB` type can be passed to a query as `ByteBuffer` objects, any `TypedData` objects (from which a byte buffer can be obtained), as `String` objects (in which case they will be encoded as UTF8 and passed byte-by-byte) or as `FbBlobId` objects (for BLOBs stored beforehand); the returned values are always either `ByteBuffer` objects or `FbBlobId` objects (depending on whether BLOB inlining is turned on or off for a particular query). See also the [Working with blobs](#Workingwithblobs) section.
 
@@ -1243,3 +1247,104 @@ For larger blobs, or if you specifically need to fetch blob data in chunks / seg
 
 ###  6.3. <a name='Examples-blobs'></a>Examples - blobs
 For a comprehensive blob processing example, please take a look at `example/fbdb/ex_05_blobs.dart` example code.
+
+##  7. <a name='Workingwithtimezones'></a>Working with time zones
+Currently (as of version 3.8 of Dart SDK), the `dart:core.DateTime` class is only able to represent time instants in the local (with respect to the client system) time zone or in UTC (GMT, i.e. the time zone with zero offset).
+
+While it is possible to parse time with arbitrary time zone offset in Dart, e.g. "2025-05-20 10:12:22 +05:00", the resulting `DateTime` object will be **always** converted to the time zone of the local system. The date-time value converted to the local time zone will still represent **the same** time instant, but the information about the original time zone offset, passed to the construction method, will be **lost**. 
+
+On the other hand, in version 4.0, Firebird introduced support for time instants associated with arbitrary time zones. Moreover, the time zones in the database may be defined not only with their offset with respect to UTC, but also with a particular **name** of the time zone (e.g. `US/Eastern`, `Europe/Warsaw`, etc.). Such values cannot be represented without information loss by the core `DateTime` objects in Dart. Additionally, Dart's `DateTime.parse` method does not support named time zones (only `+/-HH:MM` offsets).
+
+There are some third part packages on pub.dev, which support arbitrary time zones (look for example for the timezone package), but we decided against introducing an additional dependency on a third party package just to store and retrieve time zoned values to/from the database.
+
+Instead, starting with version 1.5 of *fbdb*, there is a dedicated `FbDateTimeTZ` class, which extends `dart:core.DateTime`, and is designed specifically to store values of type `TIME WITH TIME ZONE` and `TIMESTAMP WITH TIME ZONE`.
+
+As mentioned, `FbDateTimeTZ` is a descendant of `dart:core.DateTime`, i.e. it can be used in all places a standard `DateTime` object is required. The date/time components, inherited by `FbDateTimeTZ` from `DateTime`, always represent a time instant in the local time zone of the client machine (as is the case with `DateTime`). However, `FbDateTimeTZ` contains an additional component: a property named `db`, which is an object of class `DBDateTimeTZ`, which stores the **original** date/time, together with the **original** time zone data, exactly as was retrieved from the database.
+
+The design of the `FbDateTimeTZ` class:
+```
++--------------------+
+| dart:core.DateTime |
++--------------------+
+          ^
+          |
+          |
++--------------------+
+|    FbDateTimeTZ    |
++--------------------+
+|                    |             +-------------------+
+| db <-----------------------------|    DBDateTimeTZ   |
+|                    |             +-------------------+
+| year, month, day,  |             | year, month, day, |
+| hour, minute,      |             | hour, minute,     |
+| second,            |             | second,           |
+| millisecond,       |             | millisecond,      |
+| microsecond        |             | tenthMillisecond, |
++--------------------+             | timeZoneName,     |
+                                   | timeZoneOffset    |
+                                   +-------------------+
+```
+
+The components of the `db` property are very similar to those of the original `DateTime` objects, except they keep the date/time data and the time zone represented exactly as it was fetched from a database record.
+
+When you `SELECT` a column of type `TIME WITH TIME ZONE` or `TIMESTAMP WITH TIME ZONE` from the database, the corresponding column value will be returned by `FbQuery` as an object of class `FbDateTimeTZ`, rather than `dart:core.DateTime` (for data types without time zone, `FbQuery` will return the standard `dart:core.DateTime` objects).
+
+Similarly, if you intend to store a date/time value with a time zone other than your local time zone or UTC, you can pass an object of class `FbDateTimeTZ`, and its `db` component will be used as the source of data to be stored in the database. You can still pass a standard `dart:core.DateTime` object as a query parameter, but in that case the time zone stored in the database will be your local time zone.
+
+While not ideal, this solution allows you not to lose any information about actual time zones in the database, while avoiding introducing dependencies on third party packages.
+
+###  7.1. <a name='Gettingtimeortimestampwithtimezonefromthedatabase'></a>Getting time or timestamp with time zone from the database
+Suppose your local time zone has an offset `+02:00` with respect to UTC (GMT time), and suppose a value stored in the field `F` of the table `T` has the type `TIMESTAMP WITH TIME ZONE` and the value `2025-05-20 12:00:00 -05:00`, that is, noon on May 20, 2025, in the time zone 5 hours west of GMT.
+
+Suppose you run the following code (assuming `db` is an active attachment):
+```dart
+final row = await db.selectOne(sql: "select F from T");
+final f = row["F"];
+```
+
+Then:
+* `f` is an object of class `FbDateTime`.
+* `f.hour` is `19`. That's because 12 o'clock in the time zone -05:00 is 5 PM in the GMT zone, so it has to be 7 PM in the time zone +02:00 (it's 2 hours later in this time zone than GMT),
+* `f.timeZoneOffset.inHours` is `2` (your local time zone is +02:00).
+* `f.db.hour` is `12`. The `db` component keeps the date and time exactly as fetched from the database.
+* `f.db.timeZoneOffset.inHours` is `-5`. The `db` component keeps the time zone fetched from the database - no conversions are performed.
+
+Therefore, you can treat the value retrieved from the database as a normal `DateTime` object, but converted to your **local** time zone. At the same time, using the `db` property, you can access the **original** data, exactly as retrieved from the database (in the example above, `f` is the date/time converted to your local time zone, and `f.db` retains the original time zone from the database).
+
+###  7.2. <a name='Time-onlyvalues'></a>Time-only values
+Firebird treats all values of type `TIME WITH TIME ZONE` (i.e. just the time of the day, not associated with any particular date) as being time instants on January 1, 2020 (the date is fixed to 2020-01-01). It is mentioned in the release notes of Firebird 4.0, and the reason is to treat all such values consistently, especially with respect to `DATEADD` and `DATEDIFF` database functions. Please refer to the [Firebird 4.0 release notes](https://firebirdsql.org/file/documentation/release_notes/html/en/4_0/rlsnotes40.html) for more details.
+
+Therefore, when constructing `FbDateTime` objects with time-only initial values (i.e. without specifying `year`, `month` and `day`), the date part will be always set to Jan. 1, 2020, to be consistent with the Firebird server.
+
+###  7.3. <a name='Storingtimeortimestampwithtimezoneinthedatabase'></a>Storing time or timestamp with time zone in the database
+Suppose your local time zone has an offset `+02:00` with respect to UTC (GMT time), and suppose the field `F` of the table `T` has the type `TIMESTAMP WITH TIME ZONE`.
+
+Suppose you run the following code (assuming `db` is an active attachment):
+```dart
+final d = FbDateTimeTZ(
+    year: 2025,
+    month: 5,
+    day: 20,
+    hour: 12,
+    minute: 0,
+    second: 0,
+    timeZoneName: "Europe/Warsaw",
+    timeZoneOffset: Duration(hours: 2),
+);
+await db.execute(
+    sql: "insert into T (F) values (?)",
+    parameters: [d],
+);
+```
+
+Then:
+* the value stored in the database is `2025-05-20 12:00:00.0 Europe/Warsaw`.
+* `d.toUtc().toString()` is `2025-05-20 10:00:00Z` (12 o'clock in +02:00 is 10 o'clock in UTC).
+* `d.toString()` depends on your local time zone. If it is, as in our assumption, +02:00, the result will be `2025-05-20 12:00:00 +02:00`.
+* `d.db.toString()` is `2025-05-20 12:00:00.0000 Europe/Warsaw`. The `toString` method takes the time zone name into account first. If not present (empty), it uses the time zone offset.
+* `d.db.toDartString()` is `2025-05-20 12:00:00.0000 +02:00`. The `toDartString` method always uses the offset of the time zone. This way the return value of the method is parsable by `dart:core.DateTime.parse` (`parse` does not support named time zones).
+
+As mentioned before, if you pass an object of class `FbDateTimeTZ` as a query parameter, the data stored in `FbDateTime.db` property will have **precedence** over the data in the properties inherited from `dart:core.DateTime`. This way, you can store arbitrary time zones in the database.
+
+If, on the other hand, you pass a standard `DateTime` object as a query parameter, `FbQuery` will happily accept it, but the time instant stored in the database will have the offset of your local time zone.
+

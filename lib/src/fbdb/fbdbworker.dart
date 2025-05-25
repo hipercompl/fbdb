@@ -1638,7 +1638,12 @@ class FbDbQueryWorker {
         dt.minute,
         dt.second,
         dt.millisecond * 10 + dt.microsecond ~/ 100,
-        dt.timeZoneName,
+        // Cannot use dt.timeZoneName here.
+        // DateTime.timeZoneName returns localized time zones,
+        // translated to the host system language, unacceptable
+        // by Firebird.
+        // Instead, we have to use +/-HH:MM as the time zone name.
+        DBDateTimeTZ.timeZoneToString(dt.timeZoneOffset),
       );
       t.ref.extOffset = dt.timeZoneOffset.inMinutes;
     }
@@ -1744,7 +1749,12 @@ class FbDbQueryWorker {
         dt.minute,
         dt.second,
         dt.millisecond * 10 + dt.microsecond ~/ 100,
-        dt.timeZoneName,
+        // Cannot use dt.timeZoneName here.
+        // DateTime.timeZoneName returns localized time zones,
+        // translated to the host system language, unacceptable
+        // by Firebird.
+        // Instead, we have to use +/-HH:MM as the time zone name.
+        DBDateTimeTZ.timeZoneToString(dt.timeZoneOffset),
       );
       ts.ref.extOffset = dt.timeZoneOffset.inMinutes;
     }
