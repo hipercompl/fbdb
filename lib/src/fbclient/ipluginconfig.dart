@@ -8,35 +8,36 @@ class IPluginConfig extends IReferenceCounted {
 
   late Pointer<Utf8> Function(FbInterface self) _getConfigFileName;
   late FbInterface Function(FbInterface self, FbInterface status)
-      _getDefaultConfig;
+  _getDefaultConfig;
   late FbInterface Function(FbInterface self, FbInterface status)
-      _getFirebirdConf;
+  _getFirebirdConf;
   late void Function(FbInterface self, FbInterface status, int microSeconds)
-      _setReleaseDelay;
+  _setReleaseDelay;
 
   IPluginConfig(super.self) {
     startIndex = super.startIndex + super.methodCount;
     methodCount = 4;
     var idx = startIndex;
-    _getConfigFileName = Pointer<
-            NativeFunction<
-                Pointer<Utf8> Function(FbInterface)>>.fromAddress(vtable[idx++])
-        .asFunction();
-    _getDefaultConfig = Pointer<
-            NativeFunction<
-                FbInterface Function(
-                    FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
-        .asFunction();
-    _getFirebirdConf = Pointer<
-            NativeFunction<
-                FbInterface Function(
-                    FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
-        .asFunction();
-    _setReleaseDelay = Pointer<
-            NativeFunction<
-                Void Function(FbInterface, FbInterface,
-                    Uint64)>>.fromAddress(vtable[idx++])
-        .asFunction();
+    _getConfigFileName =
+        Pointer<
+              NativeFunction<Pointer<Utf8> Function(FbInterface)>
+            >.fromAddress(vtable[idx++])
+            .asFunction();
+    _getDefaultConfig =
+        Pointer<
+              NativeFunction<FbInterface Function(FbInterface, FbInterface)>
+            >.fromAddress(vtable[idx++])
+            .asFunction();
+    _getFirebirdConf =
+        Pointer<
+              NativeFunction<FbInterface Function(FbInterface, FbInterface)>
+            >.fromAddress(vtable[idx++])
+            .asFunction();
+    _setReleaseDelay =
+        Pointer<
+              NativeFunction<Void Function(FbInterface, FbInterface, Uint64)>
+            >.fromAddress(vtable[idx++])
+            .asFunction();
   }
 
   String getConfigFileName() {

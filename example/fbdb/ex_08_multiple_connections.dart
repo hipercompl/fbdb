@@ -25,12 +25,14 @@ void main() async {
     // Prepare a separate connection for each employee id
     for (var i = 0; i < empIds.length; i++) {
       print("Opening attachment no. ${i + 1}");
-      dbs.add(await FbDb.attach(
-        host: host,
-        database: database,
-        user: user,
-        password: password,
-      ));
+      dbs.add(
+        await FbDb.attach(
+          host: host,
+          database: database,
+          user: user,
+          password: password,
+        ),
+      );
       queries.add(dbs.last.query());
     }
 
@@ -51,14 +53,15 @@ void main() async {
       print("Selecting employee with id ${empIds[i]}");
       // we keep track of pending queries to wait for all of them
       // to finish with Future.wait
-      pendingQueries.add(queries[i].openCursor(
-        sql: querySql,
-        parameters: [empIds[i]],
-      ).then((q) async {
-        await for (var r in q.rows()) {
-          print(r);
-        }
-      }));
+      pendingQueries.add(
+        queries[i].openCursor(sql: querySql, parameters: [empIds[i]]).then((
+          q,
+        ) async {
+          await for (var r in q.rows()) {
+            print(r);
+          }
+        }),
+      );
     }
     // wait for all queries to finish processing
     await Future.wait(pendingQueries);

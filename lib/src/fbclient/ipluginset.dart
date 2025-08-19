@@ -11,35 +11,39 @@ class IPluginSet extends IReferenceCounted {
   late FbInterface Function(FbInterface self, FbInterface status) _getPlugin;
   late void Function(FbInterface self, FbInterface status) _next;
   late void Function(FbInterface self, FbInterface status, Pointer<Utf8> s)
-      _set;
+  _set;
 
   IPluginSet(super.self) {
     startIndex = super.startIndex + super.methodCount;
     methodCount = 5;
     var idx = startIndex;
-    _getName = Pointer<
-            NativeFunction<
-                Pointer<Utf8> Function(FbInterface)>>.fromAddress(vtable[idx++])
-        .asFunction();
-    _getModuleName = Pointer<
-            NativeFunction<
-                Pointer<Utf8> Function(FbInterface)>>.fromAddress(vtable[idx++])
-        .asFunction();
-    _getPlugin = Pointer<
-            NativeFunction<
-                FbInterface Function(
-                    FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
-        .asFunction();
-    _next = Pointer<
-            NativeFunction<
-                Void Function(
-                    FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
-        .asFunction();
-    _set = Pointer<
-            NativeFunction<
-                Void Function(FbInterface, FbInterface,
-                    Pointer<Utf8>)>>.fromAddress(vtable[idx++])
-        .asFunction();
+    _getName =
+        Pointer<
+              NativeFunction<Pointer<Utf8> Function(FbInterface)>
+            >.fromAddress(vtable[idx++])
+            .asFunction();
+    _getModuleName =
+        Pointer<
+              NativeFunction<Pointer<Utf8> Function(FbInterface)>
+            >.fromAddress(vtable[idx++])
+            .asFunction();
+    _getPlugin =
+        Pointer<
+              NativeFunction<FbInterface Function(FbInterface, FbInterface)>
+            >.fromAddress(vtable[idx++])
+            .asFunction();
+    _next =
+        Pointer<
+              NativeFunction<Void Function(FbInterface, FbInterface)>
+            >.fromAddress(vtable[idx++])
+            .asFunction();
+    _set =
+        Pointer<
+              NativeFunction<
+                Void Function(FbInterface, FbInterface, Pointer<Utf8>)
+              >
+            >.fromAddress(vtable[idx++])
+            .asFunction();
   }
 
   String getName() {

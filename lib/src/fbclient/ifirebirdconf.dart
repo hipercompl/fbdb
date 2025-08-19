@@ -16,32 +16,32 @@ class IFirebirdConf extends IReferenceCounted {
     startIndex = super.startIndex + super.methodCount;
     methodCount = (version >= 4 ? 5 : 4);
     var idx = startIndex;
-    _getKey = Pointer<
-            NativeFunction<
-                UnsignedInt Function(
-                    FbInterface, Pointer<Utf8>)>>.fromAddress(vtable[idx++])
-        .asFunction();
-    _asInteger = Pointer<
-            NativeFunction<
-                Int64 Function(
-                    FbInterface, UnsignedInt)>>.fromAddress(vtable[idx++])
-        .asFunction();
-    _asString = Pointer<
-            NativeFunction<
-                Pointer<Utf8> Function(
-                    FbInterface, UnsignedInt)>>.fromAddress(vtable[idx++])
-        .asFunction();
-    _asBoolean = Pointer<
-            NativeFunction<
-                FbBoolean Function(
-                    FbInterface, UnsignedInt)>>.fromAddress(vtable[idx++])
-        .asFunction();
+    _getKey =
+        Pointer<
+              NativeFunction<UnsignedInt Function(FbInterface, Pointer<Utf8>)>
+            >.fromAddress(vtable[idx++])
+            .asFunction();
+    _asInteger =
+        Pointer<
+              NativeFunction<Int64 Function(FbInterface, UnsignedInt)>
+            >.fromAddress(vtable[idx++])
+            .asFunction();
+    _asString =
+        Pointer<
+              NativeFunction<Pointer<Utf8> Function(FbInterface, UnsignedInt)>
+            >.fromAddress(vtable[idx++])
+            .asFunction();
+    _asBoolean =
+        Pointer<
+              NativeFunction<FbBoolean Function(FbInterface, UnsignedInt)>
+            >.fromAddress(vtable[idx++])
+            .asFunction();
     if (version >= 4) {
-      _getVersion = Pointer<
-              NativeFunction<
-                  UnsignedInt Function(
-                      FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
-          .asFunction();
+      _getVersion =
+          Pointer<
+                NativeFunction<UnsignedInt Function(FbInterface, FbInterface)>
+              >.fromAddress(vtable[idx++])
+              .asFunction();
     }
   }
 
@@ -69,7 +69,8 @@ class IFirebirdConf extends IReferenceCounted {
   int getVersion(IStatus status) {
     if (version < 4) {
       throw UnimplementedError(
-          "Firebird client library version 4 or later required.");
+        "Firebird client library version 4 or later required.",
+      );
     }
     final res = _getVersion(self, status.self);
     status.checkStatus();

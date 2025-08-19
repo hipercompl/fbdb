@@ -19,7 +19,7 @@ void main() async {
   final recordCount = 30000; // the number of records to store
   final data = [
     // each record is an ID, followed by a short description
-    for (var i = 1; i <= recordCount; i++) [i, "Description $i"]
+    for (var i = 1; i <= recordCount; i++) [i, "Description $i"],
   ];
   print("Done. ${data.length} records generated.");
 

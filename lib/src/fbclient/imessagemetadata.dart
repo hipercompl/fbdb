@@ -8,25 +8,25 @@ class IMessageMetadata extends IReferenceCounted {
 
   late int Function(FbInterface self, FbInterface status) _getCount;
   late Pointer<Utf8> Function(FbInterface self, FbInterface status, int index)
-      _getField;
+  _getField;
   late Pointer<Utf8> Function(FbInterface self, FbInterface status, int index)
-      _getRelation;
+  _getRelation;
   late Pointer<Utf8> Function(FbInterface self, FbInterface status, int index)
-      _getOwner;
+  _getOwner;
   late Pointer<Utf8> Function(FbInterface self, FbInterface status, int index)
-      _getAlias;
+  _getAlias;
   late int Function(FbInterface self, FbInterface status, int index) _getType;
   late int Function(FbInterface self, FbInterface status, int index)
-      _isNullable;
+  _isNullable;
   late int Function(FbInterface self, FbInterface status, int index)
-      _getSubType;
+  _getSubType;
   late int Function(FbInterface self, FbInterface status, int index) _getLength;
   late int Function(FbInterface self, FbInterface status, int index) _getScale;
   late int Function(FbInterface self, FbInterface status, int index)
-      _getCharSet;
+  _getCharSet;
   late int Function(FbInterface self, FbInterface status, int index) _getOffset;
   late int Function(FbInterface self, FbInterface status, int index)
-      _getNullOffset;
+  _getNullOffset;
   late FbInterface Function(FbInterface self, FbInterface status) _getBuilder;
   late int Function(FbInterface self, FbInterface status) _getMessageLength;
   late int Function(FbInterface self, FbInterface status) _getAlignment;
@@ -35,92 +35,116 @@ class IMessageMetadata extends IReferenceCounted {
     startIndex = super.startIndex + super.methodCount;
     methodCount = (version >= 4 ? 17 : 15);
     var idx = startIndex;
-    _getCount = Pointer<
-            NativeFunction<
-                UnsignedInt Function(
-                    FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
-        .asFunction();
-    _getField = Pointer<
-            NativeFunction<
-                Pointer<Utf8> Function(FbInterface, FbInterface,
-                    UnsignedInt)>>.fromAddress(vtable[idx++])
-        .asFunction();
-    _getRelation = Pointer<
-            NativeFunction<
-                Pointer<Utf8> Function(FbInterface, FbInterface,
-                    UnsignedInt)>>.fromAddress(vtable[idx++])
-        .asFunction();
-    _getOwner = Pointer<
-            NativeFunction<
-                Pointer<Utf8> Function(FbInterface, FbInterface,
-                    UnsignedInt)>>.fromAddress(vtable[idx++])
-        .asFunction();
-    _getAlias = Pointer<
-            NativeFunction<
-                Pointer<Utf8> Function(FbInterface, FbInterface,
-                    UnsignedInt)>>.fromAddress(vtable[idx++])
-        .asFunction();
-    _getType = Pointer<
-            NativeFunction<
-                UnsignedInt Function(FbInterface, FbInterface,
-                    UnsignedInt)>>.fromAddress(vtable[idx++])
-        .asFunction();
-    _isNullable = Pointer<
-            NativeFunction<
-                FbBoolean Function(FbInterface, FbInterface,
-                    UnsignedInt)>>.fromAddress(vtable[idx++])
-        .asFunction();
-    _getSubType = Pointer<
-            NativeFunction<
-                UnsignedInt Function(FbInterface, FbInterface,
-                    UnsignedInt)>>.fromAddress(vtable[idx++])
-        .asFunction();
-    _getLength = Pointer<
-            NativeFunction<
-                UnsignedInt Function(FbInterface, FbInterface,
-                    UnsignedInt)>>.fromAddress(vtable[idx++])
-        .asFunction();
-    _getScale = Pointer<
-            NativeFunction<
-                Int Function(FbInterface, FbInterface,
-                    UnsignedInt)>>.fromAddress(vtable[idx++])
-        .asFunction();
-    _getCharSet = Pointer<
-            NativeFunction<
-                UnsignedInt Function(FbInterface, FbInterface,
-                    UnsignedInt)>>.fromAddress(vtable[idx++])
-        .asFunction();
-    _getOffset = Pointer<
-            NativeFunction<
-                UnsignedInt Function(FbInterface, FbInterface,
-                    UnsignedInt)>>.fromAddress(vtable[idx++])
-        .asFunction();
-    _getNullOffset = Pointer<
-            NativeFunction<
-                UnsignedInt Function(FbInterface, FbInterface,
-                    UnsignedInt)>>.fromAddress(vtable[idx++])
-        .asFunction();
-    _getBuilder = Pointer<
-            NativeFunction<
-                FbInterface Function(
-                    FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
-        .asFunction();
-    _getMessageLength = Pointer<
-            NativeFunction<
-                UnsignedInt Function(
-                    FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
-        .asFunction();
+    _getCount =
+        Pointer<
+              NativeFunction<UnsignedInt Function(FbInterface, FbInterface)>
+            >.fromAddress(vtable[idx++])
+            .asFunction();
+    _getField =
+        Pointer<
+              NativeFunction<
+                Pointer<Utf8> Function(FbInterface, FbInterface, UnsignedInt)
+              >
+            >.fromAddress(vtable[idx++])
+            .asFunction();
+    _getRelation =
+        Pointer<
+              NativeFunction<
+                Pointer<Utf8> Function(FbInterface, FbInterface, UnsignedInt)
+              >
+            >.fromAddress(vtable[idx++])
+            .asFunction();
+    _getOwner =
+        Pointer<
+              NativeFunction<
+                Pointer<Utf8> Function(FbInterface, FbInterface, UnsignedInt)
+              >
+            >.fromAddress(vtable[idx++])
+            .asFunction();
+    _getAlias =
+        Pointer<
+              NativeFunction<
+                Pointer<Utf8> Function(FbInterface, FbInterface, UnsignedInt)
+              >
+            >.fromAddress(vtable[idx++])
+            .asFunction();
+    _getType =
+        Pointer<
+              NativeFunction<
+                UnsignedInt Function(FbInterface, FbInterface, UnsignedInt)
+              >
+            >.fromAddress(vtable[idx++])
+            .asFunction();
+    _isNullable =
+        Pointer<
+              NativeFunction<
+                FbBoolean Function(FbInterface, FbInterface, UnsignedInt)
+              >
+            >.fromAddress(vtable[idx++])
+            .asFunction();
+    _getSubType =
+        Pointer<
+              NativeFunction<
+                UnsignedInt Function(FbInterface, FbInterface, UnsignedInt)
+              >
+            >.fromAddress(vtable[idx++])
+            .asFunction();
+    _getLength =
+        Pointer<
+              NativeFunction<
+                UnsignedInt Function(FbInterface, FbInterface, UnsignedInt)
+              >
+            >.fromAddress(vtable[idx++])
+            .asFunction();
+    _getScale =
+        Pointer<
+              NativeFunction<
+                Int Function(FbInterface, FbInterface, UnsignedInt)
+              >
+            >.fromAddress(vtable[idx++])
+            .asFunction();
+    _getCharSet =
+        Pointer<
+              NativeFunction<
+                UnsignedInt Function(FbInterface, FbInterface, UnsignedInt)
+              >
+            >.fromAddress(vtable[idx++])
+            .asFunction();
+    _getOffset =
+        Pointer<
+              NativeFunction<
+                UnsignedInt Function(FbInterface, FbInterface, UnsignedInt)
+              >
+            >.fromAddress(vtable[idx++])
+            .asFunction();
+    _getNullOffset =
+        Pointer<
+              NativeFunction<
+                UnsignedInt Function(FbInterface, FbInterface, UnsignedInt)
+              >
+            >.fromAddress(vtable[idx++])
+            .asFunction();
+    _getBuilder =
+        Pointer<
+              NativeFunction<FbInterface Function(FbInterface, FbInterface)>
+            >.fromAddress(vtable[idx++])
+            .asFunction();
+    _getMessageLength =
+        Pointer<
+              NativeFunction<UnsignedInt Function(FbInterface, FbInterface)>
+            >.fromAddress(vtable[idx++])
+            .asFunction();
     if (version >= 4) {
-      _getAlignment = Pointer<
-              NativeFunction<
-                  UnsignedInt Function(
-                      FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
-          .asFunction();
-      _getAlignedLength = Pointer<
-              NativeFunction<
-                  UnsignedInt Function(
-                      FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
-          .asFunction();
+      _getAlignment =
+          Pointer<
+                NativeFunction<UnsignedInt Function(FbInterface, FbInterface)>
+              >.fromAddress(vtable[idx++])
+              .asFunction();
+      _getAlignedLength =
+          Pointer<
+                NativeFunction<UnsignedInt Function(FbInterface, FbInterface)>
+              >.fromAddress(vtable[idx++])
+              .asFunction();
     }
   }
 
@@ -217,7 +241,8 @@ class IMessageMetadata extends IReferenceCounted {
   int getAlignment(IStatus status) {
     if (version < 4) {
       throw UnimplementedError(
-          "Firebird client library version 4 or later required.");
+        "Firebird client library version 4 or later required.",
+      );
     }
     final res = _getAlignment(self, status.self);
     status.checkStatus();
@@ -227,7 +252,8 @@ class IMessageMetadata extends IReferenceCounted {
   int getAlignedLength(IStatus status) {
     if (version < 4) {
       throw UnimplementedError(
-          "Firebird client library version 4 or later required.");
+        "Firebird client library version 4 or later required.",
+      );
     }
     final res = _getAlignedLength(self, status.self);
     status.checkStatus();

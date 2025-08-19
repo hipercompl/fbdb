@@ -21,5 +21,5 @@ enum FbRowFormat {
   /// Field names are not included in the row data in any way.
   /// Use [FbQuery.fieldNames] or [FbQuery.fieldDefs] to get a list
   /// of field names / definitions.
-  asList
+  asList,
 }

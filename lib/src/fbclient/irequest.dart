@@ -5,28 +5,51 @@ class IRequest extends IReferenceCounted {
   @override
   int minSupportedVersion() => 3;
 
-  late void Function(FbInterface self, FbInterface status, int level,
-      int msgType, int length, Pointer<Uint8> message) _receive;
-  late void Function(FbInterface self, FbInterface status, int level,
-      int msgType, int length, Pointer<Uint8> message) _send;
   late void Function(
-      FbInterface self,
-      FbInterface status,
-      int level,
-      int itemsLength,
-      Pointer<Uint8> items,
-      int bufferLength,
-      Pointer<Uint8> buffer) _getInfo;
-  late void Function(FbInterface self, FbInterface status,
-      FbInterface transaction, int level) _start;
+    FbInterface self,
+    FbInterface status,
+    int level,
+    int msgType,
+    int length,
+    Pointer<Uint8> message,
+  )
+  _receive;
   late void Function(
-      FbInterface self,
-      FbInterface status,
-      FbInterface transaction,
-      int level,
-      int msgType,
-      int length,
-      Pointer<Uint8> message) _startAndSend;
+    FbInterface self,
+    FbInterface status,
+    int level,
+    int msgType,
+    int length,
+    Pointer<Uint8> message,
+  )
+  _send;
+  late void Function(
+    FbInterface self,
+    FbInterface status,
+    int level,
+    int itemsLength,
+    Pointer<Uint8> items,
+    int bufferLength,
+    Pointer<Uint8> buffer,
+  )
+  _getInfo;
+  late void Function(
+    FbInterface self,
+    FbInterface status,
+    FbInterface transaction,
+    int level,
+  )
+  _start;
+  late void Function(
+    FbInterface self,
+    FbInterface status,
+    FbInterface transaction,
+    int level,
+    int msgType,
+    int length,
+    Pointer<Uint8> message,
+  )
+  _startAndSend;
   late void Function(FbInterface self, FbInterface status, int level) _unwind;
   late void Function(FbInterface self, FbInterface status) _deprecatedFree;
   late void Function(FbInterface self, FbInterface status) _free;
@@ -35,78 +58,129 @@ class IRequest extends IReferenceCounted {
     startIndex = super.startIndex + super.methodCount;
     methodCount = (version >= 4 ? 8 : 7);
     var idx = startIndex;
-    _receive = Pointer<
-            NativeFunction<
-                Void Function(FbInterface, FbInterface, Int, UnsignedInt,
-                    UnsignedInt, Pointer<Uint8>)>>.fromAddress(vtable[idx++])
-        .asFunction();
-    _send = Pointer<
-            NativeFunction<
-                Void Function(FbInterface, FbInterface, Int, UnsignedInt,
-                    UnsignedInt, Pointer<Uint8>)>>.fromAddress(vtable[idx++])
-        .asFunction();
-    _getInfo = Pointer<
-            NativeFunction<
-                Void Function(
-                    FbInterface,
-                    FbInterface,
-                    Int,
-                    UnsignedInt,
-                    Pointer<Uint8>,
-                    UnsignedInt,
-                    Pointer<Uint8>)>>.fromAddress(vtable[idx++])
-        .asFunction();
-    _start = Pointer<
-            NativeFunction<
-                Void Function(FbInterface, FbInterface, FbInterface,
-                    Int)>>.fromAddress(vtable[idx++])
-        .asFunction();
-    _startAndSend = Pointer<
-            NativeFunction<
-                Void Function(
-                    FbInterface,
-                    FbInterface,
-                    FbInterface,
-                    Int,
-                    UnsignedInt,
-                    UnsignedInt,
-                    Pointer<Uint8>)>>.fromAddress(vtable[idx++])
-        .asFunction();
-    _unwind = Pointer<
-            NativeFunction<
-                Void Function(
-                    FbInterface, FbInterface, Int)>>.fromAddress(vtable[idx++])
-        .asFunction();
-    if (version >= 4) {
-      _deprecatedFree = Pointer<
+    _receive =
+        Pointer<
               NativeFunction<
-                  Void Function(
-                      FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
-          .asFunction();
-    }
-    _free = Pointer<
-            NativeFunction<
                 Void Function(
-                    FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
-        .asFunction();
+                  FbInterface,
+                  FbInterface,
+                  Int,
+                  UnsignedInt,
+                  UnsignedInt,
+                  Pointer<Uint8>,
+                )
+              >
+            >.fromAddress(vtable[idx++])
+            .asFunction();
+    _send =
+        Pointer<
+              NativeFunction<
+                Void Function(
+                  FbInterface,
+                  FbInterface,
+                  Int,
+                  UnsignedInt,
+                  UnsignedInt,
+                  Pointer<Uint8>,
+                )
+              >
+            >.fromAddress(vtable[idx++])
+            .asFunction();
+    _getInfo =
+        Pointer<
+              NativeFunction<
+                Void Function(
+                  FbInterface,
+                  FbInterface,
+                  Int,
+                  UnsignedInt,
+                  Pointer<Uint8>,
+                  UnsignedInt,
+                  Pointer<Uint8>,
+                )
+              >
+            >.fromAddress(vtable[idx++])
+            .asFunction();
+    _start =
+        Pointer<
+              NativeFunction<
+                Void Function(FbInterface, FbInterface, FbInterface, Int)
+              >
+            >.fromAddress(vtable[idx++])
+            .asFunction();
+    _startAndSend =
+        Pointer<
+              NativeFunction<
+                Void Function(
+                  FbInterface,
+                  FbInterface,
+                  FbInterface,
+                  Int,
+                  UnsignedInt,
+                  UnsignedInt,
+                  Pointer<Uint8>,
+                )
+              >
+            >.fromAddress(vtable[idx++])
+            .asFunction();
+    _unwind =
+        Pointer<
+              NativeFunction<Void Function(FbInterface, FbInterface, Int)>
+            >.fromAddress(vtable[idx++])
+            .asFunction();
+    if (version >= 4) {
+      _deprecatedFree =
+          Pointer<
+                NativeFunction<Void Function(FbInterface, FbInterface)>
+              >.fromAddress(vtable[idx++])
+              .asFunction();
+    }
+    _free =
+        Pointer<
+              NativeFunction<Void Function(FbInterface, FbInterface)>
+            >.fromAddress(vtable[idx++])
+            .asFunction();
   }
 
-  void receive(IStatus status, int level, int msgType, int length,
-      Pointer<Uint8> message) {
+  void receive(
+    IStatus status,
+    int level,
+    int msgType,
+    int length,
+    Pointer<Uint8> message,
+  ) {
     _receive(self, status.self, level, msgType, length, message);
     status.checkStatus();
   }
 
-  void send(IStatus status, int level, int msgType, int length,
-      Pointer<Uint8> message) {
+  void send(
+    IStatus status,
+    int level,
+    int msgType,
+    int length,
+    Pointer<Uint8> message,
+  ) {
     _send(self, status.self, level, msgType, length, message);
     status.checkStatus();
   }
 
-  void getInfo(IStatus status, int level, int itemsLength, Pointer<Uint8> items,
-      int bufferLength, Pointer<Uint8> buffer) {
+  void getInfo(
+    IStatus status,
+    int level,
+    int itemsLength,
+    Pointer<Uint8> items,
+    int bufferLength,
+    Pointer<Uint8> buffer,
+  ) {
     _getInfo(
-        self, status.self, level, itemsLength, items, bufferLength, buffer);
+      self,
+      status.self,
+      level,
+      itemsLength,
+      items,
+      bufferLength,
+      buffer,
+    );
     status.checkStatus();
   }
 
@@ -115,10 +189,23 @@ class IRequest extends IReferenceCounted {
     status.checkStatus();
   }
 
-  void startAndSend(IStatus status, ITransaction transaction, int level,
-      int msgType, int length, Pointer<Uint8> message) {
+  void startAndSend(
+    IStatus status,
+    ITransaction transaction,
+    int level,
+    int msgType,
+    int length,
+    Pointer<Uint8> message,
+  ) {
     _startAndSend(
-        self, status.self, transaction.self, level, msgType, length, message);
+      self,
+      status.self,
+      transaction.self,
+      level,
+      msgType,
+      length,
+      message,
+    );
     status.checkStatus();
   }
 
@@ -130,7 +217,8 @@ class IRequest extends IReferenceCounted {
   void deprecatedFree(IStatus status) {
     if (version < 4) {
       throw UnimplementedError(
-          "Firebird client library version 4 or later required.");
+        "Firebird client library version 4 or later required.",
+      );
     }
     _deprecatedFree(self, status.self);
     status.checkStatus();

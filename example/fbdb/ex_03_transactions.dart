@@ -28,7 +28,8 @@ void main() async {
 
     print("Creating table TEST_TBL");
     await q.execute(
-      sql: "create table TEST_TBL( "
+      sql:
+          "create table TEST_TBL( "
           "   ID integer not null primary key, "
           "   TXT varchar(100) "
           ") ",
@@ -57,7 +58,8 @@ void main() async {
       (5, "MNO"),
     ]) {
       await q.execute(
-        sql: "insert into TEST_TBL(ID, TXT) "
+        sql:
+            "insert into TEST_TBL(ID, TXT) "
             "values (?, ?)",
         parameters: [id, txt],
       );
@@ -91,12 +93,10 @@ void main() async {
     await db.startTransaction();
 
     print("Inserting 2 rows into TEST_TBL");
-    for (var (id, txt) in [
-      (1, "ABC"),
-      (2, "DEF"),
-    ]) {
+    for (var (id, txt) in [(1, "ABC"), (2, "DEF")]) {
       await q.execute(
-        sql: "insert into TEST_TBL(ID, TXT) "
+        sql:
+            "insert into TEST_TBL(ID, TXT) "
             "values (?, ?)",
         parameters: [id, txt],
       );
@@ -129,7 +129,8 @@ void main() async {
     // explicitly - the insert will be executed inside its own transaction
     // and committed immediately afterwards
     await q.execute(
-      sql: "insert into TEST_TBL(ID, TXT) "
+      sql:
+          "insert into TEST_TBL(ID, TXT) "
           "values (?, ?)",
       parameters: [3, "GHI"],
     );

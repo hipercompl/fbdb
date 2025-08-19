@@ -136,7 +136,8 @@ class IVersioned {
   IVersioned(this.self) {
     if (self == nullptr) {
       throw FbClientException(
-          "Attempt to create an interface from a null reference.");
+        "Attempt to create an interface from a null reference.",
+      );
     }
     vtable = FbInterface.fromAddress(self[1]);
     version = vtable[1];
@@ -145,8 +146,9 @@ class IVersioned {
     // (possibly a descendant of IVersioned)
     if (version < minSupportedVersion()) {
       throw FbClientException(
-          "${runtimeType.toString()}: interface version $version "
-          "not supported (minimum supported version is ${minSupportedVersion()})");
+        "${runtimeType.toString()}: interface version $version "
+        "not supported (minimum supported version is ${minSupportedVersion()})",
+      );
     }
   }
 
@@ -168,11 +170,11 @@ class IReferenceCounted extends IVersioned {
     methodCount = 2;
     var idx = startIndex;
     _addRef = Pointer<NativeFunction<Void Function(FbInterface)>>.fromAddress(
-            vtable[idx++])
-        .asFunction();
+      vtable[idx++],
+    ).asFunction();
     _release = Pointer<NativeFunction<Int Function(FbInterface)>>.fromAddress(
-            vtable[idx++])
-        .asFunction();
+      vtable[idx++],
+    ).asFunction();
   }
 
   /// Increase the reference count of the interface.
@@ -207,8 +209,8 @@ class IDisposable extends IVersioned {
     startIndex = super.startIndex + super.methodCount;
     methodCount = 1;
     _dispose = Pointer<NativeFunction<Void Function(FbInterface)>>.fromAddress(
-            vtable[startIndex])
-        .asFunction();
+      vtable[startIndex],
+    ).asFunction();
   }
 
   void dispose() {

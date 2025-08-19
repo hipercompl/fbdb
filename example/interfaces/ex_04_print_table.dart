@@ -40,7 +40,11 @@ void main() {
     // attach to the employee database
     print("Attaching to employee on localhost");
     att = prov.attachDatabase(
-        status, "employee", dpb.getBufferLength(status), dpb.getBuffer(status));
+      status,
+      "employee",
+      dpb.getBufferLength(status),
+      dpb.getBuffer(status),
+    );
     print("Attached to the database");
 
     // start transaction
@@ -83,8 +87,15 @@ void main() {
       if (supportedTypes.contains(type) ||
           (type == FbConsts.SQL_BLOB &&
               (meta.getSubType(status, index) == 1))) {
-        fields.add(Field(name, type, meta.getLength(status, index),
-            meta.getOffset(status, index), meta.getNullOffset(status, index)));
+        fields.add(
+          Field(
+            name,
+            type,
+            meta.getLength(status, index),
+            meta.getOffset(status, index),
+            meta.getNullOffset(status, index),
+          ),
+        );
       }
     }
 
@@ -142,7 +153,11 @@ class Field {
   Field(this.name, this.type, this.length, this.offset, this.nullOffset);
 
   String asString(
-      IStatus status, IAttachment att, ITransaction tra, Pointer<Uint8> buf) {
+    IStatus status,
+    IAttachment att,
+    ITransaction tra,
+    Pointer<Uint8> buf,
+  ) {
     final s = StringBuffer();
     s.write("$name: ");
     if (buf.readInt16(nullOffset) != 0) {
@@ -161,7 +176,10 @@ class Field {
           s.write(buf.readDouble(offset).toString());
         case FbConsts.SQL_BLOB:
           IBlob? blob = att.openBlob(
-              status, tra, Pointer<IscQuad>.fromAddress(buf.address + offset));
+            status,
+            tra,
+            Pointer<IscQuad>.fromAddress(buf.address + offset),
+          );
           const segBufLen = 16;
           final segBuf = mem.allocate<Uint8>(segBufLen);
           final len = mem.allocate<UnsignedInt>(sizeOf<UnsignedInt>());
@@ -183,7 +201,8 @@ class Field {
           }
         default:
           throw FbClientException(
-              "Unknown type $type for field $name (in print)");
+            "Unknown type $type for field $name (in print)",
+          );
       }
     }
     return s.toString();

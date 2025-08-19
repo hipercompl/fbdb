@@ -44,8 +44,12 @@ int main() {
     // attach to the employee database
     print("Attaching to employee on localhost");
     // the new syntax of the connection string
-    att = prov.attachDatabase(status, "inet://localhost:3050/employee",
-        dpb.getBufferLength(status), dpb.getBuffer(status));
+    att = prov.attachDatabase(
+      status,
+      "inet://localhost:3050/employee",
+      dpb.getBufferLength(status),
+      dpb.getBuffer(status),
+    );
     print("Attached to the database");
 
     // start transaction
@@ -58,7 +62,10 @@ int main() {
 
     print("Starting a new transaction");
     tra = att.startTransaction(
-        status, tpb.getBufferLength(status), tpb.getBuffer(status));
+      status,
+      tpb.getBufferLength(status),
+      tpb.getBuffer(status),
+    );
 
     // the select statement
     const sqlSelect = """
@@ -71,8 +78,13 @@ int main() {
     // prepare the statement
     print("Preparing the select query:");
     print(sqlSelect);
-    stmt = att.prepare(status, tra, sqlSelect, FbConsts.sqlDialectCurrent,
-        IStatement.preparePrefetchMetadata);
+    stmt = att.prepare(
+      status,
+      tra,
+      sqlSelect,
+      FbConsts.sqlDialectCurrent,
+      IStatement.preparePrefetchMetadata,
+    );
 
     // get the list of columns
     print('Processing output metadata');

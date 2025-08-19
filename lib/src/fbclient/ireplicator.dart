@@ -6,8 +6,12 @@ class IReplicator extends IReferenceCounted {
   int minSupportedVersion() => 4;
 
   late void Function(
-          FbInterface self, FbInterface status, int length, Pointer<Uint8> data)
-      _process;
+    FbInterface self,
+    FbInterface status,
+    int length,
+    Pointer<Uint8> data,
+  )
+  _process;
   late void Function(FbInterface self, FbInterface status) _deprecatedClose;
   late void Function(FbInterface self, FbInterface status) _close;
 
@@ -15,21 +19,28 @@ class IReplicator extends IReferenceCounted {
     startIndex = super.startIndex + super.methodCount;
     methodCount = 3;
     var idx = startIndex;
-    _process = Pointer<
-            NativeFunction<
-                Void Function(FbInterface, FbInterface, UnsignedInt,
-                    Pointer<Uint8>)>>.fromAddress(vtable[idx++])
-        .asFunction();
-    _deprecatedClose = Pointer<
-            NativeFunction<
+    _process =
+        Pointer<
+              NativeFunction<
                 Void Function(
-                    FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
-        .asFunction();
-    _close = Pointer<
-            NativeFunction<
-                Void Function(
-                    FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
-        .asFunction();
+                  FbInterface,
+                  FbInterface,
+                  UnsignedInt,
+                  Pointer<Uint8>,
+                )
+              >
+            >.fromAddress(vtable[idx++])
+            .asFunction();
+    _deprecatedClose =
+        Pointer<
+              NativeFunction<Void Function(FbInterface, FbInterface)>
+            >.fromAddress(vtable[idx++])
+            .asFunction();
+    _close =
+        Pointer<
+              NativeFunction<Void Function(FbInterface, FbInterface)>
+            >.fromAddress(vtable[idx++])
+            .asFunction();
   }
 
   void process(IStatus status, int length, Pointer<Uint8> data) {

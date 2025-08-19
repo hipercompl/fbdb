@@ -11,8 +11,8 @@ class ITimer extends IReferenceCounted {
     startIndex = super.startIndex + super.methodCount;
     methodCount = 1;
     _handler = Pointer<NativeFunction<Void Function(FbInterface)>>.fromAddress(
-            vtable[startIndex])
-        .asFunction();
+      vtable[startIndex],
+    ).asFunction();
   }
 
   void handler() {

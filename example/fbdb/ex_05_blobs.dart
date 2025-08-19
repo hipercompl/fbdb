@@ -37,7 +37,8 @@ void main() async {
     print("Creating table BLOBS_TBL");
     final q = db.query();
     await q.execute(
-      sql: "create table BLOBS_TBL( "
+      sql:
+          "create table BLOBS_TBL( "
           "   ID integer not null primary key, "
           "   TXT_BLOB blob sub_type text, "
           "   BIN_BLOB blob sub_type binary "
@@ -66,7 +67,8 @@ occaecat cupidatat non proident, sunt in culpa qui officia
 deserunt mollit anim id est laborum.
 """;
     await q.execute(
-      sql: "insert into BLOBS_TBL (ID, TXT_BLOB, BIN_BLOB) "
+      sql:
+          "insert into BLOBS_TBL (ID, TXT_BLOB, BIN_BLOB) "
           "values (?, ?, ?) ",
       parameters: [1, inTxt, inBin.buffer],
     );
@@ -121,7 +123,8 @@ deserunt mollit anim id est laborum.
 
     print("Inserting both blobs into BLOBLS_TBL");
     await q.execute(
-      sql: "insert into BLOBS_TBL (ID, TXT_BLOB, BIN_BLOB) "
+      sql:
+          "insert into BLOBS_TBL (ID, TXT_BLOB, BIN_BLOB) "
           "values (?, ?, ?) ",
       parameters: [1, id1, id2],
     );

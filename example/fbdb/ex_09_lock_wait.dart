@@ -33,11 +33,7 @@ void main() async {
       user: user,
       password: password,
       options: FbOptions(
-        transactionFlags: {
-          FbTrFlag.concurrency,
-          FbTrFlag.write,
-          FbTrFlag.wait,
-        },
+        transactionFlags: {FbTrFlag.concurrency, FbTrFlag.write, FbTrFlag.wait},
         lockTimeout: 3,
       ),
     );
@@ -50,11 +46,7 @@ void main() async {
       options: FbOptions(
         // explicit transaction flags
         // could have used fbTrWriteWait constant instead
-        transactionFlags: {
-          FbTrFlag.concurrency,
-          FbTrFlag.write,
-          FbTrFlag.wait,
-        },
+        transactionFlags: {FbTrFlag.concurrency, FbTrFlag.write, FbTrFlag.wait},
         lockTimeout: 3,
       ),
     );
@@ -76,7 +68,11 @@ void main() async {
       });
     }
     await _makeConflictingUpdates(
-        q1, q2, empId, "An exception should be thrown after 3 seconds");
+      q1,
+      q2,
+      empId,
+      "An exception should be thrown after 3 seconds",
+    );
 
     print("Rolling back transactions");
     await db1.rollback();
@@ -91,7 +87,11 @@ void main() async {
     await db2.startTransaction(flags: fbTrWriteNoWait);
 
     await _makeConflictingUpdates(
-        q1, q2, empId, "An exception should be thrown immediately");
+      q1,
+      q2,
+      empId,
+      "An exception should be thrown immediately",
+    );
 
     print("Rolling back transactions");
     await db1.rollback();
@@ -111,7 +111,11 @@ void main() async {
 }
 
 Future<void> _makeConflictingUpdates(
-    FbQuery q1, FbQuery q2, int empId, String msg) async {
+  FbQuery q1,
+  FbQuery q2,
+  int empId,
+  String msg,
+) async {
   print("Update via connection 1");
   await q1.execute(
     sql: "update EMPLOYEE set FIRST_NAME=? where EMP_NO=?",

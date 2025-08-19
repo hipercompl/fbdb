@@ -6,30 +6,45 @@ class ITransaction extends IReferenceCounted {
   int minSupportedVersion() => 3;
 
   late final void Function(
-      FbInterface self,
-      FbInterface status,
-      int itemsLength,
-      Pointer<Uint8> items,
-      int bufferLength,
-      Pointer<Uint8> buffer) _getInfo;
-  late final void Function(FbInterface self, FbInterface status, int msgLength,
-      Pointer<Uint8> message) _prepare;
+    FbInterface self,
+    FbInterface status,
+    int itemsLength,
+    Pointer<Uint8> items,
+    int bufferLength,
+    Pointer<Uint8> buffer,
+  )
+  _getInfo;
+  late final void Function(
+    FbInterface self,
+    FbInterface status,
+    int msgLength,
+    Pointer<Uint8> message,
+  )
+  _prepare;
   late final void Function(FbInterface self, FbInterface status)
-      _deprecatedCommit;
+  _deprecatedCommit;
   late final void Function(FbInterface self, FbInterface status)
-      _commitRetaining;
+  _commitRetaining;
   late final void Function(FbInterface self, FbInterface status)
-      _deprecatedRollback;
+  _deprecatedRollback;
   late final void Function(FbInterface self, FbInterface status)
-      _rollbackRetaining;
+  _rollbackRetaining;
   late final void Function(FbInterface self, FbInterface status)
-      _deprecatedDisconnect;
+  _deprecatedDisconnect;
   late final FbInterface Function(
-      FbInterface self, FbInterface status, FbInterface transaction) _join;
+    FbInterface self,
+    FbInterface status,
+    FbInterface transaction,
+  )
+  _join;
   late final FbInterface Function(
-      FbInterface self, FbInterface status, FbInterface attachment) _validate;
+    FbInterface self,
+    FbInterface status,
+    FbInterface attachment,
+  )
+  _validate;
   late final FbInterface Function(FbInterface self, FbInterface status)
-      _enterDtc;
+  _enterDtc;
   late final void Function(FbInterface self, FbInterface status) _commit;
   late final void Function(FbInterface self, FbInterface status) _rollback;
   late final void Function(FbInterface self, FbInterface status) _disconnect;
@@ -38,106 +53,126 @@ class ITransaction extends IReferenceCounted {
     startIndex = super.startIndex + super.methodCount;
     methodCount = (version >= 4 ? 13 : 10);
     var idx = startIndex;
-    _getInfo = Pointer<
-            NativeFunction<
+    _getInfo =
+        Pointer<
+              NativeFunction<
                 Void Function(
-                    FbInterface,
-                    FbInterface,
-                    UnsignedInt,
-                    Pointer<Uint8>,
-                    UnsignedInt,
-                    Pointer<Uint8>)>>.fromAddress(vtable[idx++])
-        .asFunction();
-    _prepare = Pointer<
-            NativeFunction<
-                Void Function(FbInterface, FbInterface, UnsignedInt,
-                    Pointer<Uint8>)>>.fromAddress(vtable[idx++])
-        .asFunction();
-    if (version >= 4) {
-      _deprecatedCommit = Pointer<
+                  FbInterface,
+                  FbInterface,
+                  UnsignedInt,
+                  Pointer<Uint8>,
+                  UnsignedInt,
+                  Pointer<Uint8>,
+                )
+              >
+            >.fromAddress(vtable[idx++])
+            .asFunction();
+    _prepare =
+        Pointer<
               NativeFunction<
-                  Void Function(
-                      FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
-          .asFunction();
-    } else {
-      _commit = Pointer<
-              NativeFunction<
-                  Void Function(
-                      FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
-          .asFunction();
-    }
-    _commitRetaining = Pointer<
-            NativeFunction<
                 Void Function(
-                    FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
-        .asFunction();
+                  FbInterface,
+                  FbInterface,
+                  UnsignedInt,
+                  Pointer<Uint8>,
+                )
+              >
+            >.fromAddress(vtable[idx++])
+            .asFunction();
     if (version >= 4) {
-      _deprecatedRollback = Pointer<
-              NativeFunction<
-                  Void Function(
-                      FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
-          .asFunction();
+      _deprecatedCommit =
+          Pointer<
+                NativeFunction<Void Function(FbInterface, FbInterface)>
+              >.fromAddress(vtable[idx++])
+              .asFunction();
     } else {
-      _rollback = Pointer<
-              NativeFunction<
-                  Void Function(
-                      FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
-          .asFunction();
+      _commit =
+          Pointer<
+                NativeFunction<Void Function(FbInterface, FbInterface)>
+              >.fromAddress(vtable[idx++])
+              .asFunction();
     }
-    _rollbackRetaining = Pointer<
-            NativeFunction<
-                Void Function(
-                    FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
-        .asFunction();
+    _commitRetaining =
+        Pointer<
+              NativeFunction<Void Function(FbInterface, FbInterface)>
+            >.fromAddress(vtable[idx++])
+            .asFunction();
     if (version >= 4) {
-      _deprecatedDisconnect = Pointer<
-              NativeFunction<
-                  Void Function(
-                      FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
-          .asFunction();
+      _deprecatedRollback =
+          Pointer<
+                NativeFunction<Void Function(FbInterface, FbInterface)>
+              >.fromAddress(vtable[idx++])
+              .asFunction();
     } else {
-      _disconnect = Pointer<
-              NativeFunction<
-                  Void Function(
-                      FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
-          .asFunction();
+      _rollback =
+          Pointer<
+                NativeFunction<Void Function(FbInterface, FbInterface)>
+              >.fromAddress(vtable[idx++])
+              .asFunction();
     }
-    _join = Pointer<
-            NativeFunction<
-                FbInterface Function(FbInterface, FbInterface,
-                    FbInterface)>>.fromAddress(vtable[idx++])
-        .asFunction();
-    _validate = Pointer<
-            NativeFunction<
-                FbInterface Function(FbInterface, FbInterface,
-                    FbInterface)>>.fromAddress(vtable[idx++])
-        .asFunction();
-    _enterDtc = Pointer<
-            NativeFunction<
-                FbInterface Function(
-                    FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
-        .asFunction();
+    _rollbackRetaining =
+        Pointer<
+              NativeFunction<Void Function(FbInterface, FbInterface)>
+            >.fromAddress(vtable[idx++])
+            .asFunction();
     if (version >= 4) {
-      _commit = Pointer<
+      _deprecatedDisconnect =
+          Pointer<
+                NativeFunction<Void Function(FbInterface, FbInterface)>
+              >.fromAddress(vtable[idx++])
+              .asFunction();
+    } else {
+      _disconnect =
+          Pointer<
+                NativeFunction<Void Function(FbInterface, FbInterface)>
+              >.fromAddress(vtable[idx++])
+              .asFunction();
+    }
+    _join =
+        Pointer<
               NativeFunction<
-                  Void Function(
-                      FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
-          .asFunction();
-      _rollback = Pointer<
+                FbInterface Function(FbInterface, FbInterface, FbInterface)
+              >
+            >.fromAddress(vtable[idx++])
+            .asFunction();
+    _validate =
+        Pointer<
               NativeFunction<
-                  Void Function(
-                      FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
-          .asFunction();
-      _disconnect = Pointer<
-              NativeFunction<
-                  Void Function(
-                      FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
-          .asFunction();
+                FbInterface Function(FbInterface, FbInterface, FbInterface)
+              >
+            >.fromAddress(vtable[idx++])
+            .asFunction();
+    _enterDtc =
+        Pointer<
+              NativeFunction<FbInterface Function(FbInterface, FbInterface)>
+            >.fromAddress(vtable[idx++])
+            .asFunction();
+    if (version >= 4) {
+      _commit =
+          Pointer<
+                NativeFunction<Void Function(FbInterface, FbInterface)>
+              >.fromAddress(vtable[idx++])
+              .asFunction();
+      _rollback =
+          Pointer<
+                NativeFunction<Void Function(FbInterface, FbInterface)>
+              >.fromAddress(vtable[idx++])
+              .asFunction();
+      _disconnect =
+          Pointer<
+                NativeFunction<Void Function(FbInterface, FbInterface)>
+              >.fromAddress(vtable[idx++])
+              .asFunction();
     }
   }
 
-  void getInfo(IStatus status, int itemsLength, Pointer<Uint8> items,
-      int bufferLength, Pointer<Uint8> buffer) {
+  void getInfo(
+    IStatus status,
+    int itemsLength,
+    Pointer<Uint8> items,
+    int bufferLength,
+    Pointer<Uint8> buffer,
+  ) {
     _getInfo(self, status.self, itemsLength, items, bufferLength, buffer);
     status.checkStatus();
   }
@@ -150,7 +185,8 @@ class ITransaction extends IReferenceCounted {
   void deprecatedCommit(IStatus status) {
     if (version < 4) {
       throw UnimplementedError(
-          "Firebird client library version 4 or later required.");
+        "Firebird client library version 4 or later required.",
+      );
     }
     _deprecatedCommit(self, status.self);
     status.checkStatus();
@@ -164,7 +200,8 @@ class ITransaction extends IReferenceCounted {
   void deprecatedRollback(IStatus status) {
     if (version < 4) {
       throw UnimplementedError(
-          "Firebird client library version 4 or later required.");
+        "Firebird client library version 4 or later required.",
+      );
     }
     _deprecatedRollback(self, status.self);
     status.checkStatus();
@@ -178,7 +215,8 @@ class ITransaction extends IReferenceCounted {
   void deprecatedDisconnect(IStatus status) {
     if (version < 4) {
       throw UnimplementedError(
-          "Firebird client library version 4 or later required.");
+        "Firebird client library version 4 or later required.",
+      );
     }
     _deprecatedDisconnect(self, status.self);
     status.checkStatus();

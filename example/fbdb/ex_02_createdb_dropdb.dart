@@ -29,7 +29,8 @@ void main() async {
     print("Creating table TEST_TBL");
     final q = db.query();
     await q.execute(
-      sql: "create table TEST_TBL( "
+      sql:
+          "create table TEST_TBL( "
           "   ID integer not null primary key, "
           "   TXT varchar(100) "
           ") ",
@@ -45,7 +46,8 @@ void main() async {
 
     print("Inserting a row into TEST_TBL");
     await q.execute(
-      sql: "insert into TEST_TBL(ID, TXT) "
+      sql:
+          "insert into TEST_TBL(ID, TXT) "
           "values (?, ?)",
       parameters: [1, "Abc"],
     );

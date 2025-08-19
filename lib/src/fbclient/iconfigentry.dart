@@ -16,27 +16,29 @@ class IConfigEntry extends IReferenceCounted {
     startIndex = super.startIndex + super.methodCount;
     methodCount = 5;
     var idx = startIndex;
-    _getName = Pointer<
-            NativeFunction<
-                Pointer<Utf8> Function(FbInterface)>>.fromAddress(vtable[idx++])
-        .asFunction();
-    _getValue = Pointer<
-            NativeFunction<
-                Pointer<Utf8> Function(FbInterface)>>.fromAddress(vtable[idx++])
-        .asFunction();
+    _getName =
+        Pointer<
+              NativeFunction<Pointer<Utf8> Function(FbInterface)>
+            >.fromAddress(vtable[idx++])
+            .asFunction();
+    _getValue =
+        Pointer<
+              NativeFunction<Pointer<Utf8> Function(FbInterface)>
+            >.fromAddress(vtable[idx++])
+            .asFunction();
     _getIntValue =
         Pointer<NativeFunction<Int64 Function(FbInterface)>>.fromAddress(
-                vtable[idx++])
-            .asFunction();
+          vtable[idx++],
+        ).asFunction();
     _getBoolValue =
         Pointer<NativeFunction<FbBoolean Function(FbInterface)>>.fromAddress(
-                vtable[idx++])
+          vtable[idx++],
+        ).asFunction();
+    _getSubConfig =
+        Pointer<
+              NativeFunction<FbInterface Function(FbInterface, FbInterface)>
+            >.fromAddress(vtable[idx++])
             .asFunction();
-    _getSubConfig = Pointer<
-            NativeFunction<
-                FbInterface Function(
-                    FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
-        .asFunction();
   }
 
   String getName() {

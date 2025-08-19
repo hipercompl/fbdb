@@ -21,7 +21,7 @@ class IStatus extends IDisposable {
   late int Function(FbInterface self) _getState;
   late void Function(FbInterface self, int length, StatusVec value) _setErrors2;
   late void Function(FbInterface self, int length, StatusVec value)
-      _setWarnings2;
+  _setWarnings2;
   late void Function(FbInterface self, StatusVec value) _setErrors;
   late void Function(FbInterface self, StatusVec value) _setWarnings;
   late StatusVec Function(FbInterface self) _getErrors;
@@ -39,46 +39,46 @@ class IStatus extends IDisposable {
     methodCount = 9;
     var idx = startIndex;
     _init = Pointer<NativeFunction<Void Function(FbInterface)>>.fromAddress(
-            vtable[idx++])
-        .asFunction();
+      vtable[idx++],
+    ).asFunction();
     _getState =
         Pointer<NativeFunction<UintPtr Function(FbInterface)>>.fromAddress(
-                vtable[idx++])
+          vtable[idx++],
+        ).asFunction();
+    _setErrors2 =
+        Pointer<
+              NativeFunction<Void Function(FbInterface, UintPtr, StatusVec)>
+            >.fromAddress(vtable[idx++])
             .asFunction();
-    _setErrors2 = Pointer<
-            NativeFunction<
-                Void Function(FbInterface, UintPtr,
-                    StatusVec)>>.fromAddress(vtable[idx++])
-        .asFunction();
-    _setWarnings2 = Pointer<
-            NativeFunction<
-                Void Function(FbInterface, UintPtr,
-                    StatusVec)>>.fromAddress(vtable[idx++])
-        .asFunction();
-    _setErrors = Pointer<
-            NativeFunction<
-                Void Function(
-                    FbInterface, StatusVec)>>.fromAddress(vtable[idx++])
-        .asFunction();
-    _setWarnings = Pointer<
-            NativeFunction<
-                Void Function(
-                    FbInterface, StatusVec)>>.fromAddress(vtable[idx++])
-        .asFunction();
-    _getErrors = Pointer<
-            NativeFunction<
-                StatusVec Function(
-                    FbInterface self)>>.fromAddress(vtable[idx++])
-        .asFunction();
-    _getWarnings = Pointer<
-            NativeFunction<
-                StatusVec Function(
-                    FbInterface self)>>.fromAddress(vtable[idx++])
-        .asFunction();
+    _setWarnings2 =
+        Pointer<
+              NativeFunction<Void Function(FbInterface, UintPtr, StatusVec)>
+            >.fromAddress(vtable[idx++])
+            .asFunction();
+    _setErrors =
+        Pointer<
+              NativeFunction<Void Function(FbInterface, StatusVec)>
+            >.fromAddress(vtable[idx++])
+            .asFunction();
+    _setWarnings =
+        Pointer<
+              NativeFunction<Void Function(FbInterface, StatusVec)>
+            >.fromAddress(vtable[idx++])
+            .asFunction();
+    _getErrors =
+        Pointer<
+              NativeFunction<StatusVec Function(FbInterface self)>
+            >.fromAddress(vtable[idx++])
+            .asFunction();
+    _getWarnings =
+        Pointer<
+              NativeFunction<StatusVec Function(FbInterface self)>
+            >.fromAddress(vtable[idx++])
+            .asFunction();
     _clone =
         Pointer<NativeFunction<FbInterface Function(FbInterface)>>.fromAddress(
-                vtable[idx++])
-            .asFunction();
+          vtable[idx++],
+        ).asFunction();
   }
 
   void init() {

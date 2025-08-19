@@ -13,23 +13,24 @@ class IEvents extends IReferenceCounted {
     methodCount = (version >= 4 ? 2 : 1);
     var idx = startIndex;
     if (version >= 4) {
-      _deprecatedCancel = Pointer<
-              NativeFunction<
-                  Void Function(
-                      FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
-          .asFunction();
+      _deprecatedCancel =
+          Pointer<
+                NativeFunction<Void Function(FbInterface, FbInterface)>
+              >.fromAddress(vtable[idx++])
+              .asFunction();
     }
-    _cancel = Pointer<
-            NativeFunction<
-                Void Function(
-                    FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
-        .asFunction();
+    _cancel =
+        Pointer<
+              NativeFunction<Void Function(FbInterface, FbInterface)>
+            >.fromAddress(vtable[idx++])
+            .asFunction();
   }
 
   void deprecatedCancel(IStatus status) {
     if (version < 4) {
       throw UnimplementedError(
-          "Firebird client library version 4 or later required.");
+        "Firebird client library version 4 or later required.",
+      );
     }
     _deprecatedCancel(self, status.self);
     status.checkStatus();

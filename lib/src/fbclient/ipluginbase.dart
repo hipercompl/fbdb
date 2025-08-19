@@ -14,15 +14,15 @@ class IPluginBase extends IReferenceCounted {
     startIndex = super.startIndex + super.methodCount;
     methodCount = 2;
     var idx = startIndex;
-    _setOwner = Pointer<
-            NativeFunction<
-                Void Function(
-                    FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
-        .asFunction();
+    _setOwner =
+        Pointer<
+              NativeFunction<Void Function(FbInterface, FbInterface)>
+            >.fromAddress(vtable[idx++])
+            .asFunction();
     _getOwner =
         Pointer<NativeFunction<FbInterface Function(FbInterface)>>.fromAddress(
-                vtable[idx++])
-            .asFunction();
+          vtable[idx++],
+        ).asFunction();
   }
 
   void setOwner(IReferenceCounted owner) {

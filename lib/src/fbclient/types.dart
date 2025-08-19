@@ -35,8 +35,8 @@ class FbServerException implements Exception {
   /// If util is not provided, the error message will be empty
   /// and only numeric error codes will be present in the exception.
   FbServerException.fromStatus(IStatus status, {IUtil? util})
-      : errors = status.errors,
-        message = util?.formattedStatus(status) ?? "";
+    : errors = status.errors,
+      message = util?.formattedStatus(status) ?? "";
 
   /// Returns the error message from the exception.
   @override
@@ -125,7 +125,7 @@ class FbQuad {
 
   /// Constructs an FbQuad with data from a native IscQuad structure.
   FbQuad.fromIscQuad(Pointer<IscQuad> quad)
-      : this(quad.ref.iscQuadHigh, quad.ref.iscQuadLow);
+    : this(quad.ref.iscQuadHigh, quad.ref.iscQuadLow);
 }
 
 /// A Dart mapping for the native IscTimeTz structure.
@@ -169,7 +169,10 @@ final class IscTimeTzEx extends Struct {
 
   /// Allocates (in native memory) and initializes a new IscTimeTzEx structure.
   static Pointer<IscTimeTzEx> allocate(
-      int utcTime, int timeZone, int extOffset) {
+    int utcTime,
+    int timeZone,
+    int extOffset,
+  ) {
     Pointer<IscTimeTzEx> ptr = mem.allocate<IscTimeTzEx>(sizeOf<IscTimeTzEx>());
     ptr.ref
       ..utcTime = utcTime
@@ -196,8 +199,9 @@ final class IscTimestamp extends Struct {
 
   /// Allocates (in native memory) and initializes a new IscTimestamp structure.
   static Pointer<IscTimestamp> allocate(int date, int time) {
-    Pointer<IscTimestamp> ptr =
-        mem.allocate<IscTimestamp>(sizeOf<IscTimestamp>());
+    Pointer<IscTimestamp> ptr = mem.allocate<IscTimestamp>(
+      sizeOf<IscTimestamp>(),
+    );
     ptr.ref
       ..date = date
       ..time = time;
@@ -227,8 +231,9 @@ final class IscTimestampTz extends Struct {
   /// Allocates (in native memory) and initializes a new
   /// IscTimestampTz structure.
   static Pointer<IscTimestampTz> allocate(int date, int time, int timeZone) {
-    Pointer<IscTimestampTz> ptr =
-        mem.allocate<IscTimestampTz>(sizeOf<IscTimestampTz>());
+    Pointer<IscTimestampTz> ptr = mem.allocate<IscTimestampTz>(
+      sizeOf<IscTimestampTz>(),
+    );
     ptr.ref
       ..date = date
       ..time = time
@@ -263,9 +268,14 @@ final class IscTimestampTzEx extends Struct {
   /// Allocates (in native memory) and initializes a new
   /// IscTimestampTzEx structure.
   static Pointer<IscTimestampTzEx> allocate(
-      int date, int time, int timeZone, int extOffset) {
-    Pointer<IscTimestampTzEx> ptr =
-        mem.allocate<IscTimestampTzEx>(sizeOf<IscTimestampTzEx>());
+    int date,
+    int time,
+    int timeZone,
+    int extOffset,
+  ) {
+    Pointer<IscTimestampTzEx> ptr = mem.allocate<IscTimestampTzEx>(
+      sizeOf<IscTimestampTzEx>(),
+    );
     ptr.ref
       ..date = date
       ..time = time

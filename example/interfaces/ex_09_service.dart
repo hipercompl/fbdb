@@ -37,8 +37,12 @@ void main() {
 
     // attach to the service manager
     print("Attaching to the service manager on localhost");
-    svc = prov.attachServiceManager(status, "service_mgr",
-        spb.getBufferLength(status), spb.getBuffer(status));
+    svc = prov.attachServiceManager(
+      status,
+      "service_mgr",
+      spb.getBufferLength(status),
+      spb.getBuffer(status),
+    );
     print("Attached to localhost:service_mgr");
 
     print("Querying service manager for server version information");
@@ -49,7 +53,14 @@ void main() {
     try {
       receiveItems[0] = FbConsts.isc_info_svc_server_version;
       svc.query(
-          status, 0, nullptr, recItemsSize, receiveItems, bufSize, resBuf);
+        status,
+        0,
+        nullptr,
+        recItemsSize,
+        receiveItems,
+        bufSize,
+        resBuf,
+      );
       printParams(client, resBuf, bufSize);
 
       print("Obtaining database statistics via service manager");
@@ -57,7 +68,10 @@ void main() {
       spb2.insertTag(status, FbConsts.isc_action_svc_db_stats);
       spb2.insertString(status, FbConsts.isc_spb_dbname, "employee");
       spb2.insertInt(
-          status, FbConsts.isc_spb_options, FbConsts.isc_spb_sts_encryption);
+        status,
+        FbConsts.isc_spb_options,
+        FbConsts.isc_spb_sts_encryption,
+      );
 
       print("Starting a service for the database employee");
       svc.start(status, spb2.getBufferLength(status), spb2.getBuffer(status));
@@ -68,7 +82,14 @@ void main() {
       do {
         resBuf.setAllBytes(bufSize, 0);
         svc.query(
-            status, 0, nullptr, recItemsSize, receiveItems, bufSize, resBuf);
+          status,
+          0,
+          nullptr,
+          recItemsSize,
+          receiveItems,
+          bufSize,
+          resBuf,
+        );
       } while (printParams(client, resBuf, bufSize));
     } finally {
       mem.free(resBuf);
@@ -96,7 +117,11 @@ void main() {
 // Returns the offset of the next parameter in the buffer
 // and the string read from the buffer.
 (int, String) getParamStr(
-    FbClient client, Pointer<Uint8> buf, int offset, int bufSize) {
+  FbClient client,
+  Pointer<Uint8> buf,
+  int offset,
+  int bufSize,
+) {
   if (offset >= bufSize) {
     return (offset, "");
   }
@@ -142,9 +167,11 @@ bool printParams(FbClient client, Pointer<Uint8> buf, int bufSize) {
       case FbConsts.isc_info_data_not_ready:
         doContinue = true;
       default:
-        print("Unknown item "
-            "0x${paramCode.toRadixString(16).padLeft(2, '0')} "
-            "in the result buffer.");
+        print(
+          "Unknown item "
+          "0x${paramCode.toRadixString(16).padLeft(2, '0')} "
+          "in the result buffer.",
+        );
     }
     if (offset < bufSize) {
       paramCode = buf[offset];

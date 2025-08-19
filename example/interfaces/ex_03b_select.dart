@@ -50,7 +50,11 @@ int main() {
     // attach to the employee database
     print("Attaching to employee on localhost");
     att = prov.attachDatabase(
-        status, "employee", dpb.getBufferLength(status), dpb.getBuffer(status));
+      status,
+      "employee",
+      dpb.getBufferLength(status),
+      dpb.getBuffer(status),
+    );
     print("Attached to the database");
 
     // start transaction
@@ -63,7 +67,10 @@ int main() {
 
     print("Starting a new transaction");
     tra = att.startTransaction(
-        status, tpb.getBufferLength(status), tpb.getBuffer(status));
+      status,
+      tpb.getBufferLength(status),
+      tpb.getBuffer(status),
+    );
 
     // the select statement
     const sqlSelect = """

@@ -109,14 +109,17 @@ extension IntMem on int {
           Pointer<Int8>.fromAddress(buffer.address + offset).asTypedList(1)[0] =
               this;
         case 2:
-          Pointer<Int16>.fromAddress(buffer.address + offset)
-              .asTypedList(1)[0] = this;
+          Pointer<Int16>.fromAddress(
+            buffer.address + offset,
+          ).asTypedList(1)[0] = this;
         case 4:
-          Pointer<Int32>.fromAddress(buffer.address + offset)
-              .asTypedList(1)[0] = this;
+          Pointer<Int32>.fromAddress(
+            buffer.address + offset,
+          ).asTypedList(1)[0] = this;
         case 8:
-          Pointer<Int64>.fromAddress(buffer.address + offset)
-              .asTypedList(1)[0] = this;
+          Pointer<Int64>.fromAddress(
+            buffer.address + offset,
+          ).asTypedList(1)[0] = this;
         default:
           throw MemException("Invalid target integer byte length: $byteCnt");
       }
@@ -147,17 +150,21 @@ extension IntMem on int {
       // the target buffer is aligned
       switch (byteCnt) {
         case 1:
-          Pointer<Uint8>.fromAddress(buffer.address + offset)
-              .asTypedList(1)[0] = this;
+          Pointer<Uint8>.fromAddress(
+            buffer.address + offset,
+          ).asTypedList(1)[0] = this;
         case 2:
-          Pointer<Uint16>.fromAddress(buffer.address + offset)
-              .asTypedList(1)[0] = this;
+          Pointer<Uint16>.fromAddress(
+            buffer.address + offset,
+          ).asTypedList(1)[0] = this;
         case 4:
-          Pointer<Uint32>.fromAddress(buffer.address + offset)
-              .asTypedList(1)[0] = this;
+          Pointer<Uint32>.fromAddress(
+            buffer.address + offset,
+          ).asTypedList(1)[0] = this;
         case 8:
-          Pointer<Uint64>.fromAddress(buffer.address + offset)
-              .asTypedList(1)[0] = this;
+          Pointer<Uint64>.fromAddress(
+            buffer.address + offset,
+          ).asTypedList(1)[0] = this;
         default:
           throw MemException("Invalid target integer byte length: $byteCnt");
       }
@@ -263,20 +270,25 @@ int readFromBufferAsSigned(Pointer<Uint8> buffer, int offset, int byteCnt) {
     // the offset is aligned
     switch (byteCnt) {
       case 1:
-        return Pointer<Int8>.fromAddress(buffer.address + offset)
-            .asTypedList(1)[0];
+        return Pointer<Int8>.fromAddress(
+          buffer.address + offset,
+        ).asTypedList(1)[0];
       case 2:
-        return Pointer<Int16>.fromAddress(buffer.address + offset)
-            .asTypedList(1)[0];
+        return Pointer<Int16>.fromAddress(
+          buffer.address + offset,
+        ).asTypedList(1)[0];
       case 4:
-        return Pointer<Int32>.fromAddress(buffer.address + offset)
-            .asTypedList(1)[0];
+        return Pointer<Int32>.fromAddress(
+          buffer.address + offset,
+        ).asTypedList(1)[0];
       case 8:
-        return Pointer<Int64>.fromAddress(buffer.address + offset)
-            .asTypedList(1)[0];
+        return Pointer<Int64>.fromAddress(
+          buffer.address + offset,
+        ).asTypedList(1)[0];
       default:
         throw MemException(
-            "Invalid byte count for reading int from buffer: $byteCnt");
+          "Invalid byte count for reading int from buffer: $byteCnt",
+        );
     }
   } else {
     // the offset not aligned - copying byte by byte
@@ -303,17 +315,21 @@ int readFromBufferAsUnsigned(Pointer<Uint8> buffer, int offset, int byteCnt) {
       case 1:
         return buffer[offset];
       case 2:
-        return Pointer<Uint16>.fromAddress(buffer.address + offset)
-            .asTypedList(1)[0];
+        return Pointer<Uint16>.fromAddress(
+          buffer.address + offset,
+        ).asTypedList(1)[0];
       case 4:
-        return Pointer<Uint32>.fromAddress(buffer.address + offset)
-            .asTypedList(1)[0];
+        return Pointer<Uint32>.fromAddress(
+          buffer.address + offset,
+        ).asTypedList(1)[0];
       case 8:
-        return Pointer<Uint64>.fromAddress(buffer.address + offset)
-            .asTypedList(1)[0];
+        return Pointer<Uint64>.fromAddress(
+          buffer.address + offset,
+        ).asTypedList(1)[0];
       default:
         throw MemException(
-            "Invalid byte count for reading int from buffer: $byteCnt");
+          "Invalid byte count for reading int from buffer: $byteCnt",
+        );
     }
   } else {
     // the offset not aligned - copying byte by byte
@@ -345,11 +361,13 @@ extension DoubleMem on double {
       // the index is aligned
       switch (byteCnt) {
         case 4:
-          Pointer<Float>.fromAddress(buffer.address + offset)
-              .asTypedList(1)[0] = this;
+          Pointer<Float>.fromAddress(
+            buffer.address + offset,
+          ).asTypedList(1)[0] = this;
         case 8:
-          Pointer<Double>.fromAddress(buffer.address + offset)
-              .asTypedList(1)[0] = this;
+          Pointer<Double>.fromAddress(
+            buffer.address + offset,
+          ).asTypedList(1)[0] = this;
         default:
           throw MemException("Invalid target float byte length: $byteCnt");
       }
@@ -394,11 +412,13 @@ double readFromBufferAsFloat(Pointer<Uint8> buffer, int offset, int byteCnt) {
     // offset is aligned
     switch (byteCnt) {
       case 4:
-        return Pointer<Float>.fromAddress(buffer.address + offset)
-            .asTypedList(1)[0];
+        return Pointer<Float>.fromAddress(
+          buffer.address + offset,
+        ).asTypedList(1)[0];
       case 8:
-        return Pointer<Double>.fromAddress(buffer.address + offset)
-            .asTypedList(1)[0];
+        return Pointer<Double>.fromAddress(
+          buffer.address + offset,
+        ).asTypedList(1)[0];
       default:
         throw MemException("Invalid byte count value: $byteCnt");
     }
@@ -432,8 +452,12 @@ extension StringMem on String {
   /// ```dart
   ///   "Hello!".put(buf, 6);
   /// ```
-  void writeToBuffer(Pointer<Uint8> buffer, int offset,
-      {bool includeNullTerm = true, int? maxLength}) {
+  void writeToBuffer(
+    Pointer<Uint8> buffer,
+    int offset, {
+    bool includeNullTerm = true,
+    int? maxLength,
+  }) {
     final bytes = utf8.encode(this + (includeNullTerm ? "\x00" : ""));
     maxLength ??= bytes.length;
     maxLength = min(maxLength, bytes.length);
@@ -456,18 +480,21 @@ extension StringMem on String {
 /// or later in the [buffer].
 /// [allowMalformed] is passed directly to `utf8.decode`,
 /// allowing or not an invalid UTF-8 sequence to occur in the buffer.
-String readFromBufferAsString(Pointer<Uint8> buffer, int offset,
-    [int? byteCnt, bool allowMalformed = true]) {
+String readFromBufferAsString(
+  Pointer<Uint8> buffer,
+  int offset, [
+  int? byteCnt,
+  bool allowMalformed = true,
+]) {
   if (byteCnt == null) {
     // auto-detect the end of string
     int c = 0;
     while (buffer[offset + c++] != 0) {}
     byteCnt = c;
   }
-  List<int> codeUnits = Pointer<Uint8>.fromAddress(buffer.address + offset)
-      .asTypedList(byteCnt)
-      .takeWhile((value) => value != 0)
-      .toList();
+  List<int> codeUnits = Pointer<Uint8>.fromAddress(
+    buffer.address + offset,
+  ).asTypedList(byteCnt).takeWhile((value) => value != 0).toList();
   return utf8.decode(codeUnits, allowMalformed: allowMalformed);
 }
 
@@ -699,10 +726,18 @@ extension ReadWriteData on Pointer<Uint8> {
   /// The buffer needs to be long enough to accomodate the srting
   /// [value] converted to UTF-8 or [maxLength] must be provided
   /// to set the upper bound on the amount of data being copied.
-  void writeString(int offset, String value,
-      [bool includeNullTerm = true, int? maxLength]) {
-    value.writeToBuffer(this, offset,
-        includeNullTerm: includeNullTerm, maxLength: maxLength);
+  void writeString(
+    int offset,
+    String value, [
+    bool includeNullTerm = true,
+    int? maxLength,
+  ]) {
+    value.writeToBuffer(
+      this,
+      offset,
+      includeNullTerm: includeNullTerm,
+      maxLength: maxLength,
+    );
   }
 
   /// Writes a UTF-8 converted string to the buffer as VARCHAR.
@@ -732,8 +767,12 @@ extension MemCopy on Pointer<NativeType> {
   /// of the actual type the pointer is pointing to).
   /// The target memory starts at [dst] shifted by [dstByteOffset] bytes.
   /// The number of bytes to copy is determined by [byteCnt].
-  void toNativeMem(Pointer<NativeType> dst, int byteCnt,
-      [int srcByteOffset = 0, int dstByteOffset = 0]) {
+  void toNativeMem(
+    Pointer<NativeType> dst,
+    int byteCnt, [
+    int srcByteOffset = 0,
+    int dstByteOffset = 0,
+  ]) {
     final src = Pointer<Uint8>.fromAddress(address + srcByteOffset);
     final tgt = Pointer<Uint8>.fromAddress(dst.address + dstByteOffset);
     for (var i = 0; i < byteCnt; i++) {
@@ -764,8 +803,12 @@ extension MemCopy on Pointer<NativeType> {
   /// starting at offset [srcOffset] to the location [this] + [dstOffset]
   /// ([dstOffset] is given in bytes, regardless of the actual type
   /// this pointer is pointing to).
-  void fromDartMem(Uint8List src,
-      [int? byteCnt, int srcOffset = 0, int dstOffset = 0]) {
+  void fromDartMem(
+    Uint8List src, [
+    int? byteCnt,
+    int srcOffset = 0,
+    int dstOffset = 0,
+  ]) {
     final dst = Pointer<Uint8>.fromAddress(address + dstOffset);
     byteCnt ??= src.length;
     for (var i = 0; i < byteCnt; i++) {
@@ -778,8 +821,12 @@ extension MemCopy on Pointer<NativeType> {
   /// This method copies [byteCnt] subsequent bytes from [src],
   /// starting at index [srcOffset], to this buffer at index
   /// [dstOffset].
-  void fromNativeMem(Pointer<NativeType> src, int byteCnt,
-      [int srcOffset = 0, int dstOffset = 0]) {
+  void fromNativeMem(
+    Pointer<NativeType> src,
+    int byteCnt, [
+    int srcOffset = 0,
+    int dstOffset = 0,
+  ]) {
     final sbuf = Pointer<Uint8>.fromAddress(src.address + srcOffset);
     final dbuf = Pointer<Uint8>.fromAddress(address + dstOffset);
     for (var i = 0; i < byteCnt; i++) {

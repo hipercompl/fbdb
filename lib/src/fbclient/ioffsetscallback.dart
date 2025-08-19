@@ -5,17 +5,31 @@ class IOffsetsCallback extends IVersioned {
   @override
   int minSupportedVersion() => 2;
 
-  late void Function(FbInterface self, FbInterface status, int index,
-      int offset, int nullOffset) _setOffset;
+  late void Function(
+    FbInterface self,
+    FbInterface status,
+    int index,
+    int offset,
+    int nullOffset,
+  )
+  _setOffset;
 
   IOffsetsCallback(super.self) {
     startIndex = super.startIndex + super.methodCount;
     methodCount = 1;
-    _setOffset = Pointer<
-            NativeFunction<
-                Void Function(FbInterface, FbInterface, UnsignedInt,
-                    UnsignedInt, UnsignedInt)>>.fromAddress(vtable[startIndex])
-        .asFunction();
+    _setOffset =
+        Pointer<
+              NativeFunction<
+                Void Function(
+                  FbInterface,
+                  FbInterface,
+                  UnsignedInt,
+                  UnsignedInt,
+                  UnsignedInt,
+                )
+              >
+            >.fromAddress(vtable[startIndex])
+            .asFunction();
   }
 
   void setOffset(IStatus status, int index, int offset, int nullOffset) {

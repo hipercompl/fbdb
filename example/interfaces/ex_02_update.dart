@@ -41,7 +41,11 @@ int main() {
     // attach to the employee database
     print("Attaching to employee on localhost");
     att = prov.attachDatabase(
-        status, "employee", dpb.getBufferLength(status), dpb.getBuffer(status));
+      status,
+      "employee",
+      dpb.getBufferLength(status),
+      dpb.getBuffer(status),
+    );
     print("Attached to the database");
 
     // start transaction
@@ -132,7 +136,13 @@ int main() {
         msg.writeString(deptOffset, dept);
         msg.writeDouble(percOffset, perc);
         att.execute(
-            status, tra, sqlUpdate, FbConsts.sqlDialectCurrent, meta, msg);
+          status,
+          tra,
+          sqlUpdate,
+          FbConsts.sqlDialectCurrent,
+          meta,
+          msg,
+        );
       } on FbStatusException catch (e) {
         if (e.status.getErrors()[1] == FbErrorCodes.isc_not_valid) {
           print("Department $dept: budget exceeded, not udpated!");

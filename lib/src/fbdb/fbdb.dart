@@ -51,14 +51,15 @@ class FbDb {
   /// await db.detach();
   /// // db cannot be used any more
   /// ```
-  static Future<FbDb> attach(
-      {String? host,
-      int? port,
-      required String database,
-      String? user,
-      String? password,
-      String? role,
-      FbOptions? options}) async {
+  static Future<FbDb> attach({
+    String? host,
+    int? port,
+    required String database,
+    String? user,
+    String? password,
+    String? role,
+    FbOptions? options,
+  }) async {
     final db = await FbDb._createWorker(options?.libFbClient);
     final args = _argsToMap(
       host: host,
@@ -108,14 +109,15 @@ class FbDb {
   /// await db.detach();
   /// // db cannot be used any more
   /// ```
-  static Future<FbDb> createDatabase(
-      {String? host,
-      int? port,
-      required String database,
-      String? user,
-      String? password,
-      String? role,
-      FbOptions? options}) async {
+  static Future<FbDb> createDatabase({
+    String? host,
+    int? port,
+    required String database,
+    String? user,
+    String? password,
+    String? role,
+    FbOptions? options,
+  }) async {
     final db = await FbDb._createWorker(options?.libFbClient);
     final args = _argsToMap(
       host: host,
@@ -263,8 +265,10 @@ class FbDb {
   /// await db.detach();
   /// // db cannot be used any more
   /// ```
-  Future<void> startTransaction(
-      {Set<FbTrFlag>? flags, int? lockTimeout}) async {
+  Future<void> startTransaction({
+    Set<FbTrFlag>? flags,
+    int? lockTimeout,
+  }) async {
     await _askWorker(FbDbControlOp.startTransaction, [flags, lockTimeout]);
   }
 
@@ -288,10 +292,9 @@ class FbDb {
   /// However, it is probably more natural to call [FbTransaction.commit]
   /// instead of passing the transaction to [FbDb.commit].
   Future<void> commit({FbTransaction? transaction}) async {
-    await _askWorker(
-      FbDbControlOp.commit,
-      [if (transaction != null) transaction.handle],
-    );
+    await _askWorker(FbDbControlOp.commit, [
+      if (transaction != null) transaction.handle,
+    ]);
     if (transaction != null) {
       transaction.handle = 0; // invalidate the transaction
     }
@@ -317,10 +320,9 @@ class FbDb {
   /// However, it is probably more natural to call [FbTransaction.rollback]
   /// instead of passing the transaction to [FbDb.rollback].
   Future<void> rollback({FbTransaction? transaction}) async {
-    await _askWorker(
-      FbDbControlOp.rollback,
-      [if (transaction != null) transaction.handle],
-    );
+    await _askWorker(FbDbControlOp.rollback, [
+      if (transaction != null) transaction.handle,
+    ]);
     if (transaction != null) {
       transaction.handle = 0; // invalidate the transaction
     }
@@ -353,10 +355,9 @@ class FbDb {
       // transaction handle 0 is invalid
       return false;
     }
-    final r = await _askWorker(
-      FbDbControlOp.inTransaction,
-      [if (transaction != null) transaction.handle],
-    );
+    final r = await _askWorker(FbDbControlOp.inTransaction, [
+      if (transaction != null) transaction.handle,
+    ]);
     return (r.data.isNotEmpty && r.data[0] is bool && r.data[0]);
   }
 
@@ -397,12 +398,14 @@ class FbDb {
   /// print(await t2.isActive()); // false
   /// await q.close();
   /// ```
-  Future<FbTransaction> newTransaction(
-      {Set<FbTrFlag>? flags, int? lockTimeout}) async {
-    final r = await _askWorker(
-      FbDbControlOp.newTransaction,
-      [flags, lockTimeout],
-    );
+  Future<FbTransaction> newTransaction({
+    Set<FbTrFlag>? flags,
+    int? lockTimeout,
+  }) async {
+    final r = await _askWorker(FbDbControlOp.newTransaction, [
+      flags,
+      lockTimeout,
+    ]);
     if (r.data.isNotEmpty) {
       return FbTransaction(this, r.data[0]);
     } else {
@@ -468,11 +471,9 @@ class FbDb {
   /// await db.detach();
   /// ```
   Future<FbBlobId> createBlob({FbTransaction? inTransaction}) async {
-    return (await _askWorker(
-      FbDbControlOp.createBlob,
-      [if (inTransaction != null) inTransaction.handle],
-    ))
-        .data[0];
+    return (await _askWorker(FbDbControlOp.createBlob, [
+      if (inTransaction != null) inTransaction.handle,
+    ])).data[0];
   }
 
   /// Opens an existing blob for reading.
@@ -509,17 +510,16 @@ class FbDb {
     if (segmentSize <= 0) {
       throw FbClientException("Invalid blob segment size: $segmentSize");
     }
-    await _askWorker(
-      FbDbControlOp.openBlob,
-      [
-        id,
-        if (inTransaction != null) inTransaction.handle,
-      ],
-    );
+    await _askWorker(FbDbControlOp.openBlob, [
+      id,
+      if (inTransaction != null) inTransaction.handle,
+    ]);
     return () async* {
       for (;;) {
-        final r =
-            await _askWorker(FbDbControlOp.getBlobSegment, [id, segmentSize]);
+        final r = await _askWorker(FbDbControlOp.getBlobSegment, [
+          id,
+          segmentSize,
+        ]);
         if (r.data.isNotEmpty && r.data[0] != null) {
           ByteBuffer buf = r.data[0];
           yield buf;
@@ -577,10 +577,7 @@ class FbDb {
     required FbBlobId id,
     required String data,
   }) async {
-    return putBlobSegment(
-      id: id,
-      data: utf8.encode(data).buffer,
-    );
+    return putBlobSegment(id: id, data: utf8.encode(data).buffer);
   }
 
   /// Fills a blob with data from the provided stream.
@@ -615,10 +612,7 @@ class FbDb {
     required Stream<ByteBuffer> stream,
   }) async {
     await for (var data in stream) {
-      await putBlobSegment(
-        id: id,
-        data: data,
-      );
+      await putBlobSegment(id: id, data: data);
     }
     await closeBlob(id: id);
   }
@@ -650,15 +644,12 @@ class FbDb {
   /// await db.commit(); // commit the started transaction
   /// await db.detach();
   /// ```
-  Future<void> blobFromFile({
-    required FbBlobId id,
-    required File file,
-  }) async {
+  Future<void> blobFromFile({required FbBlobId id, required File file}) async {
     return putBlobFromStream(
       id: id,
-      stream: file
-          .openRead()
-          .map((byteValues) => Uint8List.fromList(byteValues).buffer),
+      stream: file.openRead().map(
+        (byteValues) => Uint8List.fromList(byteValues).buffer,
+      ),
     );
   }
 
@@ -892,11 +883,7 @@ class FbDb {
     try {
       isolate = await Isolate.spawn(
         workerRunner,
-        [
-          fromWorker.sendPort,
-          libPath,
-          mem is TracingAllocator,
-        ],
+        [fromWorker.sendPort, libPath, mem is TracingAllocator],
         errorsAreFatal: true,
         debugName: 'FbDbWorker',
       );
@@ -923,14 +910,15 @@ class FbDb {
 
   /// Packs the arguments to a map, to be passed to the worker
   /// isolate upon spawning it.
-  static Map<String, dynamic> _argsToMap(
-      {String? host,
-      int? port,
-      required String database,
-      String? user,
-      String? password,
-      String? role,
-      FbOptions? options}) {
+  static Map<String, dynamic> _argsToMap({
+    String? host,
+    int? port,
+    required String database,
+    String? user,
+    String? password,
+    String? role,
+    FbOptions? options,
+  }) {
     return {
       if (host != null) "host": host,
       if (port != null) "port": port,
@@ -950,12 +938,16 @@ class FbDb {
   /// returns the response message.
   /// Creates a separate ReceivePort for the operation (i.e. each call
   /// to [_askWorker] uses a separate, one-shot ReceivePort).
-  Future<FbDbResponse> _askWorker(FbDbControlOp op, List<dynamic> args,
-      [SendPort? toWorker]) async {
+  Future<FbDbResponse> _askWorker(
+    FbDbControlOp op,
+    List<dynamic> args, [
+    SendPort? toWorker,
+  ]) async {
     toWorker ??= _toWorker;
     if (_worker == null || toWorker == null) {
       throw FbClientException(
-          "No active worker isolate associated with the connection");
+        "No active worker isolate associated with the connection",
+      );
     }
     final resultPort = ReceivePort();
     try {
@@ -1160,15 +1152,12 @@ class FbQuery {
       throw FbClientException("No active database connection");
     }
     await close(); // close the previously associated worker, if any
-    final msg = await _db?._askWorker(
-      FbDbControlOp.queryExec,
-      [
-        sql,
-        parameters,
-        inlineBlobs,
-        if (inTransaction != null) inTransaction.handle,
-      ],
-    );
+    final msg = await _db?._askWorker(FbDbControlOp.queryExec, [
+      sql,
+      parameters,
+      inlineBlobs,
+      if (inTransaction != null) inTransaction.handle,
+    ]);
     _throwIfErrorResponse(msg);
     final r = msg as FbDbResponse;
     if (r.data.isEmpty) {
@@ -1228,15 +1217,12 @@ class FbQuery {
       throw FbClientException("No active database connection");
     }
     await close(); // close the previously associated worker, if any
-    final msg = await _db?._askWorker(
-      FbDbControlOp.queryOpen,
-      [
-        sql,
-        parameters,
-        inlineBlobs,
-        if (inTransaction != null) inTransaction.handle,
-      ],
-    );
+    final msg = await _db?._askWorker(FbDbControlOp.queryOpen, [
+      sql,
+      parameters,
+      inlineBlobs,
+      if (inTransaction != null) inTransaction.handle,
+    ]);
     _throwIfErrorResponse(msg);
     final r = msg as FbDbResponse;
     if (r.data.isEmpty) {
@@ -1415,13 +1401,12 @@ class FbQuery {
   Future<Map<String, dynamic>?> fetchOneAsMap() async {
     if (_toWorker == null) {
       throw FbClientException(
-          "No active query associated with this query object");
+        "No active query associated with this query object",
+      );
     }
-    final msg = await _db?._askWorker(
-      FbDbControlOp.fetchNext,
-      [FbRowFormat.asMap],
-      _toWorker,
-    );
+    final msg = await _db?._askWorker(FbDbControlOp.fetchNext, [
+      FbRowFormat.asMap,
+    ], _toWorker);
     _throwIfErrorResponse(msg);
     final r = msg as FbDbResponse;
     if (r.data.isEmpty || r.data[0] == null) {
@@ -1464,13 +1449,12 @@ class FbQuery {
   Future<List<dynamic>?> fetchOneAsList() async {
     if (_toWorker == null) {
       throw FbClientException(
-          "No active query associated with this query object");
+        "No active query associated with this query object",
+      );
     }
-    final msg = await _db?._askWorker(
-      FbDbControlOp.fetchNext,
-      [FbRowFormat.asList],
-      _toWorker,
-    );
+    final msg = await _db?._askWorker(FbDbControlOp.fetchNext, [
+      FbRowFormat.asList,
+    ], _toWorker);
     _throwIfErrorResponse(msg);
     final r = msg as FbDbResponse;
     if (r.data.isEmpty || r.data[0] == null) {
@@ -1562,7 +1546,8 @@ class FbQuery {
   Future<List<FbFieldDef>?> fieldDefs() async {
     if (_toWorker == null) {
       throw FbClientException(
-          "No active query associated with this query object");
+        "No active query associated with this query object",
+      );
     }
     final msg = await _db?._askWorker(
       FbDbControlOp.getFieldDefs,
@@ -1624,7 +1609,8 @@ class FbQuery {
   Future<int> affectedRows() async {
     if (_toWorker == null) {
       throw FbClientException(
-          "No active query associated with this query object");
+        "No active query associated with this query object",
+      );
     }
     final msg = await _db?._askWorker(
       FbDbControlOp.affectedRows,
@@ -1659,13 +1645,12 @@ class FbQuery {
   Future<Map<String, dynamic>> getOutputAsMap() async {
     if (_toWorker == null) {
       throw FbClientException(
-          "No active query associated with this query object");
+        "No active query associated with this query object",
+      );
     }
-    final msg = await _db?._askWorker(
-      FbDbControlOp.getOutput,
-      [FbRowFormat.asMap],
-      _toWorker,
-    );
+    final msg = await _db?._askWorker(FbDbControlOp.getOutput, [
+      FbRowFormat.asMap,
+    ], _toWorker);
     _throwIfErrorResponse(msg);
     final r = msg as FbDbResponse;
     if (r.data.isEmpty || r.data[0] == null) {
@@ -1702,13 +1687,12 @@ class FbQuery {
   Future<Map<String, dynamic>?> getOutputAsList() async {
     if (_toWorker == null) {
       throw FbClientException(
-          "No active query associated with this query object");
+        "No active query associated with this query object",
+      );
     }
-    final msg = await _db?._askWorker(
-      FbDbControlOp.getOutput,
-      [FbRowFormat.asList],
-      _toWorker,
-    );
+    final msg = await _db?._askWorker(FbDbControlOp.getOutput, [
+      FbRowFormat.asList,
+    ], _toWorker);
     _throwIfErrorResponse(msg);
     final r = msg as FbDbResponse;
     if (r.data.isEmpty || r.data[0] == null) {
@@ -1757,13 +1741,10 @@ class FbQuery {
       throw FbClientException("No active database connection");
     }
     await close(); // close the previously associated worker, if any
-    final msg = await _db?._askWorker(
-      FbDbControlOp.prepareQuery,
-      [
-        sql,
-        if (inTransaction != null) inTransaction.handle,
-      ],
-    );
+    final msg = await _db?._askWorker(FbDbControlOp.prepareQuery, [
+      sql,
+      if (inTransaction != null) inTransaction.handle,
+    ]);
     _throwIfErrorResponse(msg);
     final r = msg as FbDbResponse;
     if (r.data.isEmpty) {
@@ -1815,17 +1796,14 @@ class FbQuery {
   }) async {
     if (_toWorker == null) {
       throw FbClientException(
-          "No active query associated with this query object");
+        "No active query associated with this query object",
+      );
     }
-    final msg = await _db?._askWorker(
-      FbDbControlOp.execQueryPrepared,
-      [
-        parameters,
-        inlineBlobs,
-        if (inTransaction != null) inTransaction.handle,
-      ],
-      _toWorker,
-    );
+    final msg = await _db?._askWorker(FbDbControlOp.execQueryPrepared, [
+      parameters,
+      inlineBlobs,
+      if (inTransaction != null) inTransaction.handle,
+    ], _toWorker);
     _throwIfErrorResponse(msg);
     return this;
   }
@@ -1873,17 +1851,14 @@ class FbQuery {
   }) async {
     if (_toWorker == null) {
       throw FbClientException(
-          "No active query associated with this query object");
+        "No active query associated with this query object",
+      );
     }
-    final msg = await _db?._askWorker(
-      FbDbControlOp.openQueryPrepared,
-      [
-        parameters,
-        inlineBlobs,
-        if (inTransaction != null) inTransaction.handle,
-      ],
-      _toWorker,
-    );
+    final msg = await _db?._askWorker(FbDbControlOp.openQueryPrepared, [
+      parameters,
+      inlineBlobs,
+      if (inTransaction != null) inTransaction.handle,
+    ], _toWorker);
     _throwIfErrorResponse(msg);
     return this;
   }
@@ -1896,7 +1871,8 @@ class FbQuery {
   Future<bool> isPrepared() async {
     if (_toWorker == null) {
       throw FbClientException(
-          "No active query associated with this query object");
+        "No active query associated with this query object",
+      );
     }
     final msg = await _db?._askWorker(
       FbDbControlOp.isQueryPrepared,

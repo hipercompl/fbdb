@@ -30,7 +30,8 @@ void main() async {
     // executes the statement, opens a cursor and gets ready
     // to fetch rows of data
     await q.openCursor(
-      sql: "select EMP_NO, FIRST_NAME, LAST_NAME, PHONE_EXT, HIRE_DATE, SALARY "
+      sql:
+          "select EMP_NO, FIRST_NAME, LAST_NAME, PHONE_EXT, HIRE_DATE, SALARY "
           "from EMPLOYEE "
           "where EMP_NO < ?",
       parameters: [30],

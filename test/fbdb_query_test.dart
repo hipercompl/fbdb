@@ -29,7 +29,8 @@ void main() async {
       await withNewDb1((db) async {
         var q = db.query();
         await q.openCursor(
-          sql: "select * from T where PK_INT in (?, ?)"
+          sql:
+              "select * from T where PK_INT in (?, ?)"
               "order by PK_INT",
           parameters: [1, 2],
         );
@@ -106,7 +107,8 @@ void main() async {
         }
 
         final rows = await db.selectAll(
-          sql: "select PK_INT from T where PK_INT between ? and ? "
+          sql:
+              "select PK_INT from T where PK_INT between ? and ? "
               "order by PK_INT",
           parameters: [1, 3],
         );
@@ -123,8 +125,9 @@ void main() async {
       await withNewDb1((db) async {
         final q = db.query();
         await q.execute(
-            sql: "insert into T(PK_INT, C_5) values (?, ?)",
-            parameters: [4, null]);
+          sql: "insert into T(PK_INT, C_5) values (?, ?)",
+          parameters: [4, null],
+        );
         await q.close();
         final row = await db.selectOne(
           sql: "select PK_INT from T where PK_INT=?",
@@ -153,19 +156,17 @@ void main() async {
     }); // test "SELECT with `open` shorthand method"
 
     test("SELECT of CHAR field (issue #5)", () async {
-      await withNewDb1(
-        (db) async {
-          final row = await db.selectOne(
-            sql: "select C_1, C_5 from T where PK_INT=?",
-            parameters: [1],
-          );
-          expect(row, isNotNull);
-          if (row != null) {
-            expect(row["C_1"], equals("y"));
-            expect(row["C_5"], equals("row_1"));
-          }
-        },
-      ); // withNewDb1
+      await withNewDb1((db) async {
+        final row = await db.selectOne(
+          sql: "select C_1, C_5 from T where PK_INT=?",
+          parameters: [1],
+        );
+        expect(row, isNotNull);
+        if (row != null) {
+          expect(row["C_1"], equals("y"));
+          expect(row["C_5"], equals("row_1"));
+        }
+      }); // withNewDb1
     }); // test "SELECT of CHAR field (issue #5)"
 
     test("SELECT of CHAR field (issue #7) test 1", () async {
@@ -205,35 +206,35 @@ void main() async {
     }); // test "SELECT of CHAR field (issue #7) test 2"
 
     test("SELECT of CHAR field (issue #7) test 3", () async {
-      await withNewDb1(
-        (db) async {
-          await db.execute(
-            sql: "insert into T(PK_INT, C_5) values (?, ?)",
-            parameters: [10, "ab"],
-          );
+      await withNewDb1((db) async {
+        await db.execute(
+          sql: "insert into T(PK_INT, C_5) values (?, ?)",
+          parameters: [10, "ab"],
+        );
 
-          final row = await db.selectOne(
-            sql: "select "
-                "cast(C_5 as CHAR(5) character set NONE) as CNONE, "
-                "cast(C_5 as CHAR(5) character set WIN1250) as C1250 "
-                "from T "
-                "where PK_INT=?",
-            parameters: [10],
-          );
-          expect(row, isNotNull);
-          if (row != null) {
-            expect(row["CNONE"], equals("ab   "));
-            expect(row["C1250"], equals("ab   "));
-          }
-        },
-      ); // withNewDb1
+        final row = await db.selectOne(
+          sql:
+              "select "
+              "cast(C_5 as CHAR(5) character set NONE) as CNONE, "
+              "cast(C_5 as CHAR(5) character set WIN1250) as C1250 "
+              "from T "
+              "where PK_INT=?",
+          parameters: [10],
+        );
+        expect(row, isNotNull);
+        if (row != null) {
+          expect(row["CNONE"], equals("ab   "));
+          expect(row["C1250"], equals("ab   "));
+        }
+      }); // withNewDb1
     }); // test "SELECT of CHAR field (issue #7) test 3"
 
     test("SELECT of CHAR field (issue #7) test 4", () async {
       await withNewEmptyDb(
         (db) async {
           final row = await db.selectOne(
-            sql: "select cast('\u{1F468}\u{1f606}\u2665abc' as char(10) "
+            sql:
+                "select cast('\u{1F468}\u{1f606}\u2665abc' as char(10) "
                 "   character set UNICODE_FSS) as C1, "
                 "cast('x' as char(10) character set NONE) as C2, "
                 "cast('x' as char(10) character set WIN1250) as C3, "
@@ -283,11 +284,12 @@ void main() async {
           444.444,
           DateTime(2024, 4, 4),
           DateTime(2024, 4, 4, 14, 44, 44),
-          Uint8List.fromList([4, 5, 6, 7, 8, 9, 10])
+          Uint8List.fromList([4, 5, 6, 7, 8, 9, 10]),
         ];
         final q = db.query();
         await q.execute(
-          sql: "insert into T(PK_INT, C_1, C_5, VC_50, DP, DEC_10_3, D, TS, B) "
+          sql:
+              "insert into T(PK_INT, C_1, C_5, VC_50, DP, DEC_10_3, D, TS, B) "
               "values (?, ?, ?, ?, ?, ?, ?, ?, ?)",
           parameters: testRow,
         );
@@ -337,7 +339,8 @@ void main() async {
       await withNewDb1((db) async {
         final q = db.query();
         await q.openCursor(
-          sql: "insert into T(PK_INT) "
+          sql:
+              "insert into T(PK_INT) "
               "select 10 as X from RDB\$DATABASE "
               "union all "
               "select 11 as X from RDB\$DATABASE "
@@ -381,12 +384,15 @@ void main() async {
     test("UPDATE with error", () async {
       await withNewDb1((db) async {
         final q = db.query();
-        await expectLater((() async {
-          await q.execute(
-            sql: "update T set PK_INT=? where PK_INT=?",
-            parameters: [1, 2],
-          );
-        })(), throwsException);
+        await expectLater(
+          (() async {
+            await q.execute(
+              sql: "update T set PK_INT=? where PK_INT=?",
+              parameters: [1, 2],
+            );
+          })(),
+          throwsException,
+        );
         await q.close();
       }); // withNewDb1
     }); // test "UPDATE with error"
@@ -409,10 +415,7 @@ void main() async {
     test("DELETE with no affected rows", () async {
       await withNewDb1((db) async {
         final q = db.query();
-        await q.execute(
-          sql: "delete from T where PK_INT=?",
-          parameters: [-1],
-        );
+        await q.execute(sql: "delete from T where PK_INT=?", parameters: [-1]);
         final r = await q.affectedRows();
         expect(r, isZero);
         await q.close();
@@ -425,9 +428,7 @@ void main() async {
       await withNewDb1((db) async {
         final q = db.query();
         expect(() async {
-          await q.execute(
-            sql: "create table T2(afield INTEGER)",
-          );
+          await q.execute(sql: "create table T2(afield INTEGER)");
           await q.close();
         }, returnsNormally);
       }); // withNewDb1
@@ -436,14 +437,13 @@ void main() async {
     test("CREATE duplicated table", () async {
       await withNewDb1((db) async {
         final q = db.query();
-        await q.execute(
-          sql: "create table T2(afield INTEGER)",
+        await q.execute(sql: "create table T2(afield INTEGER)");
+        await expectLater(
+          (() async {
+            await q.execute(sql: "create table T2(afield INTEGER)");
+          })(),
+          throwsException,
         );
-        await expectLater((() async {
-          await q.execute(
-            sql: "create table T2(afield INTEGER)",
-          );
-        })(), throwsException);
         await q.close();
       }); // withNewDb1
     }); // test "CREATE duplicated table"
@@ -454,9 +454,7 @@ void main() async {
       await withNewDb1((db) async {
         final q = db.query();
         expect(() async {
-          await q.execute(
-            sql: "drop table T",
-          );
+          await q.execute(sql: "drop table T");
           await q.close();
         }, returnsNormally);
       }); // withNewDb1
@@ -465,14 +463,13 @@ void main() async {
     test("DROP non-existing table", () async {
       await withNewDb1((db) async {
         final q = db.query();
-        await q.execute(
-          sql: "drop table T",
+        await q.execute(sql: "drop table T");
+        await expectLater(
+          (() async {
+            await q.execute(sql: "drop table T");
+          })(),
+          throwsException,
         );
-        await expectLater((() async {
-          await q.execute(
-            sql: "drop table T",
-          );
-        })(), throwsException);
         await q.close();
       }); // withNewDb1
     }); // test "DROP non-existing table"
@@ -497,29 +494,35 @@ void main() async {
     }); // test "without exceptions"
 
     test("with exception", () async {
-      await expectLater((() async {
-        await withNewDb1((db) async {
-          await db.execute(
-            sql: "insert into T (PK_INT) values (?)",
-            parameters: [1],
-          );
-        }); // withNewDb1
-      })(), throwsException); // primary key violation
+      await expectLater(
+        (() async {
+          await withNewDb1((db) async {
+            await db.execute(
+              sql: "insert into T (PK_INT) values (?)",
+              parameters: [1],
+            );
+          }); // withNewDb1
+        })(),
+        throwsException,
+      ); // primary key violation
     }); // test "with exception"
 
     test("with SELECT", () async {
-      await expectLater((() async {
-        await withNewDb1((db) async {
-          // running SELECT with execute should not
-          // throw an exception,
-          // the result of the SELECT is simply unavailable
-          // to the client code
-          await db.execute(
-            sql: "select C_5 from T where PK_INT=?",
-            parameters: [1],
-          );
-        }); // withNewDb1
-      })(), completes);
+      await expectLater(
+        (() async {
+          await withNewDb1((db) async {
+            // running SELECT with execute should not
+            // throw an exception,
+            // the result of the SELECT is simply unavailable
+            // to the client code
+            await db.execute(
+              sql: "select C_5 from T where PK_INT=?",
+              parameters: [1],
+            );
+          }); // withNewDb1
+        })(),
+        completes,
+      );
     }); // test "with SELECT"
 
     test("returning affected rows", () async {

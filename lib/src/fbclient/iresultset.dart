@@ -6,104 +6,152 @@ class IResultSet extends IReferenceCounted {
   int minSupportedVersion() => 3;
 
   late int Function(
-      FbInterface self, FbInterface status, Pointer<Uint8> message) _fetchNext;
+    FbInterface self,
+    FbInterface status,
+    Pointer<Uint8> message,
+  )
+  _fetchNext;
   late int Function(
-      FbInterface self, FbInterface status, Pointer<Uint8> message) _fetchPrior;
+    FbInterface self,
+    FbInterface status,
+    Pointer<Uint8> message,
+  )
+  _fetchPrior;
   late int Function(
-      FbInterface self, FbInterface status, Pointer<Uint8> message) _fetchFirst;
+    FbInterface self,
+    FbInterface status,
+    Pointer<Uint8> message,
+  )
+  _fetchFirst;
   late int Function(
-      FbInterface self, FbInterface status, Pointer<Uint8> message) _fetchLast;
-  late int Function(FbInterface self, FbInterface status, int position,
-      Pointer<Uint8> message) _fetchAbsolute;
-  late int Function(FbInterface self, FbInterface status, int offset,
-      Pointer<Uint8> message) _fetchRelative;
+    FbInterface self,
+    FbInterface status,
+    Pointer<Uint8> message,
+  )
+  _fetchLast;
+  late int Function(
+    FbInterface self,
+    FbInterface status,
+    int position,
+    Pointer<Uint8> message,
+  )
+  _fetchAbsolute;
+  late int Function(
+    FbInterface self,
+    FbInterface status,
+    int offset,
+    Pointer<Uint8> message,
+  )
+  _fetchRelative;
   late int Function(FbInterface self, FbInterface status) _isEof;
   late int Function(FbInterface self, FbInterface status) _isBof;
   late FbInterface Function(FbInterface self, FbInterface status) _getMetadata;
   late void Function(FbInterface self, FbInterface status) _deprecatedClose;
   late void Function(FbInterface self, FbInterface status, FbInterface format)
-      _setDelayedOutputFormat;
+  _setDelayedOutputFormat;
   late void Function(FbInterface self, FbInterface status) _close;
-  late void Function(FbInterface self, FbInterface status, int itemsLength,
-      Pointer<Uint8> items, int bufferLength, Pointer<Uint8> buffer) _getInfo;
+  late void Function(
+    FbInterface self,
+    FbInterface status,
+    int itemsLength,
+    Pointer<Uint8> items,
+    int bufferLength,
+    Pointer<Uint8> buffer,
+  )
+  _getInfo;
 
   IResultSet(super.self) {
     startIndex = super.startIndex + super.methodCount;
     methodCount = (version >= 5 ? 13 : (version >= 4 ? 12 : 11));
     var idx = startIndex;
-    _fetchNext = Pointer<
-            NativeFunction<
-                Int Function(FbInterface, FbInterface,
-                    Pointer<Uint8>)>>.fromAddress(vtable[idx++])
-        .asFunction();
-    _fetchPrior = Pointer<
-            NativeFunction<
-                Int Function(FbInterface, FbInterface,
-                    Pointer<Uint8>)>>.fromAddress(vtable[idx++])
-        .asFunction();
-    _fetchFirst = Pointer<
-            NativeFunction<
-                Int Function(FbInterface, FbInterface,
-                    Pointer<Uint8>)>>.fromAddress(vtable[idx++])
-        .asFunction();
-    _fetchLast = Pointer<
-            NativeFunction<
-                Int Function(FbInterface, FbInterface,
-                    Pointer<Uint8>)>>.fromAddress(vtable[idx++])
-        .asFunction();
-    _fetchAbsolute = Pointer<
-            NativeFunction<
-                Int Function(FbInterface, FbInterface, Int,
-                    Pointer<Uint8>)>>.fromAddress(vtable[idx++])
-        .asFunction();
-    _fetchRelative = Pointer<
-            NativeFunction<
-                Int Function(FbInterface, FbInterface, Int,
-                    Pointer<Uint8>)>>.fromAddress(vtable[idx++])
-        .asFunction();
-    _isEof = Pointer<
-            NativeFunction<
-                FbBoolean Function(
-                    FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
-        .asFunction();
-    _isBof = Pointer<
-            NativeFunction<
-                FbBoolean Function(
-                    FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
-        .asFunction();
-    _getMetadata = Pointer<
-            NativeFunction<
-                FbInterface Function(
-                    FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
-        .asFunction();
-    if (version >= 4) {
-      _deprecatedClose = Pointer<
+    _fetchNext =
+        Pointer<
               NativeFunction<
-                  Void Function(
-                      FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
-          .asFunction();
+                Int Function(FbInterface, FbInterface, Pointer<Uint8>)
+              >
+            >.fromAddress(vtable[idx++])
+            .asFunction();
+    _fetchPrior =
+        Pointer<
+              NativeFunction<
+                Int Function(FbInterface, FbInterface, Pointer<Uint8>)
+              >
+            >.fromAddress(vtable[idx++])
+            .asFunction();
+    _fetchFirst =
+        Pointer<
+              NativeFunction<
+                Int Function(FbInterface, FbInterface, Pointer<Uint8>)
+              >
+            >.fromAddress(vtable[idx++])
+            .asFunction();
+    _fetchLast =
+        Pointer<
+              NativeFunction<
+                Int Function(FbInterface, FbInterface, Pointer<Uint8>)
+              >
+            >.fromAddress(vtable[idx++])
+            .asFunction();
+    _fetchAbsolute =
+        Pointer<
+              NativeFunction<
+                Int Function(FbInterface, FbInterface, Int, Pointer<Uint8>)
+              >
+            >.fromAddress(vtable[idx++])
+            .asFunction();
+    _fetchRelative =
+        Pointer<
+              NativeFunction<
+                Int Function(FbInterface, FbInterface, Int, Pointer<Uint8>)
+              >
+            >.fromAddress(vtable[idx++])
+            .asFunction();
+    _isEof =
+        Pointer<
+              NativeFunction<FbBoolean Function(FbInterface, FbInterface)>
+            >.fromAddress(vtable[idx++])
+            .asFunction();
+    _isBof =
+        Pointer<
+              NativeFunction<FbBoolean Function(FbInterface, FbInterface)>
+            >.fromAddress(vtable[idx++])
+            .asFunction();
+    _getMetadata =
+        Pointer<
+              NativeFunction<FbInterface Function(FbInterface, FbInterface)>
+            >.fromAddress(vtable[idx++])
+            .asFunction();
+    if (version >= 4) {
+      _deprecatedClose =
+          Pointer<
+                NativeFunction<Void Function(FbInterface, FbInterface)>
+              >.fromAddress(vtable[idx++])
+              .asFunction();
     } else {
-      _close = Pointer<
-              NativeFunction<
-                  Void Function(
-                      FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
-          .asFunction();
+      _close =
+          Pointer<
+                NativeFunction<Void Function(FbInterface, FbInterface)>
+              >.fromAddress(vtable[idx++])
+              .asFunction();
     }
-    _setDelayedOutputFormat = Pointer<
-            NativeFunction<
-                Void Function(FbInterface, FbInterface,
-                    FbInterface)>>.fromAddress(vtable[idx++])
-        .asFunction();
-    if (version >= 4) {
-      _close = Pointer<
+    _setDelayedOutputFormat =
+        Pointer<
               NativeFunction<
-                  Void Function(
-                      FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
-          .asFunction();
+                Void Function(FbInterface, FbInterface, FbInterface)
+              >
+            >.fromAddress(vtable[idx++])
+            .asFunction();
+    if (version >= 4) {
+      _close =
+          Pointer<
+                NativeFunction<Void Function(FbInterface, FbInterface)>
+              >.fromAddress(vtable[idx++])
+              .asFunction();
     }
     if (version >= 5) {
-      _getInfo = Pointer<
-              NativeFunction<
+      _getInfo =
+          Pointer<
+                NativeFunction<
                   Void Function(
                     FbInterface,
                     FbInterface,
@@ -111,8 +159,10 @@ class IResultSet extends IReferenceCounted {
                     Pointer<Uint8>,
                     UnsignedInt,
                     Pointer<Uint8>,
-                  )>>.fromAddress(vtable[idx++])
-          .asFunction();
+                  )
+                >
+              >.fromAddress(vtable[idx++])
+              .asFunction();
     }
   }
 
@@ -173,7 +223,8 @@ class IResultSet extends IReferenceCounted {
   void deprecatedClose(IStatus status) {
     if (version < 4) {
       throw UnimplementedError(
-          "Firebird client library version 4 or later required.");
+        "Firebird client library version 4 or later required.",
+      );
     }
     _deprecatedClose(self, status.self);
     status.checkStatus();
@@ -196,14 +247,7 @@ class IResultSet extends IReferenceCounted {
     int bufferLength,
     Pointer<Uint8> buffer,
   ) {
-    _getInfo(
-      self,
-      status.self,
-      itemsLength,
-      items,
-      bufferLength,
-      buffer,
-    );
+    _getInfo(self, status.self, itemsLength, items, bufferLength, buffer);
     status.checkStatus();
   }
 }

@@ -7,16 +7,18 @@ class IVersionCallback extends IVersioned {
   int minSupportedVersion() => 2;
 
   late void Function(FbInterface self, FbInterface status, Pointer<Utf8> text)
-      _callback;
+  _callback;
 
   IVersionCallback(super.self) {
     startIndex = super.startIndex + super.methodCount;
     methodCount = 1;
-    _callback = Pointer<
-            NativeFunction<
-                Void Function(FbInterface, FbInterface,
-                    Pointer<Utf8>)>>.fromAddress(vtable[startIndex])
-        .asFunction();
+    _callback =
+        Pointer<
+              NativeFunction<
+                Void Function(FbInterface, FbInterface, Pointer<Utf8>)
+              >
+            >.fromAddress(vtable[startIndex])
+            .asFunction();
   }
 
   void callback(IStatus status, String text) {

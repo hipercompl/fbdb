@@ -122,25 +122,29 @@ void main() async {
 
 Future<void> setUpDatabase(FbDb db) async {
   await db.execute(
-    sql: "create table LOCKS ( "
+    sql:
+        "create table LOCKS ( "
         "MUTEX varchar(20) not null primary key, "
         "VAL integer default 0 "
         ")",
   );
   await db.execute(
-    sql: "insert into LOCKS (MUTEX) "
+    sql:
+        "insert into LOCKS (MUTEX) "
         "values (?) ",
     parameters: ["criticalFunction"],
   );
   await db.execute(
-    sql: "create table CRITICAL_DATA ( "
+    sql:
+        "create table CRITICAL_DATA ( "
         "ID integer not null primary key, "
         "VAL varchar(30) default '' "
         ")",
   );
   final q = db.query();
   await q.prepare(
-    sql: "insert into CRITICAL_DATA (ID, VAL) "
+    sql:
+        "insert into CRITICAL_DATA (ID, VAL) "
         "values (?, ?)",
   );
   await q.executePrepared(parameters: [1, "value 1"]);

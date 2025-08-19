@@ -1,3 +1,6 @@
+## 1.5.1
+- Code reformatted accorting to the recent Dart formatting standards (`dart format` executed on all source files). No functional changes.
+
 ## 1.5.0
 - Upgraded Dart SDK to 3.8.0 and all dependencies to their current versions.
 - Added support for the `TIME WITH TIME ZONE` and `TIMESTAMP WITH TIME ZONE`

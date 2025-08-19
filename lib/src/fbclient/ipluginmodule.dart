@@ -13,12 +13,12 @@ class IPluginModule extends IVersioned {
     methodCount = 2;
     var idx = startIndex;
     _doClean = Pointer<NativeFunction<Void Function(FbInterface)>>.fromAddress(
-            vtable[idx++])
-        .asFunction();
+      vtable[idx++],
+    ).asFunction();
     _threadDetach =
         Pointer<NativeFunction<Void Function(FbInterface)>>.fromAddress(
-                vtable[idx++])
-            .asFunction();
+          vtable[idx++],
+        ).asFunction();
   }
 
   void doClean() {

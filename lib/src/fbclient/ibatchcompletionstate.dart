@@ -9,32 +9,48 @@ class IBatchCompletionState extends IDisposable {
   late int Function(FbInterface self, FbInterface status, int pos) _getState;
   late int Function(FbInterface self, FbInterface status, int pos) _findError;
   late void Function(
-      FbInterface self, FbInterface status, FbInterface to, int pos) _getStatus;
+    FbInterface self,
+    FbInterface status,
+    FbInterface to,
+    int pos,
+  )
+  _getStatus;
 
   IBatchCompletionState(super.self) {
     startIndex = super.startIndex + super.methodCount;
     methodCount = 4;
     var idx = startIndex;
-    _getSize = Pointer<
-            NativeFunction<
-                UnsignedInt Function(
-                    FbInterface, FbInterface)>>.fromAddress(vtable[idx++])
-        .asFunction();
-    _getState = Pointer<
-            NativeFunction<
-                Int Function(FbInterface, FbInterface,
-                    UnsignedInt)>>.fromAddress(vtable[idx++])
-        .asFunction();
-    _findError = Pointer<
-            NativeFunction<
-                UnsignedInt Function(FbInterface, FbInterface,
-                    UnsignedInt)>>.fromAddress(vtable[idx++])
-        .asFunction();
-    _getStatus = Pointer<
-            NativeFunction<
-                Void Function(FbInterface, FbInterface, FbInterface,
-                    UnsignedInt)>>.fromAddress(vtable[idx++])
-        .asFunction();
+    _getSize =
+        Pointer<
+              NativeFunction<UnsignedInt Function(FbInterface, FbInterface)>
+            >.fromAddress(vtable[idx++])
+            .asFunction();
+    _getState =
+        Pointer<
+              NativeFunction<
+                Int Function(FbInterface, FbInterface, UnsignedInt)
+              >
+            >.fromAddress(vtable[idx++])
+            .asFunction();
+    _findError =
+        Pointer<
+              NativeFunction<
+                UnsignedInt Function(FbInterface, FbInterface, UnsignedInt)
+              >
+            >.fromAddress(vtable[idx++])
+            .asFunction();
+    _getStatus =
+        Pointer<
+              NativeFunction<
+                Void Function(
+                  FbInterface,
+                  FbInterface,
+                  FbInterface,
+                  UnsignedInt,
+                )
+              >
+            >.fromAddress(vtable[idx++])
+            .asFunction();
   }
 
   int getSize(IStatus status) {

@@ -6,17 +6,22 @@ class IPluginFactory extends IVersioned {
   int minSupportedVersion() => 2;
 
   late FbInterface Function(
-          FbInterface self, FbInterface status, FbInterface factoryParameter)
-      _createPlugin;
+    FbInterface self,
+    FbInterface status,
+    FbInterface factoryParameter,
+  )
+  _createPlugin;
 
   IPluginFactory(super.self) {
     startIndex = super.startIndex + super.methodCount;
     methodCount = 1;
-    _createPlugin = Pointer<
-            NativeFunction<
-                FbInterface Function(FbInterface, FbInterface,
-                    FbInterface)>>.fromAddress(vtable[startIndex])
-        .asFunction();
+    _createPlugin =
+        Pointer<
+              NativeFunction<
+                FbInterface Function(FbInterface, FbInterface, FbInterface)
+              >
+            >.fromAddress(vtable[startIndex])
+            .asFunction();
   }
 
   IPluginBase createPlugin(IStatus status, IPluginConfig factoryParameter) {

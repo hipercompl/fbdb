@@ -32,11 +32,13 @@ class FbClient {
     }
     _fbGetMasterInterface = lib!
         .lookup<NativeFunction<FbInterface Function()>>(
-            "fb_get_master_interface")
+          "fb_get_master_interface",
+        )
         .asFunction();
     _iscVaxInteger = lib!
         .lookup<NativeFunction<Long Function(Pointer<Uint8>, Short)>>(
-            "isc_vax_integer")
+          "isc_vax_integer",
+        )
         .asFunction();
   }
 
@@ -53,13 +55,15 @@ class FbClient {
   IMaster fbGetMasterInterface() {
     if (lib == null) {
       throw FbClientException(
-          "Firebird client library not loaded or client already closed.");
+        "Firebird client library not loaded or client already closed.",
+      );
     }
     final m = _fbGetMasterInterface();
     if (m == nullptr) {
       throw FbClientException(
-          "Cannot access the master interface (NULL returned "
-          "by fb_get_master_interface).");
+        "Cannot access the master interface (NULL returned "
+        "by fb_get_master_interface).",
+      );
     }
     return IMaster(m);
   }
@@ -99,7 +103,9 @@ class FbClient {
   /// representation to a native integer (valid for the current platform).
   int iscVaxInteger(Pointer<Uint8> buffer, int byteCnt, [int offset = 0]) {
     return _iscVaxInteger(
-        Pointer<Uint8>.fromAddress(buffer.address + offset), byteCnt);
+      Pointer<Uint8>.fromAddress(buffer.address + offset),
+      byteCnt,
+    );
   }
 
   /// The name of the libfbclient dynamic library, system dependent.

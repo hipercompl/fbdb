@@ -87,7 +87,10 @@ class FbFieldDef {
   /// and constructs the field definition based on the metadata
   /// contents.
   static FbFieldDef fromMetadata(
-      IMessageMetadata? metadata, int fieldIdx, IStatus status) {
+    IMessageMetadata? metadata,
+    int fieldIdx,
+    IStatus status,
+  ) {
     if (metadata == null) {
       throw FbClientException("No metadata provided for field definition");
     }
@@ -103,7 +106,8 @@ class FbFieldDef {
     // not supported by FbDb yet and we can't proceed
     if (!fbTypeMap.containsKey(fbtype)) {
       throw FbClientException(
-          "The data type code $fbtype for field $name is not supported");
+        "The data type code $fbtype for field $name is not supported",
+      );
     }
     FbFieldType type = fbTypeMap[fbtype] ?? FbFieldType.ftString;
 
@@ -170,7 +174,7 @@ enum FbFieldType {
   /// type will be reported as [ftNull], so that you know not to
   /// set any meaningful value in it, but to pass either null
   /// or any non-null value as the query parameter instead.
-  ftNull
+  ftNull,
 }
 
 /// Mappings between actual Firebird type codes and FbDb supported types.

@@ -14,13 +14,23 @@ class IMaster extends IVersioned {
   late FbInterface Function(FbInterface self) _getTimerControl;
   late FbInterface Function(FbInterface self) _getDtc;
   late FbInterface Function(
-          FbInterface self, FbInterface provider, FbInterface attachment)
-      _registerAttachment;
+    FbInterface self,
+    FbInterface provider,
+    FbInterface attachment,
+  )
+  _registerAttachment;
   late FbInterface Function(
-          FbInterface self, FbInterface provider, FbInterface transaction)
-      _registerTransaction;
+    FbInterface self,
+    FbInterface provider,
+    FbInterface transaction,
+  )
+  _registerTransaction;
   late FbInterface Function(
-      FbInterface self, FbInterface status, int fieldCount) _getMetadataBuilder;
+    FbInterface self,
+    FbInterface status,
+    int fieldCount,
+  )
+  _getMetadataBuilder;
   late int Function(FbInterface self, int mode) _serverMode;
   late FbInterface Function(FbInterface self) _getUtilInterface;
   late FbInterface Function(FbInterface self) _getConfigManager;
@@ -35,55 +45,61 @@ class IMaster extends IVersioned {
     var idx = startIndex;
     _getStatus =
         Pointer<NativeFunction<FbInterface Function(FbInterface)>>.fromAddress(
-                vtable[idx++])
-            .asFunction();
+          vtable[idx++],
+        ).asFunction();
     _getDispatcher =
         Pointer<NativeFunction<FbInterface Function(FbInterface)>>.fromAddress(
-                vtable[idx++])
-            .asFunction();
+          vtable[idx++],
+        ).asFunction();
     _getPluginManager =
         Pointer<NativeFunction<FbInterface Function(FbInterface)>>.fromAddress(
-                vtable[idx++])
-            .asFunction();
+          vtable[idx++],
+        ).asFunction();
     _getTimerControl =
         Pointer<NativeFunction<FbInterface Function(FbInterface)>>.fromAddress(
-                vtable[idx++])
-            .asFunction();
+          vtable[idx++],
+        ).asFunction();
     _getDtc =
         Pointer<NativeFunction<FbInterface Function(FbInterface)>>.fromAddress(
-                vtable[idx++])
+          vtable[idx++],
+        ).asFunction();
+    _registerAttachment =
+        Pointer<
+              NativeFunction<
+                FbInterface Function(FbInterface, FbInterface, FbInterface)
+              >
+            >.fromAddress(vtable[idx++])
             .asFunction();
-    _registerAttachment = Pointer<
-            NativeFunction<
-                FbInterface Function(FbInterface, FbInterface,
-                    FbInterface)>>.fromAddress(vtable[idx++])
-        .asFunction();
-    _registerTransaction = Pointer<
-            NativeFunction<
-                FbInterface Function(FbInterface, FbInterface,
-                    FbInterface)>>.fromAddress(vtable[idx++])
-        .asFunction();
-    _getMetadataBuilder = Pointer<
-            NativeFunction<
-                FbInterface Function(FbInterface, FbInterface,
-                    UnsignedInt)>>.fromAddress(vtable[idx++])
-        .asFunction();
+    _registerTransaction =
+        Pointer<
+              NativeFunction<
+                FbInterface Function(FbInterface, FbInterface, FbInterface)
+              >
+            >.fromAddress(vtable[idx++])
+            .asFunction();
+    _getMetadataBuilder =
+        Pointer<
+              NativeFunction<
+                FbInterface Function(FbInterface, FbInterface, UnsignedInt)
+              >
+            >.fromAddress(vtable[idx++])
+            .asFunction();
     _serverMode =
         Pointer<NativeFunction<Int Function(FbInterface, Int)>>.fromAddress(
-                vtable[idx++])
-            .asFunction();
+          vtable[idx++],
+        ).asFunction();
     _getUtilInterface =
         Pointer<NativeFunction<FbInterface Function(FbInterface)>>.fromAddress(
-                vtable[idx++])
-            .asFunction();
+          vtable[idx++],
+        ).asFunction();
     _getConfigManager =
         Pointer<NativeFunction<FbInterface Function(FbInterface)>>.fromAddress(
-                vtable[idx++])
-            .asFunction();
+          vtable[idx++],
+        ).asFunction();
     _getProcessExiting =
         Pointer<NativeFunction<FbBoolean Function(FbInterface)>>.fromAddress(
-                vtable[idx++])
-            .asFunction();
+          vtable[idx++],
+        ).asFunction();
   }
 
   /// Allocate and return a new IStatus interface.
@@ -114,13 +130,17 @@ class IMaster extends IVersioned {
 
   IAttachment registerAttachment(IProvider provider, IAttachment attachment) {
     return IAttachment(
-        _registerAttachment(self, provider.self, attachment.self));
+      _registerAttachment(self, provider.self, attachment.self),
+    );
   }
 
   ITransaction registerTransaction(
-      IProvider provider, ITransaction transaction) {
+    IProvider provider,
+    ITransaction transaction,
+  ) {
     return ITransaction(
-        _registerTransaction(self, provider.self, transaction.self));
+      _registerTransaction(self, provider.self, transaction.self),
+    );
   }
 
   IMetadataBuilder getMetadataBuilder(IStatus status, [int fieldCount = 0]) {

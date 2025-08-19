@@ -47,8 +47,12 @@ void main() {
 
     // Create the database
     print("Creating blob_07.fdb");
-    att = prov.createDatabase(status, "blob_07.fdb",
-        dpb.getBufferLength(status), dpb.getBuffer(status));
+    att = prov.createDatabase(
+      status,
+      "blob_07.fdb",
+      dpb.getBufferLength(status),
+      dpb.getBuffer(status),
+    );
     print("Database created");
 
     // start transaction
@@ -75,10 +79,10 @@ void main() {
     try {
       print("Creating blob to insert");
       blob = att.createBlob(
-          status,
-          tra,
-          Pointer<IscQuad>.fromAddress(
-              buf.address + meta.getOffset(status, 0)));
+        status,
+        tra,
+        Pointer<IscQuad>.fromAddress(buf.address + meta.getOffset(status, 0)),
+      );
       for (var txt in testData) {
         final txtUtf = txt.toNativeUtf8(allocator: mem);
         try {
@@ -95,16 +99,30 @@ void main() {
 
     // insert the blob into the table
     print("Inserting blob into blobs_table");
-    att.execute(status, tra, "insert into BLOBS_TABLE (B) values (?)",
-        FbConsts.sqlDialectCurrent, meta, buf);
+    att.execute(
+      status,
+      tra,
+      "insert into BLOBS_TABLE (B) values (?)",
+      FbConsts.sqlDialectCurrent,
+      meta,
+      buf,
+    );
     print("Blob inserted successfully");
 
     // select the blob back from the table
     print("Reading the blob back from the table");
     final obuf = mem.allocate<Uint8>(meta.getMessageLength(status));
     try {
-      att.execute(status, tra, "select first(1) B from BLOBS_TABLE",
-          FbConsts.sqlDialectCurrent, null, null, meta, obuf);
+      att.execute(
+        status,
+        tra,
+        "select first(1) B from BLOBS_TABLE",
+        FbConsts.sqlDialectCurrent,
+        null,
+        null,
+        meta,
+        obuf,
+      );
       blob = att.openBlob(
         status,
         tra,

@@ -79,9 +79,12 @@ void main() async {
           expect(ar, equals(1));
 
           await db2.startTransaction();
-          await expectLater((() async {
-            await q2.execute(sql: "update T set C_5='tst2' where PK_INT=1");
-          })(), throwsException);
+          await expectLater(
+            (() async {
+              await q2.execute(sql: "update T set C_5='tst2' where PK_INT=1");
+            })(),
+            throwsException,
+          );
 
           await db.commit();
           await db2.commit();
@@ -95,28 +98,32 @@ void main() async {
 
     test("FbDb.runInTransaction utility method - committed", () async {
       await withNewDb1((db) async {
-        final initialCnt =
-            (await db.selectOne(sql: "select count(*) as CNT from T"))?["CNT"];
+        final initialCnt = (await db.selectOne(
+          sql: "select count(*) as CNT from T",
+        ))?["CNT"];
         expect(await db.inTransaction(), isFalse);
         final cnt1 = await db.runInTransaction(() async {
           expect(await db.inTransaction(), isTrue);
           final cnt = (await db.selectOne(
-              sql: "select count(*) as CNT from T"))?["CNT"];
+            sql: "select count(*) as CNT from T",
+          ))?["CNT"];
           await db.execute(sql: "delete from T");
           return cnt;
         });
         expect(cnt1, equals(initialCnt));
         expect(await db.inTransaction(), isFalse);
-        final cnt2 =
-            (await db.selectOne(sql: "select count(*) as CNT from T"))?["CNT"];
+        final cnt2 = (await db.selectOne(
+          sql: "select count(*) as CNT from T",
+        ))?["CNT"];
         expect(cnt2, equals(0));
       }); // withNewDb1
     });
 
     test("FbDb.runInTransaction utility method - rolled back", () async {
       await withNewDb1((db) async {
-        final initialCnt =
-            (await db.selectOne(sql: "select count(*) as CNT from T"))?["CNT"];
+        final initialCnt = (await db.selectOne(
+          sql: "select count(*) as CNT from T",
+        ))?["CNT"];
         expect(await db.inTransaction(), isFalse);
         try {
           await db.runInTransaction(() async {
@@ -135,48 +142,55 @@ void main() async {
           // intentionally empty
         }
         expect(await db.inTransaction(), isFalse);
-        final cnt2 =
-            (await db.selectOne(sql: "select count(*) as CNT from T"))?["CNT"];
+        final cnt2 = (await db.selectOne(
+          sql: "select count(*) as CNT from T",
+        ))?["CNT"];
         expect(cnt2, equals(initialCnt)); // DELETE should have been rolled back
       }); // withNewDb1
     });
 
-    test("FbDb.runInTransaction utility method - pending transaction",
-        () async {
-      await withNewDb1((db) async {
-        expect(await db.inTransaction(), isFalse);
-        await db.startTransaction();
-        final initialCnt =
-            (await db.selectOne(sql: "select count(*) as CNT from T"))?["CNT"];
-        expect(await db.inTransaction(), isTrue);
-        final cnt1 = await db.runInTransaction(() async {
-          return await db.execute(
-            sql: "delete from T",
-            returnAffectedRows: true,
-          );
-        });
-        expect(cnt1, equals(initialCnt));
-        expect(await db.inTransaction(), isTrue);
-        final cnt2 =
-            (await db.selectOne(sql: "select count(*) as CNT from T"))?["CNT"];
-        expect(cnt2, equals(0));
-        await db.rollback();
-        expect(await db.inTransaction(), isFalse);
-        final finalCnt =
-            (await db.selectOne(sql: "select count(*) as CNT from T"))?["CNT"];
-        expect(finalCnt, equals(initialCnt));
-      }); // withNewDb1
-    }); // test "FbDb.runInTransaction utility method - pending transaction"
+    test(
+      "FbDb.runInTransaction utility method - pending transaction",
+      () async {
+        await withNewDb1((db) async {
+          expect(await db.inTransaction(), isFalse);
+          await db.startTransaction();
+          final initialCnt = (await db.selectOne(
+            sql: "select count(*) as CNT from T",
+          ))?["CNT"];
+          expect(await db.inTransaction(), isTrue);
+          final cnt1 = await db.runInTransaction(() async {
+            return await db.execute(
+              sql: "delete from T",
+              returnAffectedRows: true,
+            );
+          });
+          expect(cnt1, equals(initialCnt));
+          expect(await db.inTransaction(), isTrue);
+          final cnt2 = (await db.selectOne(
+            sql: "select count(*) as CNT from T",
+          ))?["CNT"];
+          expect(cnt2, equals(0));
+          await db.rollback();
+          expect(await db.inTransaction(), isFalse);
+          final finalCnt = (await db.selectOne(
+            sql: "select count(*) as CNT from T",
+          ))?["CNT"];
+          expect(finalCnt, equals(initialCnt));
+        }); // withNewDb1
+      },
+    ); // test "FbDb.runInTransaction utility method - pending transaction"
 
-    test("FbDb.runInTransaction utility method - pending transaction and error",
-        () async {
-      await withNewDb1((db) async {
-        expect(await db.inTransaction(), isFalse);
-        final initialCnt =
-            (await db.selectOne(sql: "select count(*) as CNT from T"))?["CNT"];
-        await db.startTransaction();
-        final cnt1 = await db.runInTransaction(
-          () async {
+    test(
+      "FbDb.runInTransaction utility method - pending transaction and error",
+      () async {
+        await withNewDb1((db) async {
+          expect(await db.inTransaction(), isFalse);
+          final initialCnt = (await db.selectOne(
+            sql: "select count(*) as CNT from T",
+          ))?["CNT"];
+          await db.startTransaction();
+          final cnt1 = await db.runInTransaction(() async {
             await db.execute(
               sql: "insert into T (PK_INT) values (?)",
               parameters: [-1],
@@ -186,21 +200,22 @@ void main() async {
               parameters: [1],
               returnAffectedRows: true,
             ); // key violation
-          },
-          rethrowException: false,
-        );
-        expect(await db.inTransaction(), isTrue);
-        expect(cnt1, isNull);
-        final cnt2 =
-            (await db.selectOne(sql: "select count(*) as CNT from T"))?["CNT"];
-        expect(cnt2, equals(initialCnt + 1)); // 1 row inserted before error
-        await db.rollback();
-        expect(await db.inTransaction(), isFalse);
-        final finalCnt =
-            (await db.selectOne(sql: "select count(*) as CNT from T"))?["CNT"];
-        expect(finalCnt, equals(initialCnt));
-      }); // withNewDb1
-    }); // test "FbDb.runInTransaction utility method - pending transaction and error"
+          }, rethrowException: false);
+          expect(await db.inTransaction(), isTrue);
+          expect(cnt1, isNull);
+          final cnt2 = (await db.selectOne(
+            sql: "select count(*) as CNT from T",
+          ))?["CNT"];
+          expect(cnt2, equals(initialCnt + 1)); // 1 row inserted before error
+          await db.rollback();
+          expect(await db.inTransaction(), isFalse);
+          final finalCnt = (await db.selectOne(
+            sql: "select count(*) as CNT from T",
+          ))?["CNT"];
+          expect(finalCnt, equals(initialCnt));
+        }); // withNewDb1
+      },
+    ); // test "FbDb.runInTransaction utility method - pending transaction and error"
   }); // group "Built-in transactions"
 
   group("Multiple concurrent transactions", () {
@@ -239,10 +254,7 @@ void main() async {
         final rows1 = await db.selectAll(sql: "select PK_INT from T");
         final t = await db.newTransaction();
         final q = db.query();
-        await q.execute(
-          sql: "delete from T",
-          inTransaction: t,
-        );
+        await q.execute(sql: "delete from T", inTransaction: t);
         await q.close();
         final rows2 = await db.selectAll(
           sql: "select PK_INT from T",
@@ -273,10 +285,7 @@ void main() async {
       await withNewDb1((db) async {
         final rows1 = await db.selectAll(sql: "select PK_INT from T");
         final t = await db.newTransaction();
-        await db.execute(
-          sql: "delete from T",
-          inTransaction: t,
-        );
+        await db.execute(sql: "delete from T", inTransaction: t);
         final rows2 = await db.selectAll(
           sql: "select PK_INT from T",
           inTransaction: t,
@@ -307,10 +316,7 @@ void main() async {
         final rows1 = await db.selectAll(sql: "select PK_INT from T");
         final t = await db.newTransaction();
         final q = db.query();
-        await q.execute(
-          sql: "delete from T",
-          inTransaction: t,
-        );
+        await q.execute(sql: "delete from T", inTransaction: t);
         await q.close();
         final rows2 = await db.selectAll(
           sql: "select PK_INT from T",
@@ -341,10 +347,7 @@ void main() async {
       await withNewDb1((db) async {
         final rows1 = await db.selectAll(sql: "select PK_INT from T");
         final t = await db.newTransaction();
-        await db.execute(
-          sql: "delete from T",
-          inTransaction: t,
-        );
+        await db.execute(sql: "delete from T", inTransaction: t);
         final rows2 = await db.selectAll(
           sql: "select PK_INT from T",
           inTransaction: t,
@@ -411,11 +414,7 @@ void main() async {
             reason: 'Should not reach this point, execute should have failed',
           );
         } on FbClientException {
-          expect(
-            true,
-            isTrue,
-            reason: 'An exception should have been thrown',
-          );
+          expect(true, isTrue, reason: 'An exception should have been thrown');
         }
       }); // withNewDb1
     }); // test "Use after commit"
@@ -512,8 +511,11 @@ void main() async {
         expect(c3, isNotNull);
 
         if (c2 != null) {
-          expect(c2["CNT"], equals(c),
-              reason: "T should not be empty in a SNAPSHOT transaction");
+          expect(
+            c2["CNT"],
+            equals(c),
+            reason: "T should not be empty in a SNAPSHOT transaction",
+          );
         }
 
         if (c3 != null) {
@@ -540,10 +542,14 @@ void main() async {
       "Concurrent transactions - lock conflict with wait",
       () async {
         await withNewDb1((db) async {
-          final t1 =
-              await db.newTransaction(flags: fbTrWriteWait, lockTimeout: 1);
-          final t2 =
-              await db.newTransaction(flags: fbTrWriteWait, lockTimeout: 1);
+          final t1 = await db.newTransaction(
+            flags: fbTrWriteWait,
+            lockTimeout: 1,
+          );
+          final t2 = await db.newTransaction(
+            flags: fbTrWriteWait,
+            lockTimeout: 1,
+          );
 
           await db.execute(sql: "update T set C_1='x'", inTransaction: t1);
           try {

@@ -7,32 +7,61 @@ class IConfig extends IReferenceCounted {
   int minSupportedVersion() => 3;
 
   late FbInterface Function(
-      FbInterface self, FbInterface status, Pointer<Utf8> name) _find;
-  late FbInterface Function(FbInterface self, FbInterface status,
-      Pointer<Utf8> name, Pointer<Utf8> value) _findValue;
+    FbInterface self,
+    FbInterface status,
+    Pointer<Utf8> name,
+  )
+  _find;
   late FbInterface Function(
-          FbInterface self, FbInterface status, Pointer<Utf8> name, int pos)
-      _findPos;
+    FbInterface self,
+    FbInterface status,
+    Pointer<Utf8> name,
+    Pointer<Utf8> value,
+  )
+  _findValue;
+  late FbInterface Function(
+    FbInterface self,
+    FbInterface status,
+    Pointer<Utf8> name,
+    int pos,
+  )
+  _findPos;
 
   IConfig(super.self) {
     startIndex = super.startIndex + super.methodCount;
     methodCount = 3;
     var idx = startIndex;
-    _find = Pointer<
-            NativeFunction<
-                FbInterface Function(FbInterface, FbInterface,
-                    Pointer<Utf8>)>>.fromAddress(vtable[idx++])
-        .asFunction();
-    _findValue = Pointer<
-            NativeFunction<
-                FbInterface Function(FbInterface, FbInterface, Pointer<Utf8>,
-                    Pointer<Utf8>)>>.fromAddress(vtable[idx++])
-        .asFunction();
-    _findPos = Pointer<
-            NativeFunction<
-                FbInterface Function(FbInterface, FbInterface, Pointer<Utf8>,
-                    UnsignedInt)>>.fromAddress(vtable[idx++])
-        .asFunction();
+    _find =
+        Pointer<
+              NativeFunction<
+                FbInterface Function(FbInterface, FbInterface, Pointer<Utf8>)
+              >
+            >.fromAddress(vtable[idx++])
+            .asFunction();
+    _findValue =
+        Pointer<
+              NativeFunction<
+                FbInterface Function(
+                  FbInterface,
+                  FbInterface,
+                  Pointer<Utf8>,
+                  Pointer<Utf8>,
+                )
+              >
+            >.fromAddress(vtable[idx++])
+            .asFunction();
+    _findPos =
+        Pointer<
+              NativeFunction<
+                FbInterface Function(
+                  FbInterface,
+                  FbInterface,
+                  Pointer<Utf8>,
+                  UnsignedInt,
+                )
+              >
+            >.fromAddress(vtable[idx++])
+            .asFunction();
   }
 
   IConfigEntry find(IStatus status, String name) {

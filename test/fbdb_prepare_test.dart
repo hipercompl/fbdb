@@ -14,9 +14,7 @@ void main() async {
         if (cnt1 != null) {
           expect(cnt1["CNT"], equals(3));
         }
-        await q.prepare(
-          sql: "insert into T(PK_INT, VC_50) values(?, ?)",
-        );
+        await q.prepare(sql: "insert into T(PK_INT, VC_50) values(?, ?)");
         await q.executePrepared(parameters: [10, "Row with PK 10"]);
         await q.executePrepared(parameters: [11, "Row with PK 11"]);
         final cnt2 = await db.selectOne(sql: "select count(*) as CNT from T");
@@ -39,9 +37,7 @@ void main() async {
     test("Prepared UPDATE", () async {
       await withNewDb1((db) async {
         final q = db.query();
-        await q.prepare(
-          sql: "update T set VC_50=? where PK_INT=?",
-        );
+        await q.prepare(sql: "update T set VC_50=? where PK_INT=?");
         await q.executePrepared(parameters: ["UPDATED 1", 1]);
         await q.executePrepared(parameters: ["UPDATED 2", 2]);
 
@@ -94,9 +90,7 @@ void main() async {
           expect(cnt1["CNT"], equals(3));
         }
         await db.startTransaction();
-        await q.prepare(
-          sql: "insert into T(PK_INT, VC_50) values(?, ?)",
-        );
+        await q.prepare(sql: "insert into T(PK_INT, VC_50) values(?, ?)");
         await q.executePrepared(parameters: [10, "Row with PK 10"]);
         await q.executePrepared(parameters: [11, "Row with PK 11"]);
         await db.commit();
@@ -125,9 +119,7 @@ void main() async {
         if (cnt1 != null) {
           expect(cnt1["CNT"], equals(3));
         }
-        await q.prepare(
-          sql: "insert into T(PK_INT, VC_50) values(?, ?)",
-        );
+        await q.prepare(sql: "insert into T(PK_INT, VC_50) values(?, ?)");
         await db.startTransaction();
         await q.executePrepared(parameters: [10, "Row with PK 10"]);
         await q.executePrepared(parameters: [11, "Row with PK 11"]);
@@ -193,9 +185,7 @@ void main() async {
       await expectLater(() async {
         await withNewDb1((db) async {
           final q = db.query();
-          await q.prepare(
-            sql: "insert into T(PK_INT) values (?)",
-          );
+          await q.prepare(sql: "insert into T(PK_INT) values (?)");
           await q.executePrepared(parameters: [1]); // key violation
         }); // withNewDb1
       }, throwsException);

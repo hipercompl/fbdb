@@ -173,8 +173,10 @@ void main() async {
         }
         FbBlobId blobId = row["B"];
         final data = List<int>.empty(growable: true);
-        await for (var segment
-            in await db.openBlob(id: blobId, inTransaction: t)) {
+        await for (var segment in await db.openBlob(
+          id: blobId,
+          inTransaction: t,
+        )) {
           data.addAll(Uint8List.view(segment));
         }
         await t.commit();

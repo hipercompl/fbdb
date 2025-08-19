@@ -23,9 +23,12 @@ void main() async {
     final detFut = db.detach();
     await expectLater(detFut, completes);
 
-    await expectLater((() async {
-      await db?.ping();
-    })(), throwsException);
+    await expectLater(
+      (() async {
+        await db?.ping();
+      })(),
+      throwsException,
+    );
   });
 
   test("Attaching with an error", () {
@@ -60,11 +63,8 @@ void main() async {
   });
 
   test("Creating database with an error", () {
-    expect(
-      () async {
-        await FbDb.createDatabase(database: "");
-      },
-      throwsException,
-    );
+    expect(() async {
+      await FbDb.createDatabase(database: "");
+    }, throwsException);
   });
 }

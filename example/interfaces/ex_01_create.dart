@@ -36,8 +36,12 @@ int main() {
 
     // create an empty database
     print("Creating database tests.fdb");
-    att = prov.createDatabase(status, "fbtests.fdb",
-        dpb.getBufferLength(status), dpb.getBuffer(status));
+    att = prov.createDatabase(
+      status,
+      "fbtests.fdb",
+      dpb.getBufferLength(status),
+      dpb.getBuffer(status),
+    );
     print("Database tests.fdb created");
 
     // start transaction

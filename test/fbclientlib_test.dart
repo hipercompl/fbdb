@@ -70,10 +70,7 @@ void main() {
   });
 
   test("Testing VAX integer of size 3B", () {
-    testVaxInt(
-      [0x10, 0x20, 0x30],
-      0x302010,
-    );
+    testVaxInt([0x10, 0x20, 0x30], 0x302010);
   });
 
   test("Testing VAX integer of size 4B", () {
@@ -90,10 +87,7 @@ void main() {
   test("Testing VAX integer of size 8B", () {
     // 64-bit integers are not supported by iscVaxInteger,
     // which returns 0 in such cases
-    testVaxInt(
-      [0x10, 0x20, 0x30, 0x40, 0x50, 0x60, 0x70, 0x71],
-      0,
-    );
+    testVaxInt([0x10, 0x20, 0x30, 0x40, 0x50, 0x60, 0x70, 0x71], 0);
   });
 
   test("Using API from a different client version", () {
