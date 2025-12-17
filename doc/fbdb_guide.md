@@ -14,7 +14,8 @@ This guide is copyritht © 2025 Tomasz Tyrakowski (t.tyrakowski @at@ hipercom.pl
 * 2. [Working with databases](#Workingwithdatabases)
 	* 2.1. [Opening a connection](#Openingaconnection)
 	* 2.2. [Firebird client library binaries and other supporting files](#Firebirdclientlibrarybinariesandothersupportingfiles)
-		* 2.2.1. [Opening connections - examples](#Openingconnections-examples)
+		* 2.2.1. [Firebird embedded on Android](#FirebirdembeddedonAndroid)
+		* 2.2.2. [Opening connections - examples](#Openingconnections-examples)
 	* 2.3. [Closing the connection](#Closingtheconnection)
 		* 2.3.1. [Closing connections - examples](#Closingconnections-examples)
 	* 2.4. [Connection configuration](#Connectionconfiguration)
@@ -217,7 +218,14 @@ final db = FbDb.attach(
 );
 ```
 
-####  2.2.1. <a name='Openingconnections-examples'></a>Opening connections - examples
+####  2.2.1. <a name='FirebirdembeddedonAndroid'></a>Firebird embedded on Android
+The Firebird team regularly publishes an embedded version of the server for the Android platform. The downloadable package at [firebirdsql.org](https://firebirdsql.org/en/firebird-5-0#android-embed) is provided in form of an `.aar` file (the Android archive file).
+
+While it's not hard to add an existing `.aar` archive to a Flutter project, for the Firebird embedded server simply adding the archive as an Android dependency is not enough. The internal Firebird assets (config files, the message file and the ICU data file) need to be properly bundled as Flutter assets and then **copied out** of the application bundle on the target device into a writable directory in the Android file system (e.g. the private data directory of the application), because the Firebird engine is not able to read the config files directly from the bundled assets. Additionally, a couple of environment variables need to be set to tell the Firebird engine where those files are located, as well as which directories the engine can use for temporary and lock files (Flutter doesn't make it easy, so a plugin like the [osenv](https://pub.dev/packages/osenv) might be handy).
+
+The [fb_5_embedded](https://github.com/hipercompl/fb_5_embedded) Flutter plugin simplifies and automates this process (you literally need to call a single function and all gets set up for you). It also bundles the Firebird embedded (version 5) shared libraries and internal assets. Please refer to the [repository README](https://github.com/hipercompl/fb_5_embedded) for more information on how to use the plugin.
+
+####  2.2.2. <a name='Openingconnections-examples'></a>Opening connections - examples
 Attach to the database specified by an alias `employee` on `localhost` (using the client/server mode via a TCP/IP loopback connection):
 ```dart
 final con = await FbDb.attach(
@@ -244,7 +252,7 @@ final con = await FbDb.attach(
 );
 ```
 
-Create a new database, with 4kB pages, located at the path `/tmp/tst.fdb` at the local host:
+Create a new database, with 4kB pages, UTF-8 character set and UNICODE_CI_AI collation, located at the path `/tmp/tst.fdb` at the local host:
 ```dart
 final con = await FbDb.createDatabase(
     host: "localhost",
@@ -253,6 +261,8 @@ final con = await FbDb.createDatabase(
     password: "masterkey",
     options: FbOptoins(
         pageSize: 4 * 1024,
+        dbCharset: "UTF8",
+        dbCollation: "UNICODE_CI_AI",
     ),
 );
 ```
@@ -328,6 +338,10 @@ The `FbOptions` constructor allows you to pass the following parameters (all of 
 - `pageSize` (int) - the page size (in bytes) of the database to be created, relevant only when calling `createDatabase`, otherwise ignored. Default: `4096`.
 - `dbCharset` (string) - the default character encoding of the database to be created, relevant only when calling `createDatabase`, otherwise ignored. Default: `"UTF8"`. Keep in mind, that `dbCharset` defines the character set of the newly created database, and not the client character set for the connection (which, as was already mentioned, is always UTF-8).
     > Please note, that if you wish to create a database without a default encoding, you have to explicitly pass `dbCharset="NONE"` (otherwise UTF-8 will be set as the database encoding).
+- `dbCollation` (string) - the default collation rules of the database to be created. It has to be a **valid collation** name for the database **character set**. *fbfb* does not check if the collation is viable for the given character set. If it's not, the database server will report an error.
+    > Currently, the Firebird protocol doesn't let you specify the default collation in the DPB (database parameter buffer). To work around this limitation, the collation is set via a query (`ALTER CHARACTER SET`), which executed automatically right after the database gets created.
+
+    > **NOTICE**: if you specify an invalid collation for the given character set, the database will be created anyway. The default collation is altered **after** the database has been created. Even if it fails, the database is already there (with the default collation).
 - `transactionFlags` (`Set<FbTrPar>`) - a set of flags, defining the transaction isolation level, lock resolution mode, table reservation and access mode, used as defaults for all transactions in this database connection. The flags are defined in the `FbTrPar` enumeration. The following constants are available:
     - access mode options: 
         - `read`, 

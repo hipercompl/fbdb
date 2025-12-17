@@ -39,6 +39,12 @@ class FbOptions {
   /// The default database character set for new databases.
   String dbCharset;
 
+  /// The default collation for new databases.
+  ///
+  /// If not specified, the default collation for the database
+  /// character set will be used.
+  String? dbCollation;
+
   /// The location of the fbclient native dynamic library.
   ///
   /// You can provide full relative or absolute path to the Firebird
@@ -68,6 +74,7 @@ class FbOptions {
     this.lockTimeout,
     this.pageSize = 4096,
     this.dbCharset = "UTF8",
+    this.dbCollation,
     this.libFbClient,
   });
 

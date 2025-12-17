@@ -130,6 +130,13 @@ class FbDb {
     );
     try {
       await db._createDatabase(args);
+      if (options != null && options.dbCollation != null) {
+        await db.execute(
+          sql:
+              "ALTER CHARACTER SET ${options.dbCharset} "
+              "SET DEFAULT COLLATION ${options.dbCollation} ",
+        );
+      }
       _finalizer.attach(db, db._toWorker, detach: db);
     } catch (_) {
       db._terminateWorker();

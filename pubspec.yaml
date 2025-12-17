@@ -1,6 +1,6 @@
 name: fbdb
 description: A Firebird SQL database access library for Dart and Flutter.
-version: 1.5.1
+version: 1.6.0
 homepage: https://github.com/hipercompl/fbdb
 repository: https://github.com/hipercompl/fbdb
 issue_tracker: https://github.com/hipercompl/fbdb/issues
