@@ -1,3 +1,6 @@
+## 1.6.1
+- Fixed compatibility issues with recent Dart SDK (compilation errors regarding arithmetic operations in `case` statements). Fixed some stylistic code issues reported by the Dart analyzer (using `null`-aware markers instead of explicit null checks with collection `if`s).
+
 ## 1.6.0
 - Added the `dbCollation` parameter to `FBOptions` (this resolves [issue #13](https://github.com/hipercompl/fbdb/issues/13)), which allows to define the default collation of the database being created (it is relevant only when calling `createDatabase`, `attach` ignores it). Section 2.4 of the [FbDb Programmer's Guide](https://github.com/hipercompl/fbdb/blob/main/doc/fbdb_guide.md) updated accordingly.
 

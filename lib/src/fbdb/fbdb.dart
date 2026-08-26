@@ -927,13 +927,13 @@ class FbDb {
     FbOptions? options,
   }) {
     return {
-      if (host != null) "host": host,
-      if (port != null) "port": port,
+      "host": ?host,
+      "port": ?port,
       "database": database,
-      if (user != null) "user": user,
-      if (password != null) "password": password,
-      if (role != null) "role": role,
-      if (options != null) "options": options,
+      "user": ?user,
+      "password": ?password,
+      "role": ?role,
+      "options": ?options,
     };
   }
 

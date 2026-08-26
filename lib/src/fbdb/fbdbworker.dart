@@ -791,7 +791,7 @@ class FbDbWorker {
   /// If obj is a list, it's being sent as the actual payload.
   /// Every other object is wrapped in a one-item list.
   void _sendSuccessResp(SendPort toMain, [dynamic obj]) {
-    final payload = obj is List ? obj : [if (obj != null) obj];
+    final payload = obj is List ? obj : [?obj];
     toMain.send(FbDbResponse(FbDbResponseOp.success, payload));
   }
 
@@ -799,7 +799,7 @@ class FbDbWorker {
   /// If obj is a list, it's being sent as the actual payload.
   /// Every other object is wrapped in a one-item list.
   void _sendErrorResp(SendPort toMain, [dynamic obj]) {
-    final payload = obj is List ? obj : [if (obj != null) obj];
+    final payload = obj is List ? obj : [?obj];
     toMain.send(FbDbResponse(FbDbResponseOp.error, payload));
   }
 
@@ -1414,11 +1414,11 @@ class FbDbQueryWorker {
 
     switch (type) {
       case FbConsts.SQL_TEXT:
-      case FbConsts.SQL_TEXT + 1:
+      case const (FbConsts.SQL_TEXT + 1):
         _putChar(msg, offset, value, length, meta, index);
 
       case FbConsts.SQL_VARYING:
-      case FbConsts.SQL_VARYING + 1:
+      case const (FbConsts.SQL_VARYING + 1):
         // length + 2 because length reported by metadata
         // means the length of the field / parameter,
         // excluding the 2-byte unsigned short holding
@@ -1426,84 +1426,84 @@ class FbDbQueryWorker {
         msg.writeVarchar(offset, value, length + 2);
 
       case FbConsts.SQL_SHORT:
-      case FbConsts.SQL_SHORT + 1:
+      case const (FbConsts.SQL_SHORT + 1):
         msg.writeInt16(
           offset,
           scale != 0 ? _scaled(value, scale) : (value as num).toInt(),
         );
 
       case FbConsts.SQL_LONG:
-      case FbConsts.SQL_LONG + 1:
+      case const (FbConsts.SQL_LONG + 1):
         msg.writeInt32(
           offset,
           scale != 0 ? _scaled(value, scale) : (value as num).toInt(),
         );
 
       case FbConsts.SQL_FLOAT:
-      case FbConsts.SQL_FLOAT + 1:
+      case const (FbConsts.SQL_FLOAT + 1):
         msg.writeFloat(offset, (value as num).toDouble());
 
       case FbConsts.SQL_DOUBLE:
-      case FbConsts.SQL_DOUBLE + 1:
+      case const (FbConsts.SQL_DOUBLE + 1):
         msg.writeDouble(offset, (value as num).toDouble());
 
       case FbConsts.SQL_TIMESTAMP:
-      case FbConsts.SQL_TIMESTAMP + 1:
+      case const (FbConsts.SQL_TIMESTAMP + 1):
         _putTimestamp(msg, offset, value);
 
       case FbConsts.SQL_BLOB:
-      case FbConsts.SQL_BLOB + 1:
+      case const (FbConsts.SQL_BLOB + 1):
         _putBlob(msg, offset, value);
 
       case FbConsts.SQL_QUAD:
-      case FbConsts.SQL_QUAD + 1:
+      case const (FbConsts.SQL_QUAD + 1):
         _putQuad(msg, offset, value);
 
       case FbConsts.SQL_TYPE_TIME:
-      case FbConsts.SQL_TYPE_TIME + 1:
+      case const (FbConsts.SQL_TYPE_TIME + 1):
         _putTime(msg, offset, value);
 
       case FbConsts.SQL_TYPE_DATE:
-      case FbConsts.SQL_TYPE_DATE + 1:
+      case const (FbConsts.SQL_TYPE_DATE + 1):
         _putDate(msg, offset, value);
 
       case FbConsts.SQL_INT64:
-      case FbConsts.SQL_INT64 + 1:
+      case const (FbConsts.SQL_INT64 + 1):
         msg.writeInt64(
           offset,
           scale != 0 ? _scaled(value, scale) : (value as num).toInt(),
         );
 
       case FbConsts.SQL_INT128:
-      case FbConsts.SQL_INT128 + 1:
+      case const (FbConsts.SQL_INT128 + 1):
         _putInt128(status, msg, offset, value, scale);
 
       case FbConsts.SQL_TIMESTAMP_TZ:
-      case FbConsts.SQL_TIMESTAMP_TZ + 1:
+      case const (FbConsts.SQL_TIMESTAMP_TZ + 1):
         _putTimestampTZ(status, msg, offset, value);
 
       case FbConsts.SQL_TIMESTAMP_TZ_EX:
-      case FbConsts.SQL_TIMESTAMP_TZ_EX + 1:
+      case const (FbConsts.SQL_TIMESTAMP_TZ_EX + 1):
         _putTimestampTZEx(status, msg, offset, value);
 
       case FbConsts.SQL_TIME_TZ:
-      case FbConsts.SQL_TIME_TZ + 1:
+      case const (FbConsts.SQL_TIME_TZ + 1):
         _putTimeTZ(status, msg, offset, value);
 
       case FbConsts.SQL_TIME_TZ_EX:
-      case FbConsts.SQL_TIME_TZ_EX + 1:
+      case const (FbConsts.SQL_TIME_TZ_EX + 1):
         _putTimeTZEx(status, msg, offset, value);
 
       case FbConsts.SQL_DEC16:
-      case FbConsts.SQL_DEC16 + 1:
+      case const (FbConsts.SQL_DEC16 + 1):
         _putDec16(status, msg, offset, value);
 
       case FbConsts.SQL_DEC34:
-      case FbConsts.SQL_DEC34 + 1:
+      case const (FbConsts.SQL_DEC34 + 1):
         _putDec34(status, msg, offset, value);
 
       case FbConsts.SQL_BOOLEAN:
-      case FbConsts.SQL_BOOLEAN + 1:
+      case const (FbConsts.SQL_BOOLEAN + 1):
         msg.writeUint8(offset, value ? 1 : 0);
 
       case FbConsts.SQL_NULL:
@@ -1946,88 +1946,88 @@ class FbDbQueryWorker {
 
     switch (type) {
       case FbConsts.SQL_TEXT:
-      case FbConsts.SQL_TEXT + 1:
+      case const (FbConsts.SQL_TEXT + 1):
         final s = msg.readString(offset, length);
         final enc = meta.getCharSet(status, index);
         return _truncTrailingSpaces(s, length, enc);
 
       case FbConsts.SQL_VARYING:
-      case FbConsts.SQL_VARYING + 1:
+      case const (FbConsts.SQL_VARYING + 1):
         return msg.readVarchar(offset);
 
       case FbConsts.SQL_SHORT:
-      case FbConsts.SQL_SHORT + 1:
+      case const (FbConsts.SQL_SHORT + 1):
         final v = msg.readInt16(offset);
         return scale != 0 ? _unscaled(v, scale) : v;
 
       case FbConsts.SQL_LONG:
-      case FbConsts.SQL_LONG + 1:
+      case const (FbConsts.SQL_LONG + 1):
         final v = msg.readInt32(offset);
         return scale != 0 ? _unscaled(v, scale) : v;
 
       case FbConsts.SQL_FLOAT:
-      case FbConsts.SQL_FLOAT + 1:
+      case const (FbConsts.SQL_FLOAT + 1):
         return msg.readFloat(offset);
 
       case FbConsts.SQL_DOUBLE:
-      case FbConsts.SQL_DOUBLE + 1:
+      case const (FbConsts.SQL_DOUBLE + 1):
         return msg.readDouble(offset);
 
       case FbConsts.SQL_TIMESTAMP:
-      case FbConsts.SQL_TIMESTAMP + 1:
+      case const (FbConsts.SQL_TIMESTAMP + 1):
         return _getTimestamp(msg, offset);
 
       case FbConsts.SQL_BLOB:
-      case FbConsts.SQL_BLOB + 1:
+      case const (FbConsts.SQL_BLOB + 1):
         return _inlineBlobs ? _getBlob(msg, offset) : _getBlobId(msg, offset);
 
       case FbConsts.SQL_QUAD:
-      case FbConsts.SQL_QUAD + 1:
+      case const (FbConsts.SQL_QUAD + 1):
         return _getQuad(msg, offset);
 
       case FbConsts.SQL_TYPE_TIME:
-      case FbConsts.SQL_TYPE_TIME + 1:
+      case const (FbConsts.SQL_TYPE_TIME + 1):
         return _decodeTime(msg.readUint32(offset));
 
       case FbConsts.SQL_TYPE_DATE:
-      case FbConsts.SQL_TYPE_DATE + 1:
+      case const (FbConsts.SQL_TYPE_DATE + 1):
         return _decodeDate(msg.readInt32(offset));
 
       case FbConsts.SQL_INT64:
-      case FbConsts.SQL_INT64 + 1:
+      case const (FbConsts.SQL_INT64 + 1):
         final v = msg.readInt64(offset);
         return scale != 0 ? _unscaled(v, scale) : v;
 
       case FbConsts.SQL_INT128:
-      case FbConsts.SQL_INT128 + 1:
+      case const (FbConsts.SQL_INT128 + 1):
         return _getInt128(status, msg, offset, scale);
 
       case FbConsts.SQL_TIMESTAMP_TZ:
-      case FbConsts.SQL_TIMESTAMP_TZ + 1:
+      case const (FbConsts.SQL_TIMESTAMP_TZ + 1):
         return _getTimestampTZ(status, msg, offset);
 
       case FbConsts.SQL_TIME_TZ:
-      case FbConsts.SQL_TIME_TZ + 1:
+      case const (FbConsts.SQL_TIME_TZ + 1):
         return _getTimeTZ(status, msg, offset);
 
       case FbConsts.SQL_TIME_TZ_EX:
-      case FbConsts.SQL_TIME_TZ_EX + 1:
+      case const (FbConsts.SQL_TIME_TZ_EX + 1):
         return _getTimeTZEx(status, msg, offset);
 
       case FbConsts.SQL_TIMESTAMP_TZ_EX:
-      case FbConsts.SQL_TIMESTAMP_TZ_EX + 1:
+      case const (FbConsts.SQL_TIMESTAMP_TZ_EX + 1):
         return _getTimestampTZEx(status, msg, offset);
 
       case FbConsts.SQL_DEC16:
-      case FbConsts.SQL_DEC16 + 1:
+      case const (FbConsts.SQL_DEC16 + 1):
         return _getDec16(status, msg, offset);
 
       case FbConsts.SQL_DEC34:
-      case FbConsts.SQL_DEC34 + 1:
+      case const (FbConsts.SQL_DEC34 + 1):
         return _getDec34(status, msg, offset);
 
       case FbConsts.SQL_BOOLEAN:
-      case FbConsts.SQL_BOOLEAN + 1:
+      case const (FbConsts.SQL_BOOLEAN + 1):
         return msg.readUint8(offset) != 0;
 
       case FbConsts.SQL_NULL:
