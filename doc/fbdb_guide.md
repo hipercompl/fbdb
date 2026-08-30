@@ -20,7 +20,8 @@ This guide is copyritht © 2025 Tomasz Tyrakowski (t.tyrakowski @at@ hipercom.pl
 		* 2.3.1. [Closing connections - examples](#Closingconnections-examples)
 	* 2.4. [Connection configuration](#Connectionconfiguration)
 * 3. [Error reporting](#Errorreporting)
-	* 3.1. [Error reporting examples](#Errorreportingexamples)
+	* 3.1. [Malformed error messages](#Malformederrormessages)
+	* 3.2. [Error reporting examples](#Errorreportingexamples)
 * 4. [Executing SQL statements](#ExecutingSQLstatements)
 	* 4.1. [Creating query objects](#Creatingqueryobjects)
 	* 4.2. [Executing queries](#Executingqueries)
@@ -385,7 +386,22 @@ To make it easier to check for a particular error code in the `FbServerException
 
 All Firebird error codes are listed in the `FbErrorCodes` class.
 
-###  3.1. <a name='Errorreportingexamples'></a>Error reporting examples
+###  3.1. <a name='Malformederrormessages'></a>Malformed error messages
+In some cases the error message encapsulated by a `FbServerException` object may be malformed. The most frequent case is unsuccessful database attaching with a Firebird server running on a localized (non-English) operating system. In such cases the error message returned by the server (and processed by the Firebird client library via `IUtil.formatStatus` and `IUtil.formattedStatus`) contains a localized operating system error message, which is not converted by the server to UTF-8. It may result in the `FbServerException.message` containing the Unicode substitute character (`\u0xFFFD`, often displayed as a question mark or empty square).
+
+While it is not possible in general to solve this on the client side (the client doesn't know the encoding uses by the operating system on the server machine), starting with version 1.6.2, the `FbServerException` class in *fbdb* has been **extended** with additional information about the error message.
+
+Apart from the previously existing `FbServerException.message` field (the error message converted to Unicode from UTF-8 - that's the one that may contain substitute characters), there are two additional fields in the `FbServerException`:
+
+* `FbServerException.messageValid` - a boolean indicating whether the error message has been successfully decoded from UTF-8,
+
+* `FbServerException.messageBytes` - a `Uint8List` containing the original byte representation of the error message.
+
+With this additional data, the client code, should it wish to, may decode the error message bytes in a custom way, not with the standard Dart `Utf8Decoder`. For example, if the client code knows in advance, that the server host operating system is Latin-1 based, when the client detects `messageValid == false` in the exception, it may decide to decode `messageBytes` with `Latin1Decoder` instead.
+
+This decision is left to the client code, because it requires **additional knowledge** about the server (in particular its OS locale).
+
+###  3.2. <a name='Errorreportingexamples'></a>Error reporting examples
 
 React if a query causes a deadlock (a lock conflict with another transaction).
 ```dart
@@ -419,6 +435,29 @@ try {
         print("Column too short. Data truncated.");
     } else {
         print("Error detected: $e");
+    }
+}
+```
+
+Decode the error message as Latin-1 instead of UTF-8 if UTF-8 decoding is not possible due to invalid sequences.
+
+```dart
+try {
+    db = await FbDb.attach(
+        host: "localhost",
+        database: "/tmp/tst.fdb",
+        user: "sysdba",
+        password: "masterkey",
+    );
+} on FbServerException catch (e) {
+    if (e.messageValid) {
+        // the error message was decoded from UTF-8
+        print("Error: $e");
+    } else {
+        // decode the error as Latin-1, because
+        // somehow we know the server OS uses Latin-1
+        final m = Latin1Decoder.convert(e.messageBytes);
+        print("Error: $m");
     }
 }
 ```

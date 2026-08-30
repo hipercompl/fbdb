@@ -1,5 +1,6 @@
 import "dart:convert";
 import "dart:ffi";
+import "dart:typed_data";
 import "package:ffi/ffi.dart";
 import "package:fbdb/fbclient.dart";
 
@@ -614,14 +615,31 @@ class IUtil extends IVersioned {
   }
 
   String formattedStatus(IStatus status) {
+    return formattedStatusEx(status).message;
+  }
+
+  /// Formats an error message (like [formattedStatus]), but additionally
+  /// informs whether the error message was succesfully converted from
+  /// UTF-8 and provides the raw byte array of the message
+  /// (before any decoding).
+  MsgConvResult formattedStatusEx(IStatus status) {
     try {
       const bufSize = 512;
       Pointer<Utf8> buf = mem.allocate(bufSize);
       try {
         final len = formatStatus(buf, bufSize, status);
         final codePoints = buf.toDartMem(len);
-        final str = Utf8Decoder(allowMalformed: true).convert(codePoints);
-        return str;
+        String str;
+        bool converted = false;
+        try {
+          str = Utf8Decoder(allowMalformed: false).convert(codePoints);
+          converted = true;
+        } on FormatException {
+          // decoding from UTF-8 failed, will decode whatever can be salvaged
+          str = Utf8Decoder(allowMalformed: true).convert(codePoints);
+          converted = false;
+        }
+        return MsgConvResult(str, converted, codePoints);
       } finally {
         mem.free(buf);
       }
@@ -629,7 +647,8 @@ class IUtil extends IVersioned {
       // automatic format didn't work, will try to return the status
       // formatted by hand
       final errors = status.errors.where((e) => e != 0);
-      return "Could not format error message. Error codes: $errors";
+      final msg = "Could not format error message. Error codes: $errors";
+      return MsgConvResult(msg, true, Utf8Encoder().convert(msg));
     }
   }
 
@@ -891,4 +910,13 @@ class IUtil extends IVersioned {
     );
     status.checkStatus();
   }
+}
+
+/// The result of error message conversion, used in [IUtil.formatMessageEx].
+class MsgConvResult {
+  String message;
+  bool messageValid;
+  Uint8List messageBytes;
+
+  MsgConvResult(this.message, this.messageValid, this.messageBytes);
 }

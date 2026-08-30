@@ -1,4 +1,5 @@
 import "dart:ffi";
+import "dart:typed_data";
 import "package:fbdb/fbclient.dart";
 
 /// Base exception class of the fbdb package.
@@ -24,8 +25,19 @@ class FbServerException implements Exception {
   /// An optional error message.
   String message;
 
+  /// Is the error message valid (succesfully decoded from UTF-8)
+  bool messageValid;
+
+  /// The raw error message, exactly as reported by the native library code.
+  Uint8List messageBytes;
+
   /// The default constructor.
-  FbServerException(this.errors, this.message);
+  FbServerException(
+    this.errors,
+    this.message,
+    this.messageValid,
+    this.messageBytes,
+  );
 
   /// Constructs a FbServerException object from the given IStatus.
   ///
@@ -36,7 +48,16 @@ class FbServerException implements Exception {
   /// and only numeric error codes will be present in the exception.
   FbServerException.fromStatus(IStatus status, {IUtil? util})
     : errors = status.errors,
-      message = util?.formattedStatus(status) ?? "";
+      message = "",
+      messageValid = true,
+      messageBytes = Uint8List.fromList([0]) {
+    if (util != null) {
+      final msg = util.formattedStatusEx(status);
+      message = msg.message;
+      messageValid = msg.messageValid;
+      messageBytes = msg.messageBytes;
+    }
+  }
 
   /// Returns the error message from the exception.
   @override

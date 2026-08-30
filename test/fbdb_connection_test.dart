@@ -41,6 +41,24 @@ void main() async {
     }, throwsException);
   });
 
+  test("Attaching with non-ASCII database path", () async {
+    try {
+      await FbDb.attach(
+        host: "localhost",
+        database: "Неудаетсянайтиуказанныйфайл.fdb",
+        user: TestConfig.dbUser,
+        password: TestConfig.dbPassword,
+      );
+    } on FbServerException catch (e) {
+      final invMsg = !e.messageValid && e.message.contains("\u{FFFD}");
+      final valMsg = e.messageValid && !e.message.contains("\u{FFFD}");
+      // either valid or invalid, never both or neither
+      expect(invMsg ^ valMsg, isTrue);
+    } on Exception {
+      Skip("Other kind of exception detected");
+    }
+  });
+
   test("Creating and dropping database", () async {
     FbDb? db;
     final dbFut = FbDb.createDatabase(

@@ -1,3 +1,6 @@
+## 1.6.2
+- The `FbServerException` class has been enhanced with two attributes: `messageValid` and `messageBytes`. The firs one indicates whether the error message sent by the server is a valid UTF-8 and was successfully decoded, the second one contains the raw bytes of the error message, exactly as returned by `IUtil.formatStatus`. If the error message returned by the server contains invalid UTF-8 sequences, `FbServerException.message` will contain Unicode substitute characters (`\u{FFFD}`), and `messageValid` will be `false`. In this case the client code may wish to use `messageBytes` directy, with a custom decoder. If `FbServerException.messageValid` is `true`, the `message` was decoded from UTF-8 without problems. See [issue #15](https://github.com/hipercompl/fbdb/issues/15) for more details.
+
 ## 1.6.1
 - Fixed compatibility issues with recent Dart SDK (compilation errors regarding arithmetic operations in `case` statements). Fixed some stylistic code issues reported by the Dart analyzer (using `null`-aware markers instead of explicit null checks with collection `if`s).
 
