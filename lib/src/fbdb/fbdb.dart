@@ -874,6 +874,7 @@ class FbDb {
   SendPort? _toWorker;
   Isolate? _worker;
   final Map<int, FbQuery> _activeQueries = {};
+  final Map<int, FbBatch> _activeBatches = {};
 
   FbDb._init(this._worker, this._toWorker);
 
@@ -1912,6 +1913,47 @@ class FbQuery {
     _toWorker = null;
     _db = null;
   }
+}
+
+class FbBatch {
+  /// Creates a batch object associated with the specific database connection.
+  FbBatch.forDb(this._db);
+
+  // --------------------------------------------------------------------
+  // --------------------------- private API ----------------------------
+  // --------------------------------------------------------------------
+
+  /// A private port to send control messages to the FbDbBatchWorker
+  /// associated with this particular batch.
+  SendPort? _toWorker;
+
+  /// The active connection, through which this batch makes requests
+  /// to the worker isolate.
+  FbDb? _db;
+
+  /// Detaches from the connection (makes this batch unusable).
+  void _detachConnection() {
+    _toWorker = null;
+    _db = null;
+  }
+}
+
+class FbBatchCompletionState {
+  List<dynamic> status = [];
+
+  FbBatchCompletionState(this.status);
+
+  Map<int, FbServerException> errors() {
+    //@TODO
+    return {};
+  }
+
+  Map<int, int> successes() {
+    //@TODO
+    return {};
+  }
+
+  //@TODO
 }
 
 // Pre-check the response from the worker isolate.

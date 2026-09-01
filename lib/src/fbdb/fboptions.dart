@@ -160,3 +160,18 @@ Map<FbTrFlag, int> fbTrParTags = {
   FbTrFlag.lockWrite: FbConsts.isc_tpb_lock_write,
   FbTrFlag.lockRead: FbConsts.isc_tpb_lock_read,
 };
+
+/// Batch creation options.
+class FbBatchOptions {
+  bool multiError;
+  bool recordCounts;
+  int serverBufferSize;
+  int maxErrorCount;
+
+  FbBatchOptions({
+    this.multiError = true,
+    this.recordCounts = true,
+    this.serverBufferSize = 16 * 1024 * 1024,
+    this.maxErrorCount = 64,
+  });
+}
