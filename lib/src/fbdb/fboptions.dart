@@ -163,15 +163,26 @@ Map<FbTrFlag, int> fbTrParTags = {
 
 /// Batch creation options.
 class FbBatchOptions {
-  bool multiError;
-  bool recordCounts;
-  int serverBufferSize;
-  int maxErrorCount;
+  /// Return statuses and errors separately for each batch operation.
+  bool? multiError;
+
+  /// Return affected row counts for each batch operation.
+  bool? recordCounts;
+
+  /// Server-side buffer size. Consult Firebird documentation for the maximum
+  /// allowed buffer size (for example, in Firebird 5 it is 256 MB,
+  /// with default 16 MB).
+  int? serverBufferSize;
+
+  /// Maximum number of registered errors. Consult Firebird documentation
+  /// for the maximum allowed value (for example, in Firebird 5 it is 256,
+  /// with default 64).
+  int? maxErrorCount;
 
   FbBatchOptions({
     this.multiError = true,
     this.recordCounts = true,
-    this.serverBufferSize = 16 * 1024 * 1024,
-    this.maxErrorCount = 64,
+    this.serverBufferSize,
+    this.maxErrorCount,
   });
 }
