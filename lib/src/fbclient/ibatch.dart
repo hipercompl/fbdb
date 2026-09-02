@@ -2,6 +2,24 @@ import "dart:ffi";
 import "package:fbdb/fbclient.dart";
 
 class IBatch extends IReferenceCounted {
+  static const version1 = 1;
+  static const currentVersion = version1;
+  static const tagMultierror = 1;
+  static const tagRecordCounts = 2;
+  static const tagBufferBytesSize = 3;
+  static const tagBlobPolicy = 4;
+  static const tagDetailedErrors = 5;
+  static const blobNone = 0;
+  static const blobIdEngine = 1;
+  static const blobIdUser = 2;
+  static const blobStream = 3;
+  static const blobSegHdrAlign = 2;
+  static const infBufferBytesSize = 10;
+  static const infDataBytesSize = 11;
+  static const infBlobsBytesSize = 12;
+  static const infBlobAlignment = 13;
+  static const infBlobHeader = 14;
+
   @override
   int minSupportedVersion() => 4;
 
