@@ -45,7 +45,11 @@ class FbClient {
   /// Closes the dynamic library.
   void close() {
     if (lib != null) {
-      lib?.close();
+      // Unloading the fbclient dynamic library disabled on non-Windows
+      // systems (see issue 17: https://github.com/hipercompl/fbdb/issues/17).
+      if (Platform.isWindows) {
+        lib?.close();
+      }
       lib = null;
     }
   }
