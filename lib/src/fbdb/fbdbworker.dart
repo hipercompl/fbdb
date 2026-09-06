@@ -1,12 +1,9 @@
 import "dart:ffi";
 import "dart:isolate";
-import "dart:math";
 import "dart:async";
 import "dart:typed_data";
-import "dart:convert";
 import "package:fbdb/fbdb.dart";
 import "package:fbdb/fbclient.dart";
-import "package:ffi/ffi.dart";
 import "fbhelper.dart";
 
 /// The native Firebird client loader and bindings.
@@ -108,7 +105,7 @@ void _disposeClient() {
 /// it is not intended to be instantiated by the client code.
 class FbDbWorker {
   /// The receive port for commands from the main isolate.
-  ReceivePort fromMain;
+  final ReceivePort _fromMain;
 
   /// The database attachment used by the worker.
   IAttachment? attachment;
@@ -117,19 +114,22 @@ class FbDbWorker {
   IStatus status;
 
   /// The connection options, as passed from the main isolate.
-  FbOptions? options;
+  FbOptions? _options;
 
   /// The active explicit transaction (or null if there is none).
-  ITransaction? transaction;
+  ITransaction? _transaction;
 
   /// All active (opened and not closed yet) queries.
   ///
   /// Those are only queries, which communicate with the Firebird
   /// database via this worker's attachment.
-  final Map<int, FbDbQueryWorker> activeQueries;
+  final Map<int, FbDbQueryWorker> _activeQueries;
 
   /// All active (created or opened, but not closed yet) blobs.
-  final Map<int, FbBlobDef> activeBlobs;
+  final Map<int, FbBlobDef> _activeBlobs;
+
+  /// All active (created and not closed) batches.
+  final Map<int, FbDbBatchWorker> _activeBatches;
 
   /// The length of the pre-allocated TPB.
   int _tpbLength = 0;
@@ -144,10 +144,11 @@ class FbDbWorker {
 
   /// Private constructor, so that no foreign code can instantiate
   /// the worker.
-  FbDbWorker._init(this.fromMain)
+  FbDbWorker._init(this._fromMain)
     : status = master.getStatus(),
-      activeQueries = {},
-      activeBlobs = {},
+      _activeQueries = {},
+      _activeBlobs = {},
+      _activeBatches = {},
       _activeTransactions = {};
 
   /// Release the memory resources used by this worker object.
@@ -166,7 +167,7 @@ class FbDbWorker {
     try {
       // Read data from the ReceivePort, on which the main isolate
       // sends the control messages.
-      await for (final msg in fromMain) {
+      await for (final msg in _fromMain) {
         // a new control message arrived
         try {
           if (!await _dispatchMessage(msg)) {
@@ -236,6 +237,8 @@ class FbDbWorker {
         await _quit(msg);
       case FbDbControlOp.prepareQuery:
         await _prepareQuery(msg);
+      case FbDbControlOp.createBatch:
+        await _createBatch(msg);
       default:
         throw FbClientException(
           "FbDbWorker operation not supported: ${msg.op.name}",
@@ -256,7 +259,7 @@ class FbDbWorker {
   /// Handles the attach operation.
   Future<void> _attach(FbDbControlMessage msg) async {
     final Map<String, dynamic> params = msg.data[0];
-    options = params.containsKey("options") ? params["options"] : FbOptions();
+    _options = params.containsKey("options") ? params["options"] : FbOptions();
     final dpb = _makeDPB(params);
     final db = _makeDBPath(params);
     try {
@@ -267,7 +270,7 @@ class FbDbWorker {
         dpb.getBufferLength(status),
         dpb.getBuffer(status),
       );
-      _prepareTpbFromOptions(options);
+      _prepareTpbFromOptions(_options);
       _sendSuccessResp(msg.resultPort);
     } finally {
       dpb.dispose();
@@ -277,14 +280,14 @@ class FbDbWorker {
   /// Handles the createDatabase operation.
   Future<void> _createDatabase(FbDbControlMessage msg) async {
     final Map<String, dynamic> params = msg.data[0];
-    options = params.containsKey("options") ? params["options"] : FbOptions();
+    _options = params.containsKey("options") ? params["options"] : FbOptions();
     final dpb = _makeDPB(params);
     final db = _makeDBPath(params);
-    int? pageSize = options?.pageSize;
+    int? pageSize = _options?.pageSize;
     if (pageSize != null && pageSize > 0) {
       dpb.insertInt(status, FbConsts.isc_dpb_page_size, pageSize);
     }
-    final dbCharset = options?.dbCharset ?? "UTF8";
+    final dbCharset = _options?.dbCharset ?? "UTF8";
     dpb.insertString(status, FbConsts.isc_dpb_set_db_charset, dbCharset);
     try {
       status.init();
@@ -294,7 +297,7 @@ class FbDbWorker {
         dpb.getBufferLength(status),
         dpb.getBuffer(status),
       );
-      _prepareTpbFromOptions(options);
+      _prepareTpbFromOptions(_options);
       _sendSuccessResp(msg.resultPort);
     } finally {
       dpb.dispose();
@@ -395,9 +398,10 @@ class FbDbWorker {
   /// Handles the detach operation.
   Future<void> _detach(FbDbControlMessage msg) async {
     _closeAllBlobs();
-    transaction?.commit(status);
-    transaction = null;
+    _transaction?.commit(status);
+    _transaction = null;
     _closeActiveQueries();
+    _closeAllBatches();
     _closeActiveTransactions();
     status.init();
     attachment?.detach(status);
@@ -413,9 +417,9 @@ class FbDbWorker {
 
   /// Closes all active queries (also closes their receive ports).
   void _closeActiveQueries() {
-    final keys = List<int>.from(activeQueries.keys);
+    final keys = List<int>.from(_activeQueries.keys);
     for (final key in keys) {
-      activeQueries[key]?._close();
+      _activeQueries[key]?._close();
     }
   }
 
@@ -430,8 +434,8 @@ class FbDbWorker {
   /// Handles the dropDatabase operation.
   Future<void> _dropDatabase(FbDbControlMessage msg) async {
     _closeAllBlobs();
-    transaction?.commit(status);
-    transaction = null;
+    _transaction?.commit(status);
+    _transaction = null;
     _closeActiveQueries();
     _closeActiveTransactions();
     status.init();
@@ -466,8 +470,8 @@ class FbDbWorker {
     if (attachment == null) {
       throw FbClientException("Start transaction: no active attachment");
     }
-    transaction?.release();
-    transaction = _makeTransaction(msg);
+    _transaction?.release();
+    _transaction = _makeTransaction(msg);
     _sendSuccessResp(msg.resultPort);
   }
 
@@ -522,10 +526,10 @@ class FbDbWorker {
       if (attachment == null) {
         throw FbClientException("Commit: no active attachment");
       }
-      if (transaction != null) {
+      if (_transaction != null) {
         status.init();
-        transaction?.commit(status);
-        transaction = null;
+        _transaction?.commit(status);
+        _transaction = null;
       }
     }
     _sendSuccessResp(msg.resultPort);
@@ -550,10 +554,10 @@ class FbDbWorker {
       if (attachment == null) {
         throw FbClientException("Rollback: no active attachment");
       }
-      if (transaction != null) {
+      if (_transaction != null) {
         status.init();
-        transaction?.rollback(status);
-        transaction = null;
+        _transaction?.rollback(status);
+        _transaction = null;
       }
     }
     _sendSuccessResp(msg.resultPort);
@@ -565,7 +569,7 @@ class FbDbWorker {
     if (msg.data.isNotEmpty && msg.data[0] != null) {
       t = getActiveTransaction(msg.data[0]);
     } else {
-      t = transaction;
+      t = _transaction;
     }
     _sendSuccessResp(msg.resultPort, (t != null));
   }
@@ -575,7 +579,7 @@ class FbDbWorker {
     final fromMain = ReceivePort();
     try {
       final q = FbDbQueryWorker(fromMain, this);
-      activeQueries[q.hashCode] = q;
+      _activeQueries[q.hashCode] = q;
       final (sql, params, inlineBlobs, withTransaction) = _extractExecData(msg);
       await q._exec(
         sql,
@@ -597,7 +601,7 @@ class FbDbWorker {
     final queryFromMain = ReceivePort();
     try {
       final q = FbDbQueryWorker(queryFromMain, this);
-      activeQueries[q.hashCode] = q;
+      _activeQueries[q.hashCode] = q;
       final (sql, params, inlineBlobs, withTransaction) = _extractExecData(msg);
       await q._exec(
         sql,
@@ -626,7 +630,7 @@ class FbDbWorker {
     final fromMain = ReceivePort();
     try {
       final q = FbDbQueryWorker(fromMain, this);
-      activeQueries[q.hashCode] = q;
+      _activeQueries[q.hashCode] = q;
       await q._prepare(sql, withTransaction: tra);
       unawaited(q._run()); // we don't await run() on purpose
       _sendSuccessResp(msg.resultPort, fromMain.sendPort);
@@ -643,7 +647,7 @@ class FbDbWorker {
     }
     ITransaction? tra = msg.data.isNotEmpty
         ? getActiveTransaction(msg.data[0])
-        : transaction;
+        : _transaction;
     if (tra == null) {
       throw FbClientException("No active transaction");
     }
@@ -673,7 +677,7 @@ class FbDbWorker {
     }
     ITransaction? tra = msg.data.length > 1
         ? getActiveTransaction(msg.data[1])
-        : transaction;
+        : _transaction;
     if (tra == null) {
       throw FbClientException("No active transaction");
     }
@@ -699,7 +703,7 @@ class FbDbWorker {
   Future<void> _putBlobSegment(FbDbControlMessage msg) async {
     final FbBlobId id = msg.data[0];
     ByteBuffer data = asByteBuffer(msg.data[1]);
-    final def = activeBlobs[id.idHash];
+    final def = _activeBlobs[id.idHash];
     if (def == null) {
       throw FbClientException("Blob ID does not point to an active blob");
     }
@@ -722,7 +726,7 @@ class FbDbWorker {
   Future<void> _getBlobSegment(FbDbControlMessage msg) async {
     final FbBlobId id = msg.data[0];
     final int segmentSize = msg.data[1];
-    final def = activeBlobs[id.idHash];
+    final def = _activeBlobs[id.idHash];
     Uint8List? blobData;
     if (def == null) {
       throw FbClientException("Blob ID does not point to an active blob");
@@ -750,10 +754,10 @@ class FbDbWorker {
   /// Handles the closeBlob operation
   Future<void> _closeBlob(FbDbControlMessage msg) async {
     final FbBlobId id = msg.data[0];
-    final def = activeBlobs[id.idHash];
+    final def = _activeBlobs[id.idHash];
     if (def != null) {
       def.close(status);
-      activeBlobs.remove(id.idHash);
+      _activeBlobs.remove(id.idHash);
     }
     _sendSuccessResp(msg.resultPort, []);
   }
@@ -764,6 +768,33 @@ class FbDbWorker {
   /// from the worker isolate.
   Future<void> _quit(FbDbControlMessage _) {
     Isolate.exit();
+  }
+
+  /// Handles the createBatch operation.
+  Future<void> _createBatch(FbDbControlMessage msg) async {
+    final fromMain = ReceivePort();
+    try {
+      final b = FbDbBatchWorker(fromMain, this);
+      final sql = msg.data[0] as String;
+      final FbBatchOptions? options = msg.data[1] as FbBatchOptions?;
+      final int transId = msg.data[2] ?? -1;
+      ITransaction? transaction;
+      if (_activeTransactions.containsKey(transId)) {
+        transaction = _activeTransactions[transId];
+      }
+      await b._prepare(
+        sql: sql,
+        options: options,
+        withTransaction: transaction,
+      );
+      _activeBatches[b.hashCode] = b;
+
+      unawaited(b._run()); // we don't await run() on purpose
+      _sendSuccessResp(msg.resultPort, fromMain.sendPort);
+    } catch (e) {
+      fromMain.close();
+      rethrow;
+    }
   }
 
   /// Extracts the SQL statement and the parameters from the message data.
@@ -804,20 +835,30 @@ class FbDbWorker {
     toMain.send(FbDbResponse(FbDbResponseOp.error, payload));
   }
 
-  /// Closes all active blobs and clears the [activeBlobs] map.
+  /// Closes all active blobs and clears the [_activeBlobs] map.
   void _closeAllBlobs() {
-    for (var b in activeBlobs.values) {
+    for (var b in _activeBlobs.values) {
       try {
         b.close(status);
       } catch (_) {}
     }
-    activeBlobs.clear();
+    _activeBlobs.clear();
+  }
+
+  /// Closes all active batches and clears the [_activeBatches] map.
+  void _closeAllBatches() {
+    for (final b in _activeBatches.values) {
+      try {
+        b._close(updateActiveBatches: false);
+      } catch (_) {}
+    }
+    _activeBatches.clear();
   }
 
   /// Adds a blob definition to active blobs.
   void _addBlobDef(FbBlobDef d) {
     if (d.id != null) {
-      activeBlobs[d.id!.idHash] = d;
+      _activeBlobs[d.id!.idHash] = d;
     }
   }
 }
@@ -1031,7 +1072,7 @@ class FbDbQueryWorker {
   /// of the connection (but it depends on the provided flag).
   void _close({bool updateActiveQueries = true}) {
     if (updateActiveQueries) {
-      db.activeQueries.remove(hashCode);
+      db._activeQueries.remove(hashCode);
     }
     db.status.init();
     if (_ownTransaction) {
@@ -1222,9 +1263,9 @@ class FbDbQueryWorker {
         "No active database connection associated with the query object",
       );
     }
-    ITransaction? tra = withTransaction ?? db.transaction;
+    ITransaction? tra = withTransaction ?? db._transaction;
     bool ownTransaction = false;
-    if (db.transaction == null) {
+    if (db._transaction == null) {
       // we'll use our own transaction
       db.status.init();
       tra = db.attachment?.startTransaction(db.status);
@@ -1281,30 +1322,6 @@ class FbDbQueryWorker {
     return defs?.map((e) => e.name).toList(growable: false);
   }
 
-  /// Puts all params inside msg, according to the inputMetadata
-  void _putQueryParams(Pointer<Uint8> msg, List<dynamic> params) {
-    if (_inputMetadata == null) {
-      throw FbClientException(
-        "Cannot parametrize query - no input metadata available",
-      );
-    }
-    final totalLen = _inputMetadata!.getMessageLength(db.status);
-    msg.setAllBytes(totalLen, 0);
-    for (var i = 0; i < params.length; i++) {
-      putParam(
-        db.status,
-        msg,
-        _inputMetadata!,
-        i,
-        params[i],
-        db,
-        _transaction,
-        _getInternalBuffer(),
-        _internalBufferSize,
-      );
-    }
-  }
-
   /// Executes a previously prepared query, either by calling execute
   /// or openCursor, depending on the allocCursor parameter.
   Future<void> _execPrepared(
@@ -1324,7 +1341,7 @@ class FbDbQueryWorker {
       );
     }
     _inlineBlobs = inlineBlobs;
-    _transaction = withTransaction ?? db.transaction;
+    _transaction = withTransaction ?? db._transaction;
     if (_transaction == null) {
       _transaction = db.attachment?.startTransaction(db.status);
       _ownTransaction = true;
@@ -1335,7 +1352,16 @@ class FbDbQueryWorker {
       throw FbClientException("Execute statement: no active transaction");
     }
     db.status.init();
-    _putQueryParams(_inMsg, params);
+    putParams(
+      _inMsg,
+      _inputMetadata,
+      params,
+      db.status,
+      db,
+      _transaction,
+      _getInternalBuffer(),
+      _internalBufferSize,
+    );
     if (allocCursor) {
       if (_resultSet != null) {
         _resultSet?.release();
@@ -1414,7 +1440,7 @@ class FbDbBatchWorker {
   bool _ownTransaction = false;
 
   /// The batch interface instance used by this worker.
-  IBatch? _batch;
+  IBatch? batch;
 
   /// The input metadata of the current statement.
   IMessageMetadata? _inputMetadata;
@@ -1425,7 +1451,7 @@ class FbDbBatchWorker {
   /// The length of the input message.
   int _inMsgLen = 0;
 
-  /// The size of the internal query buffer (in native memory).
+  /// The size of the internal buffer (in native memory).
   static const _internalBufferSize = 1024;
 
   /// Internal buffer for values and blob chunks (native memory).
@@ -1442,6 +1468,254 @@ class FbDbBatchWorker {
   /// for commands from the main isolate, as well as an active
   /// database connection.
   FbDbBatchWorker(this.fromMain, this.db);
+
+  /// Prepare the batch and set up the worker.
+  Future<void> _prepare({
+    required String sql,
+    FbBatchOptions? options,
+    ITransaction? withTransaction,
+  }) async {
+    _transaction = withTransaction ?? db._transaction;
+    if (_transaction == null) {
+      // we'll use our own transaction
+      db.status.init();
+      _transaction = db.attachment?.startTransaction(db.status);
+      _ownTransaction = true;
+    } else {
+      _ownTransaction = false;
+    }
+
+    if (_transaction != null) {
+      int bpbLength = 0;
+      Pointer<Uint8> bpb = nullptr;
+      if (options != null) {
+        (bpb, bpbLength) = _optionsToBPB(options);
+      }
+      db.status.init();
+      batch = db.attachment?.createBatch(
+        db.status,
+        _transaction!,
+        sql,
+        FbConsts.sqlDialectCurrent,
+        null,
+        bpbLength,
+        bpb,
+      );
+      _inputMetadata = batch?.getMetadata(db.status);
+      _inMsgLen = _inputMetadata?.getMessageLength(db.status) ?? 0;
+      if (_inMsgLen > 0) {
+        _inMsg = mem.allocate(_inMsgLen);
+      }
+    } else {
+      throw FbClientException("No active transaction and couldn't start one");
+    }
+  }
+
+  (Pointer<Uint8>, int) _optionsToBPB(FbBatchOptions options) {
+    final builder = _optionsToXpb(options);
+    Pointer<Uint8> bpb = nullptr;
+    int bpbLength = 0;
+
+    try {
+      db.status.init();
+      bpbLength = builder.getBufferLength(db.status);
+      bpb = mem.allocate(bpbLength);
+      bpb.fromNativeMem(builder.getBuffer(db.status), bpbLength);
+    } finally {
+      builder.dispose();
+    }
+    return (bpb, bpbLength);
+  }
+
+  IXpbBuilder _optionsToXpb(FbBatchOptions options) {
+    final IXpbBuilder builder = util.getXpbBuilder(db.status, IXpbBuilder.bpb);
+    db.status.init();
+    if (options.multiError == true) {
+      builder.insertInt(db.status, IBatch.tagMultierror, 1);
+    } else if (options.multiError == false) {
+      builder.insertInt(db.status, IBatch.tagMultierror, 0);
+    }
+    if (options.recordCounts == true) {
+      builder.insertInt(db.status, IBatch.tagRecordCounts, 1);
+    } else if (options.recordCounts == false) {
+      builder.insertInt(db.status, IBatch.tagRecordCounts, 0);
+    }
+    if (options.serverBufferSize != null) {
+      builder.insertInt(
+        db.status,
+        IBatch.tagBufferBytesSize,
+        options.serverBufferSize ?? 16 * 1024 * 1024,
+      );
+    }
+    if (options.maxDetailedErrors != null) {
+      builder.insertInt(
+        db.status,
+        IBatch.tagDetailedErrors,
+        options.maxDetailedErrors ?? 64,
+      );
+    }
+
+    // inline blobs always processed by the engine
+    builder.insertInt(db.status, IBatch.tagBlobPolicy, IBatch.blobIdEngine);
+    return builder;
+  }
+
+  /// The main message loop.
+  ///
+  /// Breaking out of the loop causes the query worker to finish
+  /// and stop responding to any commands from the main isolate.
+  Future<void> _run() async {
+    try {
+      // Read data from the ReceivePort, on which the main isolate
+      // sends the control messages.
+      await for (final msg in fromMain) {
+        // a new control message arrived
+        try {
+          if (!await _dispatchMessage(msg)) {
+            // dispatcher decided to stop the message loop
+            break;
+          }
+        } on FbStatusException catch (se) {
+          // encapsulate the exception and send it to the main isolate
+          db._sendErrorResp(
+            (msg as FbDbControlMessage).resultPort,
+            FbServerException.fromStatus(se.status, util: util),
+          );
+        } catch (e) {
+          // encapsulate the exception and send it to the main isolate
+          db._sendErrorResp((msg as FbDbControlMessage).resultPort, e);
+        }
+      }
+    } finally {
+      _close();
+    }
+  }
+
+  /// Message dispatcher.
+  Future<bool> _dispatchMessage(FbDbControlMessage msg) async {
+    try {
+      switch (msg.op) {
+        case FbDbControlOp.batchClose:
+          try {
+            _close();
+          } catch (_) {
+            // we don't want exceptions when closing
+          }
+          return false; // end the message loop
+
+        case FbDbControlOp.batchAdd:
+          await _add(msg);
+
+        case FbDbControlOp.batchExec:
+          await _exec(msg);
+
+        case FbDbControlOp.batchCancel:
+          await _cancel(msg);
+
+        default:
+          throw FbClientException(
+            "FbDbBatchWorker operation not supported: ${msg.op.name}",
+          );
+      }
+    } on FbStatusException catch (se) {
+      db._sendErrorResp(
+        msg.resultPort,
+        FbServerException.fromStatus(se.status, util: util),
+      );
+    } catch (e) {
+      db._sendErrorResp(msg.resultPort, e);
+    }
+    return true;
+  }
+
+  /// Closes the batch.
+  ///
+  /// By default also removes the batch from the set of active batches
+  /// in the database connection, but it can be turned off with the
+  /// [updateActiveBatches] parameter.
+  /// Also closes the command channel from the main isolate, rendering
+  /// this batch instance unusable from the main isolate's point of view.
+  void _close({bool updateActiveBatches = true}) {
+    if (_inMsg != nullptr) {
+      mem.free(_inMsg);
+    }
+    _inMsgLen = 0;
+    if (updateActiveBatches) {
+      db._activeBatches.remove(hashCode);
+    }
+    db.status.init();
+    if (_ownTransaction) {
+      _ownTransaction = false;
+      try {
+        db.status.init();
+        _transaction?.commit(db.status);
+      } catch (_) {}
+    }
+    _transaction = null;
+    fromMain.close();
+    batch?.release(); // also closes the batch
+  }
+
+  /// Handles the batchAdd operation.
+  Future<void> _add(FbDbControlMessage msg) async {
+    if (batch == null || _inputMetadata == null) {
+      throw FbClientException("Cannot add values to a batch: not prepared");
+    }
+    if (msg.data.isEmpty) {
+      throw FbClientException(
+        "FbBatchWorker.add: parameter values not provided",
+      );
+    }
+    final List<dynamic> params = msg.data[0];
+    final paramCount = _inputMetadata?.getCount(db.status) ?? 0;
+    if (paramCount != params.length) {
+      throw FbClientException(
+        "The number of provided values: ${params.length} "
+        "doesn't match the required number of batch statement parameters: "
+        "$paramCount",
+      );
+    }
+    db.status.init();
+    putParams(
+      _inMsg,
+      _inputMetadata,
+      params,
+      db.status,
+      db,
+      _transaction,
+      _getInternalBuffer(),
+      _internalBufferSize,
+    );
+    db._sendSuccessResp(msg.resultPort, []);
+  }
+
+  /// Handles the batchExec operation.
+  Future<void> _exec(FbDbControlMessage msg) async {
+    if (batch == null) {
+      throw FbClientException("Cannot execute batch: not prepared");
+    }
+    if (_transaction == null) {
+      throw FbClientException("Cannot execute batch: no active transaction");
+    }
+    final bcs = batch?.execute(db.status, _transaction!);
+    if (bcs == null) {
+      throw FbClientException("No completion state after batch execution");
+    }
+    final bres = FbBatchResult.fromCompletionState(
+      status: db.status,
+      state: bcs,
+    );
+    db._sendSuccessResp(msg.resultPort, [bres]);
+  }
+
+  /// Handles the batchClear operation.
+  Future<void> _cancel(FbDbControlMessage msg) async {
+    if (batch != null) {
+      db.status.init();
+      batch?.cancel(db.status);
+    }
+    db._sendSuccessResp(msg.resultPort, []);
+  }
 
   /// Returns the internal native memory buffer.
   ///
@@ -1627,7 +1901,7 @@ enum FbDbControlOp {
   /// Create a batch.
   /// Input payload:
   /// data[0]: `String` - the SQL statement to batch-execute
-  /// data[1]: FbBatchOptions - the batch parameters
+  /// data[1]: FbBatchOptions? - the batch parameters (can be null)
   /// data[2]: `int?` - transaction ID
   /// Output payload:
   /// payload[0]: `SendPort` - port to send commands to the batch
@@ -1703,7 +1977,7 @@ enum FbDbControlOp {
   /// Execute the batch.
   /// Input payload: none.
   /// Output payload:
-  /// payload[0]: `List<dynamic>` - statuses for every batch operation
+  /// payload[0]: `FbBatchResult` - status of statements executed in the batch
   batchExec,
 
   /// Close the batch.
@@ -1711,10 +1985,10 @@ enum FbDbControlOp {
   /// OutputPayload: none.
   batchClose,
 
-  /// Clear the batch (remove all values added so far).
+  /// Cancel the batch (remove all values added so far).
   /// Input payload: none.
   /// Output payload: none.
-  batchClear,
+  batchCancel,
 }
 
 /// Possible types of responses to control messages.

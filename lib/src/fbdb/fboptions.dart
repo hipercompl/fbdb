@@ -174,15 +174,15 @@ class FbBatchOptions {
   /// with default 16 MB).
   int? serverBufferSize;
 
-  /// Maximum number of registered errors. Consult Firebird documentation
+  /// Maximum number of detailed errors. Consult Firebird documentation
   /// for the maximum allowed value (for example, in Firebird 5 it is 256,
   /// with default 64).
-  int? maxErrorCount;
+  int? maxDetailedErrors;
 
   FbBatchOptions({
-    this.multiError = true,
-    this.recordCounts = true,
+    this.multiError,
+    this.recordCounts,
     this.serverBufferSize,
-    this.maxErrorCount,
+    this.maxDetailedErrors,
   });
 }

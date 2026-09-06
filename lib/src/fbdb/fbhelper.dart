@@ -86,6 +86,7 @@ double unscaled(int value, int scaleDigits) {
 /// - String: returns bytes of the UTF-8 encoded text
 /// - TypedData: returns the underlying buffer
 /// - ByteBuffer: returns the buffer as is
+///
 /// For all other types a conversion error will be thrown.
 ByteBuffer asByteBuffer(dynamic data) {
   if (data is String) {
@@ -946,16 +947,66 @@ void putBlob(
   ITransaction? transaction,
   Pointer<Uint8> buffer,
   int bufferSize,
+  FbDbBatchWorker? batch,
 ) {
   if (transaction == null) {
     throw FbClientException("Cannot store blobs outside transaction context");
   }
 
+  db.status.init();
   if (data is FbBlobId) {
-    // the blob has been already stored in the database
-    // so we just store the provided ID in the message data
-    data.storeInQuad((msg + offset).cast());
+    if (batch != null) {
+      // register the blob in batch operation
+      if (batch.batch == null) {
+        throw FbClientException("Batch interface not present in batch object");
+      }
+      data.storeInQuad(buffer.cast());
+      batch.batch?.registerBlob(
+        db.status,
+        buffer.cast(),
+        // the new blob ID is stored directly in the message
+        (msg + offset).cast(),
+      );
+    } else {
+      // the blob has been already saved in the database
+      // so we just store the provided ID in the message data
+      data.storeInQuad((msg + offset).cast());
+    }
+  } else if (batch != null) {
+    // add an inline blob via the batch API
+    if (batch.batch == null) {
+      throw FbClientException("Batch interface not present in batch object");
+    }
+    // we assume data is the actual blob buffer
+    ByteBuffer binData = asByteBuffer(data);
+
+    int stored = 0;
+    int toStore = binData.lengthInBytes;
+
+    // add the blob data in chunks, using the provided native buffer
+    // (avoid additional native allocations)
+    while (stored < toStore) {
+      final chunkSize = min(toStore - stored, bufferSize);
+      buffer.fromDartMem(binData.asUint8List(stored, chunkSize), chunkSize);
+      if (stored == 0) {
+        // the first part of a blob
+        batch.batch?.addBlob(
+          db.status,
+          chunkSize,
+          buffer,
+          (msg + offset).cast(),
+          0,
+          nullptr,
+        );
+      } else {
+        // a subsequent part of a blob
+        batch.batch?.appendBlobData(db.status, chunkSize, buffer);
+      }
+      stored += chunkSize;
+    }
   } else {
+    // add the blob via the standard attachment API
+
     // we assume data is the actual blob buffer
     ByteBuffer binData = asByteBuffer(data);
 
@@ -1003,8 +1054,9 @@ void putParam(
   FbDbWorker db,
   ITransaction? transaction,
   Pointer<Uint8> buffer,
-  int bufferSize,
-) {
+  int bufferSize, {
+  FbDbBatchWorker? batch,
+}) {
   int nullOffset = meta.getNullOffset(status, index);
   if (value == null) {
     if (!meta.isNullable(status, index)) {
@@ -1062,7 +1114,7 @@ void putParam(
 
     case FbConsts.SQL_BLOB:
     case const (FbConsts.SQL_BLOB + 1):
-      putBlob(msg, offset, value, db, transaction, buffer, bufferSize);
+      putBlob(msg, offset, value, db, transaction, buffer, bufferSize, batch);
 
     case FbConsts.SQL_QUAD:
     case const (FbConsts.SQL_QUAD + 1):
@@ -1122,5 +1174,38 @@ void putParam(
       throw FbClientException(
         "Firebird data type (code $type) not implemented",
       );
+  }
+}
+
+/// Puts all params inside msg, according to the inputMetadata
+void putParams(
+  Pointer<Uint8> msg,
+  IMessageMetadata? metadata,
+  List<dynamic> params,
+  IStatus status,
+  FbDbWorker db,
+  ITransaction? transaction,
+  Pointer<Uint8> buffer,
+  int bufferSize,
+) {
+  if (metadata == null) {
+    throw FbClientException(
+      "Cannot parametrize query - no input metadata available",
+    );
+  }
+  final totalLen = metadata.getMessageLength(status);
+  msg.setAllBytes(totalLen, 0);
+  for (var i = 0; i < params.length; i++) {
+    putParam(
+      db.status,
+      msg,
+      metadata,
+      i,
+      params[i],
+      db,
+      transaction,
+      buffer,
+      bufferSize,
+    );
   }
 }

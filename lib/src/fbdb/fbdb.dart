@@ -180,6 +180,7 @@ class FbDb {
   Future<void> detach() async {
     try {
       await _closeActiveQueries();
+      await _closeActiveBatches();
       final resp = await _askWorker(FbDbControlOp.detach, []);
       if ((mem is TracingAllocator) &&
           resp.data.isNotEmpty &&
@@ -253,6 +254,17 @@ class FbDb {
   /// ```
   FbQuery query() {
     return FbQuery.forDb(this);
+  }
+
+  /// Creates a new batch object associated with this connection.
+  Future<FbBatch> batch({
+    required String sql,
+    FbBatchOptions? options,
+    FbTransaction? inTransaction,
+  }) async {
+    final b = FbBatch.forDb(this);
+    await b._init(sql, options, inTransaction);
+    return b;
   }
 
   /// Starts an explicit transaction.
@@ -1017,6 +1029,19 @@ class FbDb {
       q?._detachConnection();
     }
     _activeQueries.clear();
+  }
+
+  /// Detaches all active batches from this connection.
+  Future<void> _closeActiveBatches() async {
+    final keys = List<int>.from(_activeBatches.keys);
+    for (var key in keys) {
+      final b = _activeBatches[key];
+      try {
+        await b?.close();
+      } catch (_) {}
+      b?._detachConnection();
+    }
+    _activeBatches.clear();
   }
 
   /// Update memory statistics with those obtained from the worker isolate.
@@ -1919,6 +1944,55 @@ class FbBatch {
   /// Creates a batch object associated with the specific database connection.
   FbBatch.forDb(this._db);
 
+  /// Closes the batch (if active).
+  ///
+  /// Releases all internal data associated with the active batch.
+  /// All data added to the batch is cleared.
+  /// If there is no active (executed but not closed) batch associated
+  /// with this batch object, the call has no effect (but will not throw).
+  Future<void> close() async {
+    if (_db != null && _toWorker != null) {
+      final resp = await _db?._askWorker(
+        FbDbControlOp.batchClose,
+        [],
+        _toWorker,
+      );
+      _toWorker = null;
+      _db?._activeBatches.remove(hashCode);
+      _throwIfErrorResponse(resp);
+      return;
+    }
+    _toWorker = null;
+  }
+
+  Future<void> add(List<dynamic> parameters) async {
+    if (_toWorker == null) {
+      throw FbClientException(
+        "No active query associated with this query object",
+      );
+    }
+    final msg = await _db?._askWorker(FbDbControlOp.batchAdd, [
+      parameters,
+    ], _toWorker);
+    _throwIfErrorResponse(msg);
+  }
+
+  Future<FbBatchResult> execute() async {
+    final msg = await _db?._askWorker(FbDbControlOp.batchExec, [], _toWorker);
+    _throwIfErrorResponse(msg);
+    final r = msg as FbDbResponse;
+    if (r.data.isEmpty || r.data[0] == null) {
+      throw FbClientException("Batch execution returned no status");
+    } else {
+      return r.data[0] as FbBatchResult;
+    }
+  }
+
+  Future<void> cancel() async {
+    final msg = await _db?._askWorker(FbDbControlOp.batchCancel, [], _toWorker);
+    _throwIfErrorResponse(msg);
+  }
+
   // --------------------------------------------------------------------
   // --------------------------- private API ----------------------------
   // --------------------------------------------------------------------
@@ -1936,24 +2010,30 @@ class FbBatch {
     _toWorker = null;
     _db = null;
   }
-}
 
-class FbBatchCompletionState {
-  List<dynamic> status = [];
-
-  FbBatchCompletionState(this.status);
-
-  Map<int, FbServerException> errors() {
-    //@TODO
-    return {};
+  /// Initializes the batch object, associating it with a worker-side
+  /// FbDbBatchWorker object.
+  Future<void> _init(
+    String sql,
+    FbBatchOptions? options,
+    FbTransaction? inTransaction,
+  ) async {
+    final msg = await _db?._askWorker(FbDbControlOp.createBatch, [
+      sql,
+      options,
+      inTransaction?.handle,
+    ]);
+    _throwIfErrorResponse(msg);
+    final r = msg as FbDbResponse;
+    if (r.data.isEmpty) {
+      throw FbClientException(
+        "FbBatch: connection worker did not provide "
+        "a send port for the batch",
+      );
+    }
+    _toWorker = r.data[0];
+    _db?._activeBatches[hashCode] = this;
   }
-
-  Map<int, int> successes() {
-    //@TODO
-    return {};
-  }
-
-  //@TODO
 }
 
 // Pre-check the response from the worker isolate.
