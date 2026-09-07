@@ -100,10 +100,19 @@ class FbBatchResult {
     required IBatchCompletionState state,
     IStatus? tmpStatus,
     IUtil? util,
+    bool withRecordCounts = false,
   }) {
     status.init();
     final procSize = state.getSize(status);
     statuses = List<dynamic>.filled(procSize, successNoInfo, growable: false);
+
+    if (withRecordCounts) {
+      // copy all states from the batch completion state, because they
+      // contain record counts
+      for (var i = 0; i < procSize; i++) {
+        statuses[i] = state.getState(status, i);
+      }
+    }
 
     // process detailed errors
     int pos = 0;

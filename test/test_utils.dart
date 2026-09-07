@@ -177,10 +177,74 @@ Future<void> withNewDb3(
   }, options: options); // withNewEmptyDb
 }
 
+Future<void> withNewDbForBatch(
+  Future<void> Function(FbDb) testFunc, {
+  FbOptions? options,
+}) async {
+  await withNewEmptyDb((db) async {
+    // table without blobs
+    await db.execute(
+      sql:
+          "create table T1( "
+          "   PK integer not null primary key, "
+          "   VC varchar(200) "
+          ")",
+    );
+
+    // table with blobs
+    await db.execute(
+      sql:
+          "create table T2( "
+          "   PK integer not null primary key, "
+          "   VC varchar(200), "
+          "   B blob sub_type binary "
+          ")",
+    );
+
+    await testFunc(db);
+  }, options: options); // withNewEmptyDb
+}
+
 /// Calculate and return a new, unique temporary database location.
 String getTmpDbLoc() {
   final iid = Isolate.current.hashCode;
   final dbLoc = "${TestConfig.tmpDbDir}testdb_${iid}_$_dbCounter.fdb";
   _dbCounter++;
   return dbLoc;
+}
+
+/// Check if two lists are equal.
+///
+/// Doesn't support nested collections, uses Object.== for equality test.
+/// A simplified version of ListEquality from the collection package.
+bool listsEqual(List l1, List l2) {
+  if (l1.length != l2.length) {
+    return false;
+  }
+  for (var i = 0; i < l1.length; i++) {
+    if (!(l1[i] == l2[i])) {
+      return false;
+    }
+  }
+  return true;
+}
+
+/// Check if two record sets (lists of maps) are equal.
+bool recordSetsEqual(List<Map<String, dynamic>> l1, l2) {
+  if (l1.length != l2.length) {
+    return false;
+  }
+  for (var i = 0; i < l1.length; i++) {
+    if (!listsEqual(
+          l1[i].keys.toList(growable: false),
+          l2[i].keys.toList(growable: false),
+        ) ||
+        !listsEqual(
+          l1[i].values.toList(growable: false),
+          l2[i].values.toList(growable: false),
+        )) {
+      return false;
+    }
+  }
+  return true;
 }

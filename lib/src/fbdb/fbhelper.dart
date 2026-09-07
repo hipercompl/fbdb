@@ -989,7 +989,7 @@ void putBlob(
       final chunkSize = min(toStore - stored, bufferSize);
       buffer.fromDartMem(binData.asUint8List(stored, chunkSize), chunkSize);
       if (stored == 0) {
-        // the first part of a blob
+        // the first part of the blob
         batch.batch?.addBlob(
           db.status,
           chunkSize,
@@ -1186,8 +1186,9 @@ void putParams(
   FbDbWorker db,
   ITransaction? transaction,
   Pointer<Uint8> buffer,
-  int bufferSize,
-) {
+  int bufferSize, {
+  FbDbBatchWorker? batch,
+}) {
   if (metadata == null) {
     throw FbClientException(
       "Cannot parametrize query - no input metadata available",
@@ -1206,6 +1207,7 @@ void putParams(
       transaction,
       buffer,
       bufferSize,
+      batch: batch,
     );
   }
 }

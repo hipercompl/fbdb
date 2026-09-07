@@ -169,20 +169,27 @@ class FbBatchOptions {
   /// Return affected row counts for each batch operation.
   bool? recordCounts;
 
-  /// Server-side buffer size. Consult Firebird documentation for the maximum
+  /// The size of the message buffer (in bytes).
+  ///
+  /// Consult Firebird documentation for the maximum
   /// allowed buffer size (for example, in Firebird 5 it is 256 MB,
   /// with default 16 MB).
-  int? serverBufferSize;
+  int? bufferSize;
 
   /// Maximum number of detailed errors. Consult Firebird documentation
   /// for the maximum allowed value (for example, in Firebird 5 it is 256,
   /// with default 64).
   int? maxDetailedErrors;
 
+  /// Initialize the batch options.
+  ///
+  /// Any option not provided (or set to null) will not be put into the BPB
+  /// during batch creation, resultin in it default value being used
+  /// by the constructed batch.
   FbBatchOptions({
     this.multiError,
     this.recordCounts,
-    this.serverBufferSize,
+    this.bufferSize,
     this.maxDetailedErrors,
   });
 }

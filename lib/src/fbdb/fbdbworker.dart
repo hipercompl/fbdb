@@ -1462,6 +1462,10 @@ class FbDbBatchWorker {
   /// which is costly.
   Pointer<Uint8> _internalBuffer = nullptr;
 
+  /// The record count flag remembered from the batch creation phase,
+  /// useful for optimizations during processing of batch results.
+  bool _recordCounts = false;
+
   /// The default constructor.
   ///
   /// To construct a query worker one needs to pass a receive port
@@ -1491,16 +1495,23 @@ class FbDbBatchWorker {
       if (options != null) {
         (bpb, bpbLength) = _optionsToBPB(options);
       }
-      db.status.init();
-      batch = db.attachment?.createBatch(
-        db.status,
-        _transaction!,
-        sql,
-        FbConsts.sqlDialectCurrent,
-        null,
-        bpbLength,
-        bpb,
-      );
+      try {
+        db.status.init();
+        batch = db.attachment?.createBatch(
+          db.status,
+          _transaction!,
+          sql,
+          FbConsts.sqlDialectCurrent,
+          null,
+          bpbLength,
+          bpb,
+        );
+      } finally {
+        if (bpb != nullptr) {
+          mem.free(bpb);
+          bpb = nullptr;
+        }
+      }
       _inputMetadata = batch?.getMetadata(db.status);
       _inMsgLen = _inputMetadata?.getMessageLength(db.status) ?? 0;
       if (_inMsgLen > 0) {
@@ -1512,10 +1523,9 @@ class FbDbBatchWorker {
   }
 
   (Pointer<Uint8>, int) _optionsToBPB(FbBatchOptions options) {
-    final builder = _optionsToXpb(options);
     Pointer<Uint8> bpb = nullptr;
     int bpbLength = 0;
-
+    final builder = _optionsToXpb(options);
     try {
       db.status.init();
       bpbLength = builder.getBufferLength(db.status);
@@ -1528,8 +1538,12 @@ class FbDbBatchWorker {
   }
 
   IXpbBuilder _optionsToXpb(FbBatchOptions options) {
-    final IXpbBuilder builder = util.getXpbBuilder(db.status, IXpbBuilder.bpb);
+    final IXpbBuilder builder = util.getXpbBuilder(
+      db.status,
+      IXpbBuilder.batch,
+    );
     db.status.init();
+    // explicit checks for true / false so that null sets nothing
     if (options.multiError == true) {
       builder.insertInt(db.status, IBatch.tagMultierror, 1);
     } else if (options.multiError == false) {
@@ -1537,14 +1551,16 @@ class FbDbBatchWorker {
     }
     if (options.recordCounts == true) {
       builder.insertInt(db.status, IBatch.tagRecordCounts, 1);
+      _recordCounts = true;
     } else if (options.recordCounts == false) {
       builder.insertInt(db.status, IBatch.tagRecordCounts, 0);
+      _recordCounts = false;
     }
-    if (options.serverBufferSize != null) {
+    if (options.bufferSize != null) {
       builder.insertInt(
         db.status,
         IBatch.tagBufferBytesSize,
-        options.serverBufferSize ?? 16 * 1024 * 1024,
+        options.bufferSize ?? 16 * 1024 * 1024,
       );
     }
     if (options.maxDetailedErrors != null) {
@@ -1597,7 +1613,7 @@ class FbDbBatchWorker {
       switch (msg.op) {
         case FbDbControlOp.batchClose:
           try {
-            _close();
+            _closeBatch(msg);
           } catch (_) {
             // we don't want exceptions when closing
           }
@@ -1628,7 +1644,13 @@ class FbDbBatchWorker {
     return true;
   }
 
-  /// Closes the batch.
+  /// Handles the batchClose message.
+  void _closeBatch(FbDbControlMessage msg) {
+    _close();
+    db._sendSuccessResp(msg.resultPort);
+  }
+
+  /// Cleans up the internal structures of the batch.
   ///
   /// By default also removes the batch from the set of active batches
   /// in the database connection, but it can be turned off with the
@@ -1638,8 +1660,13 @@ class FbDbBatchWorker {
   void _close({bool updateActiveBatches = true}) {
     if (_inMsg != nullptr) {
       mem.free(_inMsg);
+      _inMsg = nullptr;
     }
     _inMsgLen = 0;
+    if (_internalBuffer != nullptr) {
+      mem.free(_internalBuffer);
+      _internalBuffer = nullptr;
+    }
     if (updateActiveBatches) {
       db._activeBatches.remove(hashCode);
     }
@@ -1685,7 +1712,9 @@ class FbDbBatchWorker {
       _transaction,
       _getInternalBuffer(),
       _internalBufferSize,
+      batch: this,
     );
+    batch?.add(db.status, 1, _inMsg);
     db._sendSuccessResp(msg.resultPort, []);
   }
 
@@ -1695,17 +1724,37 @@ class FbDbBatchWorker {
       throw FbClientException("Cannot execute batch: not prepared");
     }
     if (_transaction == null) {
-      throw FbClientException("Cannot execute batch: no active transaction");
+      if (_ownTransaction) {
+        _transaction = db.attachment?.startTransaction(db.status);
+      } else {
+        throw FbClientException("Cannot execute batch: no active transaction");
+      }
     }
     final bcs = batch?.execute(db.status, _transaction!);
+    if (_ownTransaction) {
+      _transaction?.commit(db.status);
+      _transaction = null;
+    }
     if (bcs == null) {
       throw FbClientException("No completion state after batch execution");
     }
-    final bres = FbBatchResult.fromCompletionState(
-      status: db.status,
-      state: bcs,
-    );
-    db._sendSuccessResp(msg.resultPort, [bres]);
+    try {
+      final tmpStatus = master.getStatus();
+      try {
+        final bres = FbBatchResult.fromCompletionState(
+          status: db.status,
+          state: bcs,
+          tmpStatus: tmpStatus,
+          util: util,
+          withRecordCounts: _recordCounts,
+        );
+        db._sendSuccessResp(msg.resultPort, [bres]);
+      } finally {
+        tmpStatus.dispose();
+      }
+    } finally {
+      bcs.dispose();
+    }
   }
 
   /// Handles the batchClear operation.
