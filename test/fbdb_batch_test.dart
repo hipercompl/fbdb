@@ -2,6 +2,7 @@
 library;
 
 import 'dart:convert';
+import 'dart:typed_data';
 
 import 'package:fbdb/fbdb.dart';
 import 'package:test/test.dart';
@@ -177,11 +178,7 @@ void main() async {
           sql: "insert into T2(PK, VC, B) values(?, ?, ?)",
         );
         for (var i = 1; i <= recordCount; i++) {
-          await b.add([
-            i,
-            "Record $i",
-            Utf8Encoder().convert("Blob in record $i"),
-          ]);
+          await b.add([i, "Record $i", utf8.encode("Blob in record $i")]);
         }
         final r = await b.execute();
         await b.close();
@@ -193,19 +190,87 @@ void main() async {
         for (var row in rows) {
           expect(row["PK"], equals(rno));
           expect(row["VC"], equals("Record $rno"));
-          expect(
-            Utf8Decoder().convert(row["B"]),
-            equals("Blob in record $rno"),
-          );
+          var blob = row["B"];
+          expect(blob, isA<ByteBuffer>());
+          if (blob is ByteBuffer) {
+            expect(
+              utf8.decode(blob.asUint8List()),
+              equals("Blob in record $rno"),
+            );
+          }
           rno++;
         }
       });
     });
-    test("pre-created blobs", () async {});
+    test("pre-created blobs", () async {
+      await withNewDbForBatch((FbDb db) async {
+        const recordCount = 50;
+        await db.startTransaction(); // required to create blobs
+        final b = await db.batch(
+          sql: "insert into T2(PK, VC, B) values(?, ?, ?)",
+        );
+        for (var i = 1; i <= recordCount; i++) {
+          final blobId = await db.createBlob();
+          final blobData = utf8.encode("Blob in record $i");
+          await db.putBlobSegment(id: blobId, data: blobData.buffer);
+          await db.closeBlob(id: blobId);
+          await b.add([i, "Record $i", blobId]);
+        }
+        final r = await b.execute();
+        await b.close();
+        await db.commit();
+        expect(r, isNotNull);
+        expect(r.errorCount, equals(0));
+        final rows = await db.selectAll(sql: "select * from T2 order by PK");
+        expect(rows.length, equals(recordCount));
+        var rno = 1;
+        for (var row in rows) {
+          expect(row["PK"], equals(rno));
+          expect(row["VC"], equals("Record $rno"));
+          var blob = row["B"];
+          expect(blob, isA<ByteBuffer>());
+          if (blob is ByteBuffer) {
+            expect(
+              utf8.decode(blob.asUint8List()),
+              equals("Blob in record $rno"),
+            );
+          }
+          rno++;
+        }
+      });
+    });
   });
 
   group("Batch with errors", () {
-    test("no multierror", () async {});
+    test("no multierror", () async {
+      await withNewDbForBatch((FbDb db) async {
+        final b = await db.batch(sql: "insert into T1(PK, VC) values(?, ?)");
+        await b.add([1, "Record 1"]);
+        await b.add([1, "Record 1.2"]); // PK violation
+        await b.add([1, "Record 1.3"]); // PK violation
+        final r = await b.execute();
+        await b.close();
+        expect(r, isNotNull);
+        expect(r.errorCount, equals(1));
+        final errors = r.errors();
+        expect(errors.length, equals(1));
+        expect(r.statuses.length, equals(1));
+        if (r.statuses.length == 1) {
+          expect(r.statuses[0], isA<FbServerException>());
+        }
+        expect(errors.containsKey(0), isTrue);
+        if (errors.isNotEmpty) {
+          expect(errors[0], isA<FbServerException>());
+        }
+
+        final rows = await db.selectAll(sql: "select * from T1 order by PK");
+        expect(rows.length, equals(1));
+        if (rows.length == 1) {
+          expect(rows[0]["PK"], equals(1));
+          expect(rows[0]["VC"], equals("Record 1"));
+        }
+      });
+    });
     test("with multierror", () async {});
     test("with multierror, exceeding max detailed error count", () async {});
   });

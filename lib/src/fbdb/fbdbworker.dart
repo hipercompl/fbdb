@@ -1492,9 +1492,7 @@ class FbDbBatchWorker {
     if (_transaction != null) {
       int bpbLength = 0;
       Pointer<Uint8> bpb = nullptr;
-      if (options != null) {
-        (bpb, bpbLength) = _optionsToBPB(options);
-      }
+      (bpb, bpbLength) = _optionsToBPB(options);
       try {
         db.status.init();
         batch = db.attachment?.createBatch(
@@ -1522,10 +1520,10 @@ class FbDbBatchWorker {
     }
   }
 
-  (Pointer<Uint8>, int) _optionsToBPB(FbBatchOptions options) {
+  (Pointer<Uint8>, int) _optionsToBPB(FbBatchOptions? options) {
     Pointer<Uint8> bpb = nullptr;
     int bpbLength = 0;
-    final builder = _optionsToXpb(options);
+    final builder = _optionsToXpb(options ?? FbBatchOptions());
     try {
       db.status.init();
       bpbLength = builder.getBufferLength(db.status);
