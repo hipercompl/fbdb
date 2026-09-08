@@ -28,6 +28,15 @@ const doDropDB = true;
 /// The Firebird user and password are imported from ex_auth.dart,
 /// change it there if necessary.
 
+// The number of inserts to T1 (inserts without blobs).
+const _t1InsertCount = 50000;
+
+// The number of inserts to T2 (inserts with blobs).
+const _t2InsertCount = 20000;
+
+// Different batch sizes to benchmark.
+const _batchSizes = [10, 50, 100, 200];
+
 // ----- END OF CONFIGURATION -----
 
 Future<void> main() async {
@@ -37,6 +46,7 @@ Future<void> main() async {
   final t1data = _t1TestData(_t1InsertCount);
   final t2data = _t2TestData(_t2InsertCount);
 
+  print("");
   print("--- Benchmarking $_t1InsertCount INSERTs without blobs ---");
   print("* individual inserts (unprepared)");
   final iuBench1 = await _benchmarkInsertsUnprepared(
@@ -54,6 +64,7 @@ Future<void> main() async {
   final bBench1 = List<(Duration, double)>.empty(growable: true);
   for (final batchSize in _batchSizes) {
     print("* batch inserts (batch size: $batchSize)");
+    await db.execute(sql: "delete from T1_3");
     final b = await _benchmarkBatch(
       db,
       "insert into T1_3(PK, VC) values(?, ?)",
@@ -63,6 +74,7 @@ Future<void> main() async {
     bBench1.add(b);
   }
 
+  print("");
   print("--- Benchmarking $_t2InsertCount INSERTs with blobs ---");
   print("* individual inserts (unprepared)");
   final iuBench2 = await _benchmarkInsertsUnprepared(
@@ -80,6 +92,7 @@ Future<void> main() async {
   final bBench2 = List<(Duration, double)>.empty(growable: true);
   for (final batchSize in _batchSizes) {
     print("* batch inserts (batch size: $batchSize)");
+    await db.execute(sql: "delete from T2_3");
     final b = await _benchmarkBatch(
       db,
       "insert into T2_3(PK, B) values(?, ?)",
@@ -89,6 +102,7 @@ Future<void> main() async {
     bBench2.add(b);
   }
 
+  print("");
   print("----- BENCHMARK RESULTS -----");
   _printBenchmark(
     "INSERT without blobs",
@@ -96,6 +110,7 @@ Future<void> main() async {
     iuBench1,
     ipBench1,
     bBench1,
+    iuBench1.$1,
   );
   _printBenchmark(
     "INSERT with blobs",
@@ -103,6 +118,7 @@ Future<void> main() async {
     iuBench2,
     ipBench2,
     bBench2,
+    iuBench2.$1,
   );
 
   if (doDropDB) {
@@ -120,19 +136,29 @@ void _printBenchmark(
   (Duration, double) iu,
   ip,
   List<(Duration, double)> bs,
+  Duration ref100,
 ) {
   print("* $name ($count rows):");
   print("  * unprepared queries:");
   print("    * total time: ${iu.$1}");
   print("    * average per 1 INSERT: ${iu.$2} ms");
+  print(
+    "    * relative to unprepared: ${((iu.$1.inMilliseconds / ref100.inMilliseconds) * 100.0).toStringAsFixed(2)}%",
+  );
   print("  * prepared queries:");
   print("    * total time: ${ip.$1}");
   print("    * average per 1 INSERT: ${ip.$2} ms");
+  print(
+    "    * relative to unprepared: ${((ip.$1.inMilliseconds / ref100.inMilliseconds) * 100.0).toStringAsFixed(2)}%",
+  );
   assert(bs.length == _batchSizes.length);
   for (var i = 0; i < bs.length; i++) {
     print("  * batches of size ${_batchSizes[i]}:");
     print("    * total time: ${bs[i].$1}");
     print("    * average per 1 INSERT: ${bs[i].$2} ms");
+    print(
+      "    * relative to unprepared: ${((bs[i].$1.inMilliseconds / ref100.inMilliseconds) * 100.0).toStringAsFixed(2)}%",
+    );
   }
   print("");
 }
@@ -196,16 +222,16 @@ Future<(Duration, double)> _benchmarkBatch(
 
   final sw = Stopwatch()..start();
   final batch = await db.batch(sql: sql);
-  var waiting = false;
+  var waitingStatements = false;
   for (var i = 0; i < insertCount; i++) {
     await batch.add(parameters: parameterSet[i]);
-    waiting = true;
+    waitingStatements = true;
     if (i > 0 && i % batchSize == 0) {
       await batch.execute();
-      waiting = false;
+      waitingStatements = false;
     }
   }
-  if (waiting) {
+  if (waitingStatements) {
     // execute the last batch
     await batch.execute();
   }
@@ -235,15 +261,6 @@ List<List<dynamic>> _t2TestData(int count) {
   }
   return res;
 }
-
-// The number of inserts to T1 (without blobs).
-const _t1InsertCount = 5000;
-
-// The number of inserts to T2 (with blobs).
-const _t2InsertCount = 2000;
-
-// Different batch sizes to benchmark.
-const _batchSizes = [10, 50, 100, 200];
 
 Future<FbDb> _createDB() async {
   print("Creating the test database");
