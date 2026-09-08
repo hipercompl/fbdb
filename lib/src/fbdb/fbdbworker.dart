@@ -1462,7 +1462,7 @@ class FbDbBatchWorker {
   /// which is costly.
   Pointer<Uint8> _internalBuffer = nullptr;
 
-  /// The record count flag remembered from the batch creation phase,
+  /// The record count flag, remembered at the batch creation phase,
   /// useful for optimizations during processing of batch results.
   bool _recordCounts = false;
 

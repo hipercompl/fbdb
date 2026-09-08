@@ -163,7 +163,27 @@ Map<FbTrFlag, int> fbTrParTags = {
 
 /// Batch creation options.
 class FbBatchOptions {
-  /// Return statuses and errors separately for each batch operation.
+  /// Continue after a failed statement, return statuses and errors
+  /// separately for each batch operation.
+  ///
+  /// This flag changes the behavior of the batch regarding error
+  /// processing. If [multiError] is `false`, the batch will stop
+  /// executing on the first encountered error.
+  /// The result list of the batch will contain success flags
+  /// (or numbers of affected rows) for all preceding statements and a
+  /// **single** error entry (the last one).
+  ///
+  /// If [multiError] is `true`, the batch will continue executing
+  /// subsequent statements even after a statement fails to execute.
+  /// The result list of the batch will contain as many entries,
+  /// as many statements have been executed (successfully or not).
+  /// For valid statements, the result will be a success flag or the number
+  /// of rows affected. For invalid statements, the result will contain
+  /// an instance of [FbServerException]. The exception will contain
+  /// detailed error description, if the particular error fits below
+  /// the [maxDetailedErrors] limit, or a generic error message otherwise.
+  ///
+  /// See also [FbBatchOptions.maxDetailedErrors] and [FbBatchResult].
   bool? multiError;
 
   /// Return affected row counts for each batch operation.
@@ -174,11 +194,16 @@ class FbBatchOptions {
   /// Consult Firebird documentation for the maximum
   /// allowed buffer size (for example, in Firebird 5 it is 256 MB,
   /// with default 16 MB).
+  /// The buffer has to be large enough to accomodate all data
+  /// (including inline blobs) processed in the batch.
   int? bufferSize;
 
   /// Maximum number of detailed errors. Consult Firebird documentation
   /// for the maximum allowed value (for example, in Firebird 5 it is 256,
-  /// with default 64).
+  /// with default 64). When [multiError] flag is set and the number
+  /// of failed statements in the batch exceeds [maxDetailedErrors],
+  /// all errors above this limit will not have any details (just
+  /// a generic error message).
   int? maxDetailedErrors;
 
   /// Initialize the batch options.

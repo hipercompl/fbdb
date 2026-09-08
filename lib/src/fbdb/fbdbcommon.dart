@@ -30,22 +30,40 @@ enum FbRowFormat {
 
 /// The result of a batch execution.
 ///
-/// The result contains a list of status values. If the batch was created
-/// with multiError option set, the list will hold a separate status
-/// for each batch operation, otherwise the list may be empty or contain
-/// just a single error (the first error encountered during batch execution).
+/// The result contains a list of status values. The contents of the list
+/// depend on the [FbBatchOptions.multiError] flag passed during
+/// the batch creation.
 ///
-/// Each item of the [statuses] list may be an integer (operation succeeded)
-/// or an instance of [FbServerError]. For successful operations, the
-/// integer may contain the number of rows affected by the operation
-/// (if the batch was created with recordCounts option set) or just a
-/// constant value [FbBatchResult.successNoInfo].
+/// - If [FbBatchOptions.multiError] was `true`, the [FbBatchResult.statuses]
+/// will contain an etry for each statement executed in the batch
+/// (successful or not).
+/// For valid statements, the entry will be either [FbBatchResult.successNoInfo]
+/// or the number of rows affected (if [FbBatchOptions.recordCounts] was set).
+/// For invalid statements, the result will contain
+/// an instance of [FbServerException]. The exception will contain
+/// detailed error description, if the particular error fits below
+/// the [maxDetailedErrors] limit, or a generic error message otherwise.
+///
+/// - If [FbBatchOptions.multiError] was `false` (or not set), the batch
+/// execution of the batch **stops** at the first error. Therefore,
+/// the [FbBatchResult.statuses] list will contain success indicators
+/// ([FbBatchResult.successNoInfo] or numbers of affected rows, depending
+/// on the [FbBatchOptions.recordCounts] flag) for all valid statements,
+/// and **the last** entry of [FbBatchResult.statuses] will be the error
+/// caused by the first invalid statement in the batch.
+///
+/// Obviously, if all statements in the batch completed without errors,
+/// the [FbBatchResult.statuses] list will contain only success indicators
+/// or record counts, no instance of [FbServerException] will be present.
 class FbBatchResult {
   /// A successful execution of a single statement in a batch,
   /// or the whole batch if [FbBatchOptions.multiError] flag was not set.
   static const successNoInfo = -2;
 
-  static const _executeFailed = -1;
+  /// A generic value meaning execution of a statement (message)
+  /// failed, but no additional information is available.
+  static const executeFailed = -1;
+
   static const _noMoreErrors = 0xffffffff;
 
   /// A list of statuses for every executed statement in this batch.
@@ -108,37 +126,46 @@ class FbBatchResult {
 
     if (withRecordCounts) {
       // copy all states from the batch completion state, because they
-      // contain record counts
+      // contain record counts, not just successNoInfo
       for (var i = 0; i < procSize; i++) {
         statuses[i] = state.getState(status, i);
       }
     }
 
     // process detailed errors
-    int pos = 0;
-    int lastPos = pos;
+    int pos = -1;
+    int lastPos = pos + 1;
     errorCount = 0;
     if (tmpStatus != null) {
       while (pos != _noMoreErrors) {
-        lastPos = pos;
-        pos = state.findError(status, pos);
+        lastPos = pos + 1;
+        pos = state.findError(status, pos + 1);
         if (pos != _noMoreErrors) {
-          errorCount++;
           tmpStatus.init();
-          state.getStatus(status, tmpStatus, pos);
+          try {
+            state.getStatus(status, tmpStatus, pos);
+          } on FbStatusException catch (e) {
+            if (e.status.errors.isNotEmpty &&
+                e.status.errors.contains(FbErrorCodes.isc_batch_compl_detail)) {
+              status.init(); // clear the error flag - error was handled here
+              lastPos = pos; // process non-detailed errors from this one
+              break; // no more detailed errors
+            }
+          }
           statuses[pos] = FbServerException.fromStatus(tmpStatus, util: util);
+          errorCount++;
         }
       }
     }
 
     // all remaining errors, without any details
-    final msg = "Execution failed, no detailes available";
+    final msg = "Execution failed, no details available";
     final msgBytes = Utf8Encoder().convert(msg);
     for (var i = lastPos; i < procSize; i++) {
       final st = state.getState(status, i);
-      if (st == _executeFailed) {
+      if (st == executeFailed) {
         errorCount++;
-        statuses[i] = FbServerException([_executeFailed], msg, true, msgBytes);
+        statuses[i] = FbServerException([executeFailed], msg, true, msgBytes);
       }
     }
   }
@@ -153,7 +180,13 @@ class FbBatchResult {
   /// of batch operations), and the values are corresponding [FbServerException]
   /// instances.
   Map<int, FbServerException> errors() {
-    return statuses.whereType<FbServerException>().toList().asMap();
+    Map<int, FbServerException> res = {};
+    for (var i = 0; i < statuses.length; i++) {
+      if (statuses[i] is FbServerException) {
+        res[i] = statuses[i];
+      }
+    }
+    return res;
   }
 
   /// Returns only successes from the [statuses] list.
@@ -163,6 +196,12 @@ class FbBatchResult {
   /// by a particular batch operation (if recordCounts was set during
   /// the batch creation), or [FbBatchResult.successNoInfo] constants.
   Map<int, int> successes() {
-    return statuses.whereType<int>().toList().asMap();
+    Map<int, int> res = {};
+    for (var i = 0; i < statuses.length; i++) {
+      if (statuses[i] is int && statuses[i] != executeFailed) {
+        res[i] = statuses[i];
+      }
+    }
+    return res;
   }
 }

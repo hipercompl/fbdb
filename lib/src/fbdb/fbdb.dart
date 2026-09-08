@@ -1965,7 +1965,7 @@ class FbBatch {
     _toWorker = null;
   }
 
-  Future<void> add(List<dynamic> parameters) async {
+  Future<void> add({required List<dynamic> parameters}) async {
     if (_toWorker == null) {
       throw FbClientException(
         "No active query associated with this query object",

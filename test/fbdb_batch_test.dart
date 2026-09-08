@@ -15,7 +15,7 @@ void main() async {
         const recordCount = 50;
         final b = await db.batch(sql: "insert into T1(PK, VC) values(?, ?)");
         for (var i = 1; i <= recordCount; i++) {
-          await b.add([i, "Record $i"]);
+          await b.add(parameters: [i, "Record $i"]);
         }
         final r = await b.execute();
         await b.close();
@@ -40,7 +40,7 @@ void main() async {
           options: FbBatchOptions(multiError: true, recordCounts: true),
         );
         for (var i = 1; i <= recordCount; i++) {
-          await b.add([i, "Record $i"]);
+          await b.add(parameters: [i, "Record $i"]);
         }
         final r = await b.execute();
         await b.close();
@@ -70,7 +70,7 @@ void main() async {
           options: FbBatchOptions(multiError: true, recordCounts: true),
         );
         for (var i = 1; i <= recordCount; i++) {
-          await b.add([i, "Record $i"]);
+          await b.add(parameters: [i, "Record $i"]);
         }
         final r = await b.execute();
         // no b.close() here, the batch will be reused
@@ -92,7 +92,9 @@ void main() async {
 
         // reuse the same batch
         for (var i = 1; i <= recordCount; i++) {
-          await b.add([i + recordCount, "Record ${i + recordCount}"]);
+          await b.add(
+            parameters: [i + recordCount, "Record ${i + recordCount}"],
+          );
         }
         final r2 = await b.execute();
         await b.close(); // close after the last use
@@ -130,12 +132,14 @@ void main() async {
           options: FbBatchOptions(multiError: true, recordCounts: true),
         );
         for (var i = 0; i < missCount; i++) {
-          await b.add(["updated", recordCount + 1, recordCount + 1]);
+          await b.add(
+            parameters: ["updated", recordCount + 1, recordCount + 1],
+          );
         }
         for (var i = 2; i <= recordCount; i++) {
           // the first row will not be updated
           // each update updates 1 row less than the previous one
-          await b.add(["updated", i, recordCount]);
+          await b.add(parameters: ["updated", i, recordCount]);
         }
 
         final r = await b.execute();
@@ -178,7 +182,9 @@ void main() async {
           sql: "insert into T2(PK, VC, B) values(?, ?, ?)",
         );
         for (var i = 1; i <= recordCount; i++) {
-          await b.add([i, "Record $i", utf8.encode("Blob in record $i")]);
+          await b.add(
+            parameters: [i, "Record $i", utf8.encode("Blob in record $i")],
+          );
         }
         final r = await b.execute();
         await b.close();
@@ -214,7 +220,7 @@ void main() async {
           final blobData = utf8.encode("Blob in record $i");
           await db.putBlobSegment(id: blobId, data: blobData.buffer);
           await db.closeBlob(id: blobId);
-          await b.add([i, "Record $i", blobId]);
+          await b.add(parameters: [i, "Record $i", blobId]);
         }
         final r = await b.execute();
         await b.close();
@@ -244,47 +250,326 @@ void main() async {
   group("Batch with errors", () {
     test("no multierror", () async {
       await withNewDbForBatch((FbDb db) async {
-        final b = await db.batch(sql: "insert into T1(PK, VC) values(?, ?)");
-        await b.add([1, "Record 1"]);
-        await b.add([1, "Record 1.2"]); // PK violation
-        await b.add([1, "Record 1.3"]); // PK violation
+        final b = await db.batch(
+          sql: "insert into T1(PK, VC) values(?, ?)",
+          options: FbBatchOptions(multiError: false, recordCounts: false),
+        );
+        await b.add(parameters: [1, "Record 1"]);
+        await b.add(parameters: [2, "Record 2"]);
+        await b.add(parameters: [1, "Record 1.2"]); // PK violation
+        await b.add(parameters: [1, "Record 1.3"]); // PK violation
+        await b.add(parameters: [3, "Record 3"]);
         final r = await b.execute();
         await b.close();
         expect(r, isNotNull);
         expect(r.errorCount, equals(1));
         final errors = r.errors();
         expect(errors.length, equals(1));
-        expect(r.statuses.length, equals(1));
-        if (r.statuses.length == 1) {
-          expect(r.statuses[0], isA<FbServerException>());
+        expect(r.statuses.length, equals(3));
+        if (r.statuses.isNotEmpty) {
+          expect(r.statuses.last, isA<FbServerException>());
         }
-        expect(errors.containsKey(0), isTrue);
+        expect(errors.containsKey(2), isTrue);
         if (errors.isNotEmpty) {
-          expect(errors[0], isA<FbServerException>());
+          expect(errors[2], isA<FbServerException>());
+          if (errors[2] is FbServerException) {
+            expect(errors[2]?.message.contains("violation of PRIMARY"), isTrue);
+          }
         }
 
         final rows = await db.selectAll(sql: "select * from T1 order by PK");
-        expect(rows.length, equals(1));
-        if (rows.length == 1) {
+        expect(rows.length, equals(2));
+        if (rows.length == 2) {
           expect(rows[0]["PK"], equals(1));
           expect(rows[0]["VC"], equals("Record 1"));
+          expect(rows[1]["PK"], equals(2));
+          expect(rows[1]["VC"], equals("Record 2"));
         }
       });
     });
-    test("with multierror", () async {});
-    test("with multierror, exceeding max detailed error count", () async {});
+    test("with multierror", () async {
+      await withNewDbForBatch((FbDb db) async {
+        final b = await db.batch(
+          sql: "insert into T1(PK, VC) values(?, ?)",
+          options: FbBatchOptions(multiError: true, recordCounts: false),
+        );
+        await b.add(parameters: [1, "Record 1"]);
+        await b.add(parameters: [2, "Record 2"]);
+        await b.add(parameters: [1, "Record 1.2"]); // PK violation
+        await b.add(parameters: [1, "Record 1.3"]); // PK violation
+        await b.add(parameters: [3, "Record 3"]);
+        final r = await b.execute();
+        await b.close();
+        expect(r, isNotNull);
+        expect(r.errorCount, equals(2));
+        final errors = r.errors();
+        expect(errors.length, equals(2));
+        expect(r.statuses.length, equals(5));
+        if (r.statuses.length == 5) {
+          expect(r.statuses[0], equals(FbBatchResult.successNoInfo));
+          expect(r.statuses[1], equals(FbBatchResult.successNoInfo));
+          expect(r.statuses[4], equals(FbBatchResult.successNoInfo));
+          expect(r.statuses[2], isA<FbServerException>());
+          expect(r.statuses[3], isA<FbServerException>());
+        }
+        expect(errors.containsKey(2), isTrue);
+        expect(errors.containsKey(3), isTrue);
+        if (errors.isNotEmpty) {
+          expect(errors[2], isA<FbServerException>());
+          if (errors[2] is FbServerException) {
+            expect(errors[2]?.message.contains("violation of PRIMARY"), isTrue);
+          }
+          expect(errors[3], isA<FbServerException>());
+          if (errors[3] is FbServerException) {
+            expect(errors[3]?.message.contains("violation of PRIMARY"), isTrue);
+          }
+        }
+
+        final rows = await db.selectAll(sql: "select * from T1 order by PK");
+        expect(rows.length, equals(3));
+        if (rows.length == 2) {
+          expect(rows[0]["PK"], equals(1));
+          expect(rows[0]["VC"], equals("Record 1"));
+          expect(rows[1]["PK"], equals(2));
+          expect(rows[1]["VC"], equals("Record 2"));
+          expect(rows[2]["PK"], equals(3));
+          expect(rows[2]["VC"], equals("Record 3"));
+        }
+      });
+    });
+    test("with multierror, exceeding max detailed error count", () async {
+      await withNewDbForBatch((FbDb db) async {
+        final b = await db.batch(
+          sql: "insert into T1(PK, VC) values(?, ?)",
+          options: FbBatchOptions(
+            multiError: true,
+            recordCounts: false,
+            maxDetailedErrors: 2, // up to 2 errors from status vectors
+          ),
+        );
+        await b.add(parameters: [1, "Record 1"]);
+        await b.add(parameters: [2, "Record 2"]);
+        await b.add(parameters: [1, "Record 1.2"]); // PK violation
+        await b.add(parameters: [1, "Record 1.3"]); // PK violation
+        await b.add(parameters: [1, "Record 1.4"]); // PK violation
+        await b.add(parameters: [3, "Record 3"]);
+        final r = await b.execute();
+        await b.close();
+        expect(r, isNotNull);
+        expect(r.errorCount, equals(3));
+        final errors = r.errors();
+        expect(errors.length, equals(3));
+        expect(r.statuses.length, equals(6));
+        if (r.statuses.length == 5) {
+          // successes
+          expect(r.statuses[0], equals(FbBatchResult.successNoInfo));
+          expect(r.statuses[1], equals(FbBatchResult.successNoInfo));
+          expect(r.statuses[5], equals(FbBatchResult.successNoInfo));
+          // errors
+          expect(r.statuses[2], isA<FbServerException>());
+          expect(r.statuses[3], isA<FbServerException>());
+          expect(r.statuses[4], isA<FbServerException>());
+        }
+        expect(errors.containsKey(2), isTrue);
+        expect(errors.containsKey(3), isTrue);
+        if (errors.isNotEmpty) {
+          expect(errors[2], isA<FbServerException>());
+          if (errors[2] is FbServerException) {
+            expect(errors[2]?.message.contains("violation of PRIMARY"), isTrue);
+          }
+          expect(errors[3], isA<FbServerException>());
+          if (errors[3] is FbServerException) {
+            expect(errors[3]?.message.contains("violation of PRIMARY"), isTrue);
+          }
+          expect(errors[4], isA<FbServerException>());
+          if (errors[4] is FbServerException) {
+            // the third error should contain a generic error message
+            expect(
+              errors[4]?.message.contains("violation of PRIMARY"),
+              isFalse,
+            );
+            expect(errors[4]?.message.contains("no details available"), isTrue);
+            expect(errors[4]?.errors.length, equals(1));
+            if (errors[4]?.errors.length == 1) {
+              expect(errors[4]?.errors[0], equals(FbBatchResult.executeFailed));
+            }
+          }
+        }
+
+        final rows = await db.selectAll(sql: "select * from T1 order by PK");
+        expect(rows.length, equals(3));
+        if (rows.length == 2) {
+          expect(rows[0]["PK"], equals(1));
+          expect(rows[0]["VC"], equals("Record 1"));
+          expect(rows[1]["PK"], equals(2));
+          expect(rows[1]["VC"], equals("Record 2"));
+          expect(rows[2]["PK"], equals(3));
+          expect(rows[2]["VC"], equals("Record 3"));
+        }
+      });
+    });
   });
 
   group("Batch in explicit transaction", () {
-    test("batch committed", () async {});
-    test("batch rolled back", () async {});
+    test("batch committed", () async {
+      await withNewDbForBatch((FbDb db) async {
+        const recordCount = 50;
+
+        await db.startTransaction();
+        final b = await db.batch(sql: "insert into T1(PK, VC) values(?, ?)");
+        for (var i = 1; i <= recordCount; i++) {
+          await b.add(parameters: [i, "Record $i"]);
+        }
+        final r = await b.execute();
+        await b.close();
+        await db.commit();
+        expect(r, isNotNull);
+        expect(r.errorCount, equals(0));
+        final rows = await db.selectAll(sql: "select * from T1 order by PK");
+        expect(rows.length, equals(recordCount));
+        var rno = 1;
+        for (var row in rows) {
+          expect(row["PK"], equals(rno));
+          expect(row["VC"], equals("Record $rno"));
+          rno++;
+        }
+      });
+    });
+    test("batch rolled back", () async {
+      await withNewDbForBatch((FbDb db) async {
+        const recordCount = 50;
+
+        await db.startTransaction();
+        final b = await db.batch(sql: "insert into T1(PK, VC) values(?, ?)");
+        for (var i = 1; i <= recordCount; i++) {
+          await b.add(parameters: [i, "Record $i"]);
+        }
+        final r = await b.execute();
+        await b.close();
+        await db.rollback();
+        expect(r, isNotNull);
+        expect(r.errorCount, equals(0));
+        final rows = await db.selectAll(sql: "select * from T1 order by PK");
+        expect(rows.length, equals(0));
+      });
+    });
+  });
+
+  group("batch in separate transaction", () {
+    test("separate transaction committed", () async {
+      await withNewDbForBatch((FbDb db) async {
+        const recordCount = 50;
+
+        final t = await db.newTransaction();
+        final b = await db.batch(
+          sql: "insert into T1(PK, VC) values(?, ?)",
+          inTransaction: t,
+        );
+        for (var i = 1; i <= recordCount; i++) {
+          await b.add(parameters: [i, "Record $i"]);
+        }
+        final r = await b.execute();
+        await b.close();
+        await t.commit();
+        expect(r, isNotNull);
+        expect(r.errorCount, equals(0));
+        final rows = await db.selectAll(sql: "select * from T1 order by PK");
+        expect(rows.length, equals(recordCount));
+        var rno = 1;
+        for (var row in rows) {
+          expect(row["PK"], equals(rno));
+          expect(row["VC"], equals("Record $rno"));
+          rno++;
+        }
+      });
+    });
+
+    test("separate transaction rolled back", () async {
+      await withNewDbForBatch((FbDb db) async {
+        const recordCount = 50;
+
+        final t = await db.newTransaction();
+        final b = await db.batch(
+          sql: "insert into T1(PK, VC) values(?, ?)",
+          inTransaction: t,
+        );
+        for (var i = 1; i <= recordCount; i++) {
+          await b.add(parameters: [i, "Record $i"]);
+        }
+        final r = await b.execute();
+        await b.close();
+        await t.rollback();
+        expect(r, isNotNull);
+        expect(r.errorCount, equals(0));
+        final rows = await db.selectAll(sql: "select * from T1 order by PK");
+        expect(rows.length, equals(0));
+      });
+    });
   });
 
   group("internal batch errors", () {
-    test("invalid creation parameters", () async {});
+    test("invalid creation parameters", () async {
+      await withNewDbForBatch((FbDb db) async {
+        await expectLater((() async {
+          await db.batch(sql: "this is an invalid SQL");
+        }), throwsA(isA<FbServerException>()));
 
-    test("invalid number of values in add", () async {});
+        // This is rather strange, but Firebird allows creating a batch
+        // with nonsense parameters and doesn't complain in any way.
+        // The batch works normally.
+        // It's not clear whether invalid parameters are left with
+        // their default values, or are clamped by the allowed range.
+        await expectLater(
+          (() async {
+            final b = await db.batch(
+              sql: "insert into T1(PK) values(?)",
+              options: FbBatchOptions(bufferSize: -1, maxDetailedErrors: -1),
+            );
+            await b.add(parameters: [1]);
+            await b.execute();
+            await b.close();
+            final rows = await db.selectAll(sql: "select * from T1");
+            expect(rows.length, equals(1));
+          })(),
+          completes,
+        );
+      });
+    });
 
-    test("invalid types of values in add", () async {});
+    test("invalid number of values in add", () async {
+      await withNewDbForBatch((FbDb db) async {
+        final b = await db.batch(sql: "insert into T1(PK, VC) values(?, ?)");
+
+        // too many parameters
+        await expectLater(
+          (() async {
+            await b.add(parameters: [1, "valid", "invalid"]);
+          })(),
+          throwsA(isA<FbClientException>()),
+        );
+
+        // too few parameters
+        await expectLater(
+          (() async {
+            await b.add(parameters: [1]);
+          })(),
+          throwsA(isA<FbClientException>()),
+        );
+      });
+    });
+
+    test("invalid types of values in add", () async {
+      await withNewDbForBatch((FbDb db) async {
+        final b = await db.batch(sql: "insert into T1(PK, VC) values(?, ?)");
+
+        // string instead of int
+        await expectLater(
+          (() async {
+            await b.add(parameters: ["invalid", "valid"]);
+          })(),
+          throwsA(isA<TypeError>()),
+        );
+      });
+    });
   });
 }
