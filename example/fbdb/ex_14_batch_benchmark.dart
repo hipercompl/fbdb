@@ -29,10 +29,10 @@ const doDropDB = true;
 /// change it there if necessary.
 
 // The number of inserts to T1 (inserts without blobs).
-const _t1InsertCount = 50000;
+const t1InsertCount = 50000;
 
 // The number of inserts to T2 (inserts with blobs).
-const _t2InsertCount = 20000;
+const t2InsertCount = 20000;
 
 // Different batch sizes to benchmark.
 const _batchSizes = [10, 50, 100, 200];
@@ -43,11 +43,11 @@ Future<void> main() async {
   final db = await (doCreateDB ? _createDB() : _connect());
 
   print("Constructig test data");
-  final t1data = _t1TestData(_t1InsertCount);
-  final t2data = _t2TestData(_t2InsertCount);
+  final t1data = _t1TestData(t1InsertCount);
+  final t2data = _t2TestData(t2InsertCount);
 
   print("");
-  print("--- Benchmarking $_t1InsertCount INSERTs without blobs ---");
+  print("--- Benchmarking $t1InsertCount INSERTs without blobs ---");
   print("* individual inserts (unprepared)");
   final iuBench1 = await _benchmarkInsertsUnprepared(
     db,
@@ -75,7 +75,7 @@ Future<void> main() async {
   }
 
   print("");
-  print("--- Benchmarking $_t2InsertCount INSERTs with blobs ---");
+  print("--- Benchmarking $t2InsertCount INSERTs with blobs ---");
   print("* individual inserts (unprepared)");
   final iuBench2 = await _benchmarkInsertsUnprepared(
     db,
@@ -106,7 +106,7 @@ Future<void> main() async {
   print("----- BENCHMARK RESULTS -----");
   _printBenchmark(
     "INSERT without blobs",
-    _t1InsertCount,
+    t1InsertCount,
     iuBench1,
     ipBench1,
     bBench1,
@@ -114,7 +114,7 @@ Future<void> main() async {
   );
   _printBenchmark(
     "INSERT with blobs",
-    _t2InsertCount,
+    t2InsertCount,
     iuBench2,
     ipBench2,
     bBench2,
@@ -138,27 +138,53 @@ void _printBenchmark(
   List<(Duration, double)> bs,
   Duration ref100,
 ) {
+  assert(bs.length == _batchSizes.length);
   print("* $name ($count rows):");
   print("  * unprepared queries:");
   print("    * total time: ${iu.$1}");
   print("    * average per 1 INSERT: ${iu.$2} ms");
   print(
-    "    * relative to unprepared: ${((iu.$1.inMilliseconds / ref100.inMilliseconds) * 100.0).toStringAsFixed(2)}%",
+    "    * relative to unprepared: ${(iu.$1.inMilliseconds / iu.$1.inMilliseconds).toStringAsFixed(2)}",
   );
+  print(
+    "    * relative to prepared: ${(iu.$1.inMilliseconds / ip.$1.inMilliseconds).toStringAsFixed(2)}",
+  );
+  for (var i = 0; i < bs.length; i++) {
+    print(
+      "    * relative to batches of size ${_batchSizes[i]}: ${(iu.$1.inMilliseconds / bs[i].$1.inMilliseconds).toStringAsFixed(2)}",
+    );
+  }
+
   print("  * prepared queries:");
   print("    * total time: ${ip.$1}");
   print("    * average per 1 INSERT: ${ip.$2} ms");
   print(
-    "    * relative to unprepared: ${((ip.$1.inMilliseconds / ref100.inMilliseconds) * 100.0).toStringAsFixed(2)}%",
+    "    * relative to unprepared: ${(ip.$1.inMilliseconds / iu.$1.inMilliseconds).toStringAsFixed(2)}",
   );
-  assert(bs.length == _batchSizes.length);
+  print(
+    "    * relative to prepared: ${(ip.$1.inMilliseconds / ip.$1.inMilliseconds).toStringAsFixed(2)}",
+  );
+  for (var i = 0; i < bs.length; i++) {
+    print(
+      "    * relative to batches of size ${_batchSizes[i]}: ${(ip.$1.inMilliseconds / bs[i].$1.inMilliseconds).toStringAsFixed(2)}",
+    );
+  }
+
   for (var i = 0; i < bs.length; i++) {
     print("  * batches of size ${_batchSizes[i]}:");
     print("    * total time: ${bs[i].$1}");
     print("    * average per 1 INSERT: ${bs[i].$2} ms");
     print(
-      "    * relative to unprepared: ${((bs[i].$1.inMilliseconds / ref100.inMilliseconds) * 100.0).toStringAsFixed(2)}%",
+      "    * relative to unprepared: ${(bs[i].$1.inMilliseconds / iu.$1.inMilliseconds).toStringAsFixed(2)}",
     );
+    print(
+      "    * relative to prepared: ${(bs[i].$1.inMilliseconds / ip.$1.inMilliseconds).toStringAsFixed(2)}",
+    );
+    for (var j = 0; j < bs.length; j++) {
+      print(
+        "    * relative to batches of size ${_batchSizes[j]}: ${(bs[i].$1.inMilliseconds / bs[j].$1.inMilliseconds).toStringAsFixed(2)}",
+      );
+    }
   }
   print("");
 }
