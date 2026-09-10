@@ -1626,6 +1626,9 @@ class FbDbBatchWorker {
         case FbDbControlOp.batchCancel:
           await _cancel(msg);
 
+        case FbDbControlOp.batchInfo:
+          await _getInfo(msg);
+
         default:
           throw FbClientException(
             "FbDbBatchWorker operation not supported: ${msg.op.name}",
@@ -1762,6 +1765,52 @@ class FbDbBatchWorker {
       batch?.cancel(db.status);
     }
     db._sendSuccessResp(msg.resultPort, []);
+  }
+
+  /// Handles the batchInfo operation.
+  Future<void> _getInfo(FbDbControlMessage msg) async {
+    if (batch == null) {
+      throw FbClientException("Batch interface not available for querying");
+    }
+
+    // we need just 3 bytes as input
+    final Pointer<Uint8> inPtr = (_internalBuffer + _internalBufferSize - 4)
+        .cast();
+    inPtr[0] = IBatch.infBufferBytesSize;
+    inPtr[1] = IBatch.infDataBytesSize;
+    inPtr[2] = IBatch.infBlobsBytesSize;
+
+    // the rest of the buffer will be for output
+    final outPtr = _internalBuffer;
+    final outBufSize = _internalBufferSize - 4;
+
+    db.status.init();
+    batch?.getInfo(db.status, 3, inPtr.cast(), outBufSize, outPtr);
+
+    IXpbBuilder b = util.getXpbBuilder(
+      db.status,
+      IXpbBuilder.infoResponse,
+      outPtr,
+      outBufSize,
+    );
+    var i = FbBatchInfo();
+    try {
+      for (b.rewind(db.status); !b.isEof(db.status); b.moveNext(db.status)) {
+        int val = b.getInt(db.status);
+        switch (b.getTag(db.status)) {
+          case IBatch.infBufferBytesSize:
+            i.maxBufferSize = val;
+          case IBatch.infDataBytesSize:
+            i.dataSize = val;
+          case IBatch.infBlobsBytesSize:
+            i.blobSize = val;
+        }
+      }
+    } finally {
+      b.dispose();
+    }
+
+    db._sendSuccessResp(msg.resultPort, [i]);
   }
 
   /// Returns the internal native memory buffer.
@@ -2028,14 +2077,20 @@ enum FbDbControlOp {
   batchExec,
 
   /// Close the batch.
-  /// InputPayload: none.
-  /// OutputPayload: none.
+  /// Input payload: none.
+  /// Output payload: none.
   batchClose,
 
   /// Cancel the batch (remove all values added so far).
   /// Input payload: none.
   /// Output payload: none.
   batchCancel,
+
+  /// Get the current batch info (memory usage).
+  /// Input payload: none.
+  /// Output payload:
+  /// payload[0]: `FbBatchInfo` - converted from IBatch.getInfo()
+  batchInfo,
 }
 
 /// Possible types of responses to control messages.

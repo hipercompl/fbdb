@@ -1993,6 +1993,17 @@ class FbBatch {
     _throwIfErrorResponse(msg);
   }
 
+  Future<FbBatchInfo> getInfo() async {
+    final msg = await _db?._askWorker(FbDbControlOp.batchInfo, [], _toWorker);
+    _throwIfErrorResponse(msg);
+    final r = msg as FbDbResponse;
+    if (r.data.isEmpty || r.data[0] == null) {
+      throw FbClientException("Batch querying returned no info");
+    } else {
+      return r.data[0] as FbBatchInfo;
+    }
+  }
+
   // --------------------------------------------------------------------
   // --------------------------- private API ----------------------------
   // --------------------------------------------------------------------

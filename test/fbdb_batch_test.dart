@@ -183,7 +183,11 @@ void main() async {
         );
         for (var i = 1; i <= recordCount; i++) {
           await b.add(
-            parameters: [i, "Record $i", utf8.encode("Blob in record $i")],
+            parameters: [
+              i,
+              "Record $i",
+              utf8.encode("Blob in record $i").buffer,
+            ],
           );
         }
         final r = await b.execute();
@@ -569,6 +573,29 @@ void main() async {
           })(),
           throwsA(isA<TypeError>()),
         );
+      });
+    });
+  });
+
+  group("batch info", () {
+    test("basic batch info", () async {
+      await withNewDbForBatch((FbDb db) async {
+        final b = await db.batch(sql: "insert into T2(PK, B) values(?, ?)");
+        final i1 = await b.getInfo();
+        expect(i1.maxBufferSize > 0, isTrue);
+        expect(i1.dataSize == 0, isTrue);
+        expect(i1.blobSize == 0, isTrue);
+
+        for (var i = 0; i < 100; i++) {
+          await b.add(
+            parameters: [i, utf8.encode("Blob data for record $i").buffer],
+          );
+        }
+
+        final i2 = await b.getInfo();
+        expect(i2.maxBufferSize > 0, isTrue);
+        expect(i2.dataSize > 0, isTrue);
+        expect(i2.blobSize > 0, isTrue);
       });
     });
   });

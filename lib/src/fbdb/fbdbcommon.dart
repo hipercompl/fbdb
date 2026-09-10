@@ -205,3 +205,15 @@ class FbBatchResult {
     return res;
   }
 }
+
+/// The information about the current memory usage of a batch.
+class FbBatchInfo {
+  /// The batch buffer size in bytes (either default or set upon batch creation).
+  int maxBufferSize = 0;
+
+  /// The memory (in bytes) currently occupied by the batch data.
+  int dataSize = 0;
+
+  /// The memory (in bytes) currently occupied by the blobs in the batch.
+  int blobSize = 0;
+}

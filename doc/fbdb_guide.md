@@ -54,6 +54,12 @@ This guide is copyritht © 2025 Tomasz Tyrakowski (t.tyrakowski @at@ hipercom.pl
 	* 7.1. [Getting time or timestamp with time zone from the database](#Gettingtimeortimestampwithtimezonefromthedatabase)
 	* 7.2. [Time-only values](#Time-onlyvalues)
 	* 7.3. [Storing time or timestamp with time zone in the database](#Storingtimeortimestampwithtimezoneinthedatabase)
+* 8. [Batch execution](#Batchexecution)
+	* 8.1. [Batch creation parameters](#Batchcreationparameters)
+	* 8.2. [Batch execution result](#Batchexecutionresult)
+	* 8.3. [A note on detailed errors](#Anoteondetailederrors)
+	* 8.4. [A note on blobs in batch execution](#Anoteonblobsinbatchexecution)
+	* 8.5. [Examples](#Examples)
 
 <!-- vscode-markdown-toc-config
 	numbering=true
@@ -1401,3 +1407,221 @@ As mentioned before, if you pass an object of class `FbDateTimeTZ` as a query pa
 
 If, on the other hand, you pass a standard `DateTime` object as a query parameter, `FbQuery` will happily accept it, but the time instant stored in the database will have the offset of your local time zone.
 
+##  8. <a name='Batchexecution'></a>Batch execution
+Since version 4.0, Firebird supports executing DML (i.e. `INSERT` / `UPDATE`, `DELETE`) statements in batches. You can think of batches as groups of statements, each statement with the same SQL content but different parameter values, all executed in one go.
+
+The basic scheme of batch execution is as follows:
+
+1. Create a batch for a given parametrized query (i.e. one that contains `?` placeholders for actual values).
+
+2. Keep adding parameter sets to the batch. Each set of parameters should match in count and types the `?` placeholders in the SQL statement.
+
+3. Execute the whole batch (i.e. multiple queries sharing a common SQL statement, but each having different values for their parameters).
+
+4. Repeat steps 2-3 if needed (no need to create a new batch for the next set of parameters).
+
+5. Close the batch (free the allocated resources).
+
+In terms of the *fbdb* API, the steps look as follows (we omit some details like batch parameters at this point, they are discussed in detail in the next sections):
+
+Create the batch.
+```dart
+// we assume db is a connected FbDb instance
+final batch = await db.batch(
+    sql: "insert into T(COL1, COL2) values (?, ?)",
+);
+```
+
+**Notice**: you need to `await` the `FbDb.batch` call, unlike `FbDb.query`. That's because while creating an `FbQuery` object there's no data exchange with the Firebird server (or libfblcient native library) until you `open` or `execute` the query (both of which have to be awaited), when you create a batch, you provide the SQL statement right up front, and it gets processed by the native Firebird code in this very moment. That's why `batch` needs to be awaited, while `query` doesn't.
+
+Keep adding data to the batch:
+```dart
+// we assume paramSets is List<List<dynamic>>, that is
+// each item of paramSets is a _list_ of parameters
+for (var paramSet in paramSets) {
+    await batch.add(parameters: paramSet);
+}
+```
+
+Execute the batch:
+```dart
+await batch.execute();
+```
+
+Close the batch:
+```dart
+await batch.close();
+```
+
+What you need to consider is the **size** of a single batch. By size we mean the number of different set of parameters (in Firebird therminology, a single set of parameters to pass through a batch statement is called a *message*) that are put inside a single batch.
+
+While it might be tempting to create as large a batch as possible, the Firebird development team advices to create batches in the range of a few dozen (50 - 100) messages. The larger the batch, the more resources it requires (both server side and client side) to collect all its parameters, execute and prepare the results. Please consult the section on batch execution in the [Using_OO_API](https://github.com/FirebirdSQL/firebird/blob/master/doc/Using_OO_API.md#modifying-data-in-a-batch) official Firebird documentation.
+
+###  8.1. <a name='Batchcreationparameters'></a>Batch creation parameters
+The only thing the `FbDb.batch` method requires the `sql` content of the batch. However, you can also set some general batch parameters that will govern its behavior.
+
+To do so, provide an instance of `FbBatchOptions` as an additional `options` parameter. The `FbBatch` constructor accepts any combination of the following parameters:
+
+* `multiError` (bool) - decides whether the batch execution will stop on the first message resulting in an error, or continue with the subsequent messages, marking the current one as errorneous. This also impacts the execution result (see below). Default: `false`.
+* `recordCounts` (bool) - if set to `true`, the batch results will contain the number of affected rows for each message executed in the batch. Default: `false`.
+* `bufferSize` (int) - the size of the internal Firebird buffer for keeping all batch data. The buffer needs to be big enough to accomodate all parameters, together with blob data (if present). Default depends on the Firebird default (currently 16 MB, may change in the future Firebird versions). Maximum also depends on the Firebird limit (currently 256 MB).
+* `maxDetailedErrors` - sets the maximum number of errors, for which a detailed information (ISC error code + formatted error message) will be available (see the section on batch results below for details). Default depends on the Firebird default (currently 64). Maximum also depends on the firebird limit (currently 256). Please pay attention to the consequences of the latter. If you create a batch with more than 256 messages, and should they all fail for some reason, there's currently no way to get detailed errors for all those messages, as the detailed error limit is set by Firebird to 256. That's another reason to keep your batch size reasonable.
+
+**Example**
+```dart
+// we assume db is a connected FbDb instance
+final batch = await db.batch(
+    sql: "insert into T(COL) values (?)",
+    options: FbBatchOptions(
+      multiError: true,
+      maxDetailedErrors: 100,
+    ),
+);
+```
+
+###  8.2. <a name='Batchexecutionresult'></a>Batch execution result
+The result of awaited `FbBatch.execute` call is an instance of `FbBatchResult`. The contents of `FbBatchResult` depend partially on the options set during the `FbDb.batch` batch creation call.
+
+In general, the relevant parts of `FbBatchResult` API are:
+
+* `statuses` attribute (`List<dynamic>`) - contains execution statuses of batch messages. Depending on the options provided to `FbDb.batch`, the contents of `statuses` list may vary:
+    * If `multiError` was `false` (or not set), `statuses` will contain a success indicator (either `FbBatchInfo.successNoInfo` constant or the number of affected rows, depending on whether `recordCounts` option was set) for all messages executed successfully up to the first error. That first error will also be included in `statuses` (it will always be the last item, since after the error batch execution stops). Therefore, the length of `statuses` can match the number of messages in the batch, but can be slower if an error occurs for any other message than the last.
+    * If `multiError` was `true`, the length of `statuses` will always match the number of messages executed by the batch. The success / error statuses (see above) will be present for all batch messages.
+* `errorCount` atribute (int) - useful when all you need is checking whether the batch was completed without errors. If `errorCount == 0`, the whole batch was processed without errors. Depending on the `multiError` flag, `errorCount` may be 0 (no errors) 1 (`multiError == false` - the first error stopped the batch or `multiError == true` and there was exactly one error) or may be greater than 1 (`multiError == true` and there were multiple errors). Please note, that accessing `errorCount` is fast (O(1)), it doesn't filter all statuses looking for errors.
+* `errors()` method (`Map<int, FbServerException>`) - filters the statuses, returning only the errors. The keys in the map are message numbers (indices in `statuses`), and the values are instances of `FbServerException`.
+* `successes()` method (`Map<int, int>`) - works similarly to `errors()`, but returns only the succesful states from `statuses`. The keys are message numbers (indices of `statuses`) and the values depend on `recordCounts` flag: they're either `FbBatchResult.successNoInfo` constants or the numbers of rows affected by each message.
+
+**Note**
+
+If you pass an incorrect number of values in `FbBatch.add` (not corresponding to the number of `?` placeholders in the SQL statement), an `FbClientException` error will be thrown by the `add` method. Similarly, if the provided values cannot be coerced to the types required by the SQL statement in the batch, a `TypeError` will be thrown by the `add` method. In both cases this particular set of parameters will not be added to the batch at all. This kind of verification is done while adding values, not later on, upon batch execution.
+
+###  8.3. <a name='Anoteondetailederrors'></a>A note on detailed errors
+
+For large batches you may hit a limit on how many detailed error information the batch will give back. By default, the first 64 errors (that's the Firebird default at the time of writing) will contain the detailed error information (as retuened by the server), and all errors above the limit will be `FbServerException` instances with just a generic error message ("Execution failed, no details available").
+
+Using the `maxDetailedErrors` parameter during batch creation, you can increase (or decrease) this limit, but only in a certain range. The current maximum allowed by Firebird is 256 detailed errors, and trying to set `maxDetailedErrors` to a value greater than 256 will result in clipping it to the upper limit.
+
+###  8.4. <a name='Anoteonblobsinbatchexecution'></a>A note on blobs in batch execution
+Blob processing in batch execution differs significantly from classic queries. While passing a buffer as a blob parameter causes the blob to be created first, and its ID actually passed to the SQL statement (it happens automatically and is handled by *fbdb*, but requires additional communication with the Firebird server), passing a buffer in `FbBatch.add` uses the Firebird's batch processing of blobs. That is, blobs are treated as *inline* (not created beforehand) and passed with the rest of batch data.
+
+It significantly reduces time required to put blobs into a database. However, you need to keep in mind that all this blob data has to be put *somewhere*. The Firebird batch does buffering of data and the size of the buffer obviously is finite. The blobs passed inline in batches are supposed to be *small* blobs. Of course, the term "small" is relative, so what is meant by "small" blobs here is that they all need to fit into the internal Firebird buffer. By default, the buffer size is 16 MB, but it can be adjusted (up to 256 MB) by setting the `bufferSize` parameter on batch creation.
+
+If you need to process large blobs in batches (probably batches make a lot less sense then, but suppose you do), you can always use the standard *fbdb*'s blob API (see section 6), put the blob data into the database beforehand, and pass only the *blob IDs* as data to the batch.
+
+###  8.5. <a name='Examples'></a>Examples
+
+The simpliest case.
+```dart
+// we assume db is a connected FbDb instance
+// and T is a table with an int and a varchar columns
+// (I and C, respectively).
+final batch = await db.batch(
+    sql: "insert into T(I, C) values (?, ?)",
+);
+for (var i = 1; i < 1000; i++) {
+    await batch.add(
+        parameters: [i, "Record no. $i"]
+    );
+}
+await batch.execute();
+await batch.close();
+```
+
+Errors with `multiError == false`.
+```dart
+// we assume db is a connected FbDb instance
+// and T is a table with an int and a varchar columns
+// (I and C, respectively), and I is the primary key.
+final batch = await db.batch(
+    sql: "insert into T(I, C) values (?, ?)",
+);
+batch.add(parameters: [1, "row 1"]);
+batch.add(parameters: [1, "row 1 duplicated"]);
+batch.add(parameters: [2, "row 2"]);
+final r = await batch.execute();
+await batch.close();
+
+// there are errors
+assert(r.errorCount > 0);
+
+// the number of statuses is 2, not 3, because the batch
+// stopped on primary key violation in message 2
+assert(r.statuses.length == 2);
+
+// the first row was inserted successfully
+assert(r.statuses[0] == FbBatchResult.successNoInfo);
+
+// the second message caused an error
+assert(r.statuses[1] is FbServerException);
+```
+
+Errors with `multiError == true`.
+```dart
+// we assume db is a connected FbDb instance
+// and T is a table with an int and a varchar columns
+// (I and C, respectively), and I is the primary key.
+final batch = await db.batch(
+    sql: "insert into T(I, C) values (?, ?)",
+    options: FbBatchOptions(multiError: true),
+);
+batch.add(parameters: [1, "row 1"]);
+batch.add(parameters: [1, "row 1 duplicated"]);
+batch.add(parameters: [2, "row 2"]);
+final r = await batch.execute();
+await batch.close();
+
+// there are errors
+assert(r.errorCount > 0);
+
+// the number of statuses is 3, because the batch
+// continued after PK violation in message 2
+assert(r.statuses.length == 3);
+
+// the first row was inserted successfully
+assert(r.statuses[0] == FbBatchResult.successNoInfo);
+
+// the second message caused an error
+assert(r.statuses[1] is FbServerException);
+
+// the third message was fine
+assert(r.statuses[2] == FbBatchResult.successNoInfo);
+```
+
+Batch with record counts.
+```dart
+// we assume db is a connected FbDb instance
+// and T is a table with an int and a varchar columns
+// (I and C, respectively).
+final batch = await db.batch(
+    sql: "insert into T(I, C) values (?, ?)",
+    options: FbBatchOptions(recordCounts: true),
+);
+batch.add(parameters: [1, "row 1"]);
+batch.add(parameters: [2, "row 2"]);
+final r = await batch.execute();
+await batch.close();
+
+// there are no errors
+assert(r.errorCount == 0);
+
+// both messages inserted 1 row
+assert(r.statuses[0] == 1);
+assert(r.statuses[1] == 1);
+```
+
+Batch with inline blobs.
+```dart
+// we assume db is a connected FbDb instance
+// and T is a table with an int and a blob columns
+// (I and B, respectively).
+final batch = await db.batch(
+    sql: "insert into T(I, B) values (?, ?)",
+);
+for (var i = 1; i < 1000; i++) {
+    await batch.add(
+        parameters: [i, utf8.encode("Record no. $i").buffer],
+    );
+}
+await batch.execute();
+await batch.close();
+```

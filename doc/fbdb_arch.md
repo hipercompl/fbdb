@@ -154,6 +154,7 @@ FbDb automatically spawns a separate isolate for each active connection in your 
 The worker isolate is automatically terminated when a database connection is closed (by calling either `detach` or `dropDatabase` on an active connection).
 
 When you create a new *query* object (an instance of `FbQuery`) associated with a particular database connection, a corresponding *worker query* object is created in the worker isolate of that connection:
+
 ```
 +-------------main isolate--------------+
 | +-------------+      +--------------+ |
@@ -164,6 +165,22 @@ When you create a new *query* object (an instance of `FbQuery`) associated with 
 +------- | ------------------ | --------+
 | +----- v -----+      +----- v ------+ |
 | |   worker1   |<-----| worker query | |
+| +-------------+      +--------------+ |
++------------worker isolate-------------+
+```
+
+A similar mechanism handles the batch objects (batches were introduced in version 1.7.0 of *fbdb*):
+
+```
++-------------main isolate--------------+
+| +-------------+      +--------------+ |
+| | connection1 |<-----|    batch1    | |
+| +----- ^ -----+      +----- ^ ------+ |
++------- | ------------------ | --------+
+         |                    |
++------- | ------------------ | --------+
+| +----- v -----+      +----- v ------+ |
+| |   worker1   |<-----| worker batch | |
 | +-------------+      +--------------+ |
 +------------worker isolate-------------+
 ```
