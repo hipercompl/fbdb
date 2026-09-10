@@ -1,3 +1,6 @@
+## 1.7.0
+- Added high-level API support for Firebird batch execution, upon a user's request. See section 8 of the [fbdb programmer's guide](https://github.com/hipercompl/fbdb/blob/main/doc/fbdb_guide.md) for details. The low-level `IBatch` interface was present from the very beginning, but in this release there's a dedicated, easy to use `FbBatch` object, abstracting the technical details away. It also fully supports blob inlining.
+
 ## 1.6.3
 - Unloading of the fbclient native dynamic library (via calling [DynamicLibrary.close()](https://api.dart.dev/dart-ffi/DynamicLibrary/close.html)) is omitted on non-Windows systems. On Linux (and possibly other unix-based systems) the fbclient library doesn't handle unloading graciously (see [issue #17](https://github.com/hipercompl/fbdb/issues/17)), causing an unhandled exception in native C++ code, resulting in an artificial, ~1 minute delay in Dart code, followed by killing the whole process. Kudos to [IgorGZd](https://github.com/IgorGZd) for detecting, diagnosing and reporting the issue.
 

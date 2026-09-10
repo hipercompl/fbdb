@@ -38,7 +38,7 @@ Provides a convenient, high-level asynchronous API based on futures, async metho
 
 - Makes use of advanced Dart concepts: isolates, streams, futures and FFI, at the same time exposing a simple and convenient interface to the application developers.
 
-- Supports database transactions and BLOBs.
+- Supports database transactions, BLOBs and batch execution.
 
 - Calls native functions from the official  Firebird client dynamic library.
 
@@ -155,7 +155,8 @@ The following features are planned for the future releases of FbDb:
 |More utility methods, similar to `selectOne` / `selectAll` (to save typing)|✅|1.2|
 |Prepared statements optimized for multiple executions.|✅|1.3|
 |Multiple explicit concurrent transactions.|✅|1.4|
-|Support for `TIME WITH TIME ZONE` and `TIMESTAMP WITH TIME ZONE` data types|✅|1.5|
+|Support for `TIME WITH TIME ZONE` and `TIMESTAMP WITH TIME ZONE` data types.|✅|1.5|
+|High-level API for batch statement execution.|✅|1.7|
 |Abstractions for metadata querying (table structure, constraints, indices, relationships, etc.).|☐||
 |Support for Firebird array types.|☐||
 |High-level API for Firebird service manager.|☐||
