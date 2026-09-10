@@ -575,6 +575,34 @@ void main() async {
         );
       });
     });
+
+    test("buffer overflow", () async {
+      await withNewDbForBatch((FbDb db) async {
+        final b = await db.batch(
+          sql: "insert into T2(PK, B) values(?, ?)",
+          options: FbBatchOptions(bufferSize: 128 * 1024),
+        );
+        final i1 = await b.getInfo();
+        expect(i1.maxBufferSize, equals(128 * 1024));
+
+        Uint8List blob = Uint8List(1024);
+        blob.fillRange(0, blob.length - 1, 10);
+
+        for (var i = 0; i < 129; i++) {
+          await b.add(parameters: [i, blob.buffer]);
+        }
+
+        final i2 = await b.getInfo();
+        expect(i2.blobSize + i2.dataSize > i2.maxBufferSize, isTrue);
+        await expectLater(
+          (() async {
+            await b.execute();
+          })(),
+          throwsA(isA<FbServerException>()),
+        );
+        await b.close();
+      });
+    });
   });
 
   group("batch info", () {

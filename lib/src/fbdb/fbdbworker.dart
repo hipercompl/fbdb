@@ -1774,14 +1774,14 @@ class FbDbBatchWorker {
     }
 
     // we need just 3 bytes as input
-    final Pointer<Uint8> inPtr = (_internalBuffer + _internalBufferSize - 4)
-        .cast();
-    inPtr[0] = IBatch.infBufferBytesSize;
-    inPtr[1] = IBatch.infDataBytesSize;
-    inPtr[2] = IBatch.infBlobsBytesSize;
+    final Pointer<Uint8> inPtr =
+        (_getInternalBuffer() + _internalBufferSize - 4).cast();
+    inPtr.writeUint8(0, IBatch.infBufferBytesSize);
+    inPtr.writeUint8(1, IBatch.infDataBytesSize);
+    inPtr.writeUint8(2, IBatch.infBlobsBytesSize);
 
     // the rest of the buffer will be for output
-    final outPtr = _internalBuffer;
+    final Pointer<Uint8> outPtr = _getInternalBuffer();
     final outBufSize = _internalBufferSize - 4;
 
     db.status.init();
@@ -1804,6 +1804,8 @@ class FbDbBatchWorker {
             i.dataSize = val;
           case IBatch.infBlobsBytesSize:
             i.blobSize = val;
+          case FbConsts.isc_info_end:
+            break;
         }
       }
     } finally {

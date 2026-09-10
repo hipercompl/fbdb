@@ -1457,6 +1457,15 @@ What you need to consider is the **size** of a single batch. By size we mean the
 
 While it might be tempting to create as large a batch as possible, the Firebird development team advices to create batches in the range of a few dozen (50 - 100) messages. The larger the batch, the more resources it requires (both server side and client side) to collect all its parameters, execute and prepare the results. Please consult the section on batch execution in the [Using_OO_API](https://github.com/FirebirdSQL/firebird/blob/master/doc/Using_OO_API.md#modifying-data-in-a-batch) official Firebird documentation.
 
+You can query a batch for its current memory consumption by calling `FbBatch.getInfo()` (has to be awaited). The resulting `FbBatchInfo` object contains the following attributes (all integers, all in bytes):
+* `maxBufferSize` - the limit on the internal buffer,
+* `dataSize` - the memory currently occupied by batch data,
+* `blobSize` - the memory currently occupied by all blobs in the batch.
+
+You need to make sure that `dataSize` + `blobSize` does not exceed `maxBufferSize`. If it does, the error may occur later on, when you try to execute the batch.
+
+Apart from `add`, `execute` and `close`, the `FbBatch` objects make another method available: `cancel`. When `FbBatch.cancel` is called (has to be awaited), all data (and blobs) currently added to the batch are discarded, the batch becomes empty, but **not closed**. It's ready to accept new `add` calls, and then to be executed. After `close`, on the other hand, the batch instance becomes unusable (all its internal resources are released).
+
 ###  8.1. <a name='Batchcreationparameters'></a>Batch creation parameters
 The only thing the `FbDb.batch` method requires the `sql` content of the batch. However, you can also set some general batch parameters that will govern its behavior.
 
@@ -1624,4 +1633,32 @@ for (var i = 1; i < 1000; i++) {
 }
 await batch.execute();
 await batch.close();
+```
+
+Batch reuse.
+```dart
+// we assume db is a connected FbDb instance
+// and T is a table with an int and a blob columns
+// (I and B, respectively).
+final batch = await db.batch(
+    sql: "insert into T(I, B) values (?, ?)",
+);
+for (var i = 1; i <= 1000; i++) {
+    await batch.add(
+        parameters: [i, utf8.encode("Record no. $i").buffer],
+    );
+}
+await batch.execute();
+
+// batch is empty now, but still can be used
+for (var i = 1001; i <= 2000; i++) {
+    await batch.add(
+        parameters: [i, utf8.encode("Record no. $i").buffer],
+    );
+}
+await batch.execute();
+
+await batch.close();
+// now the batch is closed, no further operations on it are possible
+// you need another db.batch call to create a new batch
 ```
