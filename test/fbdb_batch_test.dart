@@ -576,7 +576,7 @@ void main() async {
       });
     });
 
-    test("buffer overflow", () async {
+    test("blob buffer overflow", () async {
       await withNewDbForBatch((FbDb db) async {
         final b = await db.batch(
           sql: "insert into T2(PK, B) values(?, ?)",
@@ -588,6 +588,7 @@ void main() async {
         Uint8List blob = Uint8List(1024);
         blob.fillRange(0, blob.length - 1, 10);
 
+        // adding 129kB of blobs to a 128kB buffer
         for (var i = 0; i < 129; i++) {
           await b.add(parameters: [i, blob.buffer]);
         }
@@ -596,10 +597,41 @@ void main() async {
         expect(i2.blobSize + i2.dataSize > i2.maxBufferSize, isTrue);
         await expectLater(
           (() async {
+            // Should throw "Unknown blob ID ..."
             await b.execute();
           })(),
           throwsA(isA<FbServerException>()),
         );
+        await b.close();
+      });
+    });
+
+    test("data buffer overflow", () async {
+      await withNewDbForBatch((FbDb db) async {
+        final b = await db.batch(
+          sql: "insert into T1(PK, VC) values(?, ?)",
+          options: FbBatchOptions(bufferSize: 128 * 1024),
+        );
+        final i1 = await b.getInfo();
+        expect(i1.maxBufferSize, equals(128 * 1024));
+
+        final str = "X" * 200; // XXX....X (length=200)
+
+        // 700 x 200B is enough to exceed 128kB buffer
+        for (var i = 0; i < 700; i++) {
+          await b.add(parameters: [i, str]);
+        }
+
+        final i2 = await b.getInfo();
+        expect(i2.blobSize + i2.dataSize > i2.maxBufferSize, isTrue);
+        await expectLater(
+          (() async {
+            // should throw "Internal buffer overflow - batch too big"
+            await b.execute();
+          })(),
+          throwsA(isA<FbServerException>()),
+        );
+
         await b.close();
       });
     });
