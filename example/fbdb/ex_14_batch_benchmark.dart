@@ -35,7 +35,7 @@ const t1InsertCount = 50000;
 const t2InsertCount = 20000;
 
 // Different batch sizes to benchmark.
-const _batchSizes = [10, 50, 100, 200];
+const batchSizes = [10, 50, 100, 200];
 
 // ----- END OF CONFIGURATION -----
 
@@ -62,7 +62,7 @@ Future<void> main() async {
   );
 
   final bBench1 = List<(Duration, double)>.empty(growable: true);
-  for (final batchSize in _batchSizes) {
+  for (final batchSize in batchSizes) {
     print("* batch inserts (batch size: $batchSize)");
     await db.execute(sql: "delete from T1_3");
     final b = await _benchmarkBatch(
@@ -90,7 +90,7 @@ Future<void> main() async {
   );
 
   final bBench2 = List<(Duration, double)>.empty(growable: true);
-  for (final batchSize in _batchSizes) {
+  for (final batchSize in batchSizes) {
     print("* batch inserts (batch size: $batchSize)");
     await db.execute(sql: "delete from T2_3");
     final b = await _benchmarkBatch(
@@ -110,7 +110,6 @@ Future<void> main() async {
     iuBench1,
     ipBench1,
     bBench1,
-    iuBench1.$1,
   );
   _printBenchmark(
     "INSERT with blobs",
@@ -118,7 +117,6 @@ Future<void> main() async {
     iuBench2,
     ipBench2,
     bBench2,
-    iuBench2.$1,
   );
 
   if (doDropDB) {
@@ -136,9 +134,8 @@ void _printBenchmark(
   (Duration, double) iu,
   ip,
   List<(Duration, double)> bs,
-  Duration ref100,
 ) {
-  assert(bs.length == _batchSizes.length);
+  assert(bs.length == batchSizes.length);
   print("* $name ($count rows):");
   print("  * unprepared queries:");
   print("    * total time: ${iu.$1}");
@@ -151,7 +148,7 @@ void _printBenchmark(
   );
   for (var i = 0; i < bs.length; i++) {
     print(
-      "    * relative to batches of size ${_batchSizes[i]}: ${(iu.$1.inMilliseconds / bs[i].$1.inMilliseconds).toStringAsFixed(2)}",
+      "    * relative to batches of size ${batchSizes[i]}: ${(iu.$1.inMilliseconds / bs[i].$1.inMilliseconds).toStringAsFixed(2)}",
     );
   }
 
@@ -166,12 +163,12 @@ void _printBenchmark(
   );
   for (var i = 0; i < bs.length; i++) {
     print(
-      "    * relative to batches of size ${_batchSizes[i]}: ${(ip.$1.inMilliseconds / bs[i].$1.inMilliseconds).toStringAsFixed(2)}",
+      "    * relative to batches of size ${batchSizes[i]}: ${(ip.$1.inMilliseconds / bs[i].$1.inMilliseconds).toStringAsFixed(2)}",
     );
   }
 
   for (var i = 0; i < bs.length; i++) {
-    print("  * batches of size ${_batchSizes[i]}:");
+    print("  * batches of size ${batchSizes[i]}:");
     print("    * total time: ${bs[i].$1}");
     print("    * average per 1 INSERT: ${bs[i].$2} ms");
     print(
@@ -182,7 +179,7 @@ void _printBenchmark(
     );
     for (var j = 0; j < bs.length; j++) {
       print(
-        "    * relative to batches of size ${_batchSizes[j]}: ${(bs[i].$1.inMilliseconds / bs[j].$1.inMilliseconds).toStringAsFixed(2)}",
+        "    * relative to batches of size ${batchSizes[j]}: ${(bs[i].$1.inMilliseconds / bs[j].$1.inMilliseconds).toStringAsFixed(2)}",
       );
     }
   }
