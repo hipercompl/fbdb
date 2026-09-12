@@ -208,9 +208,9 @@ class FbBatchOptions {
 
   /// Initialize the batch options.
   ///
-  /// Any option not provided (or set to null) will not be put into the BPB
-  /// during batch creation, resultin in it default value being used
-  /// by the constructed batch.
+  /// Any option not provided (or set to null) will not be put into
+  /// the batch parameters block during batch creation, resulting
+  /// in its default value being used by the constructed batch.
   FbBatchOptions({
     this.multiError,
     this.recordCounts,
