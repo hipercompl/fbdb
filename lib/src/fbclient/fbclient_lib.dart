@@ -45,11 +45,9 @@ class FbClient {
   /// Closes the dynamic library.
   void close() {
     if (lib != null) {
-      // Unloading the fbclient dynamic library disabled on non-Windows
-      // systems (see issue 17: https://github.com/hipercompl/fbdb/issues/17).
-      if (Platform.isWindows) {
-        lib?.close();
-      }
+      // Unloading the fbclient dynamic library disabled on purpose
+      // (see issue 17: https://github.com/hipercompl/fbdb/issues/17,
+      // and also FirebirdSQL/firebird#2096 and #2589).
       lib = null;
     }
   }

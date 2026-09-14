@@ -634,7 +634,7 @@ void putChar(
 }
 
 /// Puts date part from [dt] into the message [msg] at offset [offset].
-void putDate(Pointer<Uint8> msg, int offset, DateTime dt) {
+void putDate(Pointer<Uint8> msg, int offset, DateTime dt, IUtil util) {
   int encoded;
   if (dt is FbDateTimeTZ) {
     encoded = util.encodeDate(dt.db.year, dt.db.month, dt.db.day);
@@ -645,7 +645,7 @@ void putDate(Pointer<Uint8> msg, int offset, DateTime dt) {
 }
 
 /// Puts time part from [dt] into the message [msg] at offset [offset].
-void putTime(Pointer<Uint8> msg, int offset, DateTime dt) {
+void putTime(Pointer<Uint8> msg, int offset, DateTime dt, IUtil util) {
   int encoded;
   if (dt is FbDateTimeTZ) {
     encoded = util.encodeTime(
@@ -674,6 +674,7 @@ void putTimeTZ(
   int offset,
   DateTime dt,
   Pointer<Uint8> buffer,
+  IUtil util,
 ) {
   final Pointer<IscTimeTz> t = buffer.cast();
   if (dt is FbDateTimeTZ) {
@@ -710,6 +711,7 @@ void putTimeTZEx(
   int offset,
   DateTime dt,
   Pointer<Uint8> buffer,
+  IUtil util,
 ) {
   final Pointer<IscTimeTzEx> t = buffer.cast();
   if (dt is FbDateTimeTZ) {
@@ -749,6 +751,7 @@ void putTimestamp(
   int offset,
   DateTime dt,
   Pointer<Uint8> buffer,
+  IUtil util,
 ) {
   final Pointer<IscTimestamp> ts = buffer.cast();
   if (dt is FbDateTimeTZ) {
@@ -780,6 +783,7 @@ void putTimestampTZ(
   int offset,
   DateTime dt,
   Pointer<Uint8> buffer,
+  IUtil util,
 ) {
   final Pointer<IscTimestampTz> ts = buffer.cast();
   if (dt is FbDateTimeTZ) {
@@ -822,6 +826,7 @@ void putTimestampTZEx(
   int offset,
   DateTime dt,
   Pointer<Uint8> buffer,
+  IUtil util,
 ) {
   final Pointer<IscTimestampTzEx> ts = buffer.cast();
   if (dt is FbDateTimeTZ) {
@@ -875,6 +880,7 @@ void putInt128(
   double value,
   int scale,
   Pointer<Uint8> buffer,
+  IUtil util,
 ) {
   // Current implementation converts the double value to string
   // and then uses Int128 interface to convert the string to
@@ -898,6 +904,7 @@ void putDec16(
   int offset,
   double value,
   Pointer<Uint8> buffer,
+  IUtil util,
 ) {
   final iDec = util.getDecFloat16(status);
   final s = value.toString();
@@ -917,6 +924,7 @@ void putDec34(
   int offset,
   double value,
   Pointer<Uint8> buffer,
+  IUtil util,
 ) {
   final iDec = util.getDecFloat34(status);
   final s = value.toString();
@@ -1110,7 +1118,7 @@ void putParam(
 
     case FbConsts.SQL_TIMESTAMP:
     case const (FbConsts.SQL_TIMESTAMP + 1):
-      putTimestamp(msg, offset, value, buffer);
+      putTimestamp(msg, offset, value, buffer, db.util);
 
     case FbConsts.SQL_BLOB:
     case const (FbConsts.SQL_BLOB + 1):
@@ -1122,11 +1130,11 @@ void putParam(
 
     case FbConsts.SQL_TYPE_TIME:
     case const (FbConsts.SQL_TYPE_TIME + 1):
-      putTime(msg, offset, value);
+      putTime(msg, offset, value, db.util);
 
     case FbConsts.SQL_TYPE_DATE:
     case const (FbConsts.SQL_TYPE_DATE + 1):
-      putDate(msg, offset, value);
+      putDate(msg, offset, value, db.util);
 
     case FbConsts.SQL_INT64:
     case const (FbConsts.SQL_INT64 + 1):
@@ -1137,31 +1145,31 @@ void putParam(
 
     case FbConsts.SQL_INT128:
     case const (FbConsts.SQL_INT128 + 1):
-      putInt128(status, msg, offset, value, scale, buffer);
+      putInt128(status, msg, offset, value, scale, buffer, db.util);
 
     case FbConsts.SQL_TIMESTAMP_TZ:
     case const (FbConsts.SQL_TIMESTAMP_TZ + 1):
-      putTimestampTZ(status, msg, offset, value, buffer);
+      putTimestampTZ(status, msg, offset, value, buffer, db.util);
 
     case FbConsts.SQL_TIMESTAMP_TZ_EX:
     case const (FbConsts.SQL_TIMESTAMP_TZ_EX + 1):
-      putTimestampTZEx(status, msg, offset, value, buffer);
+      putTimestampTZEx(status, msg, offset, value, buffer, db.util);
 
     case FbConsts.SQL_TIME_TZ:
     case const (FbConsts.SQL_TIME_TZ + 1):
-      putTimeTZ(status, msg, offset, value, buffer);
+      putTimeTZ(status, msg, offset, value, buffer, db.util);
 
     case FbConsts.SQL_TIME_TZ_EX:
     case const (FbConsts.SQL_TIME_TZ_EX + 1):
-      putTimeTZEx(status, msg, offset, value, buffer);
+      putTimeTZEx(status, msg, offset, value, buffer, db.util);
 
     case FbConsts.SQL_DEC16:
     case const (FbConsts.SQL_DEC16 + 1):
-      putDec16(status, msg, offset, value, buffer);
+      putDec16(status, msg, offset, value, buffer, db.util);
 
     case FbConsts.SQL_DEC34:
     case const (FbConsts.SQL_DEC34 + 1):
-      putDec34(status, msg, offset, value, buffer);
+      putDec34(status, msg, offset, value, buffer, db.util);
 
     case FbConsts.SQL_BOOLEAN:
     case const (FbConsts.SQL_BOOLEAN + 1):

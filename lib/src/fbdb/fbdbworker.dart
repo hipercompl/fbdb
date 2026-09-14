@@ -6,39 +6,6 @@ import "package:fbdb/fbdb.dart";
 import "package:fbdb/fbclient.dart";
 import "fbhelper.dart";
 
-/// The native Firebird client loader and bindings.
-late FbClient client;
-
-/// The master (IMaster) interface.
-///
-/// Shared by all objects from the worker isolate.
-/// It can be safely shared between different objects in the
-/// worker isolate.
-/// Interfaces specific to a particular type of object
-/// (like attachments, transactions, queries, statements)
-/// are encapsulated in those objects and not shared between them.
-late IMaster master;
-
-/// The util (IUtil) interface.
-///
-/// Shared by all objects from the worker isolate.
-/// It can be safely shared between different objects in the
-/// worker isolate.
-/// Interfaces specific to a particular type of object
-/// (like attachments, transactions, queries, statements)
-/// are encapsulated in those objects and not shared between them.
-late IUtil util;
-
-/// The provider (IProvider) interface, which encapsulates an attachment.
-///
-/// Shared by all objects from the worker isolate.
-/// It can be safely shared between different objects in the
-/// worker isolate.
-/// Interfaces specific to a particular type of object
-/// (like attachments, transactions, queries, statements)
-/// are encapsulated in those objects and not shared between them.
-late IProvider provider;
-
 /// The worker isolate runner.
 /// The args list should contain:
 /// index 0: the SendPort to the main isolate
@@ -57,46 +24,39 @@ Future<void> workerRunner(List<dynamic> args) async {
 
   SendPort toMain = args[0];
   final fromMain = ReceivePort();
+  FbDbWorker? worker;
+  IProvider? provider;
   try {
     try {
       // args[1] is the path to libfbclient (null = use defaults)
-      _createClient(args[1]);
+      final client = FbClient(args[1]);
+      final master = client.fbGetMasterInterface();
+      final util = master.getUtilInterface();
+      provider = master.getDispatcher();
+
+      // create the worker object
+      worker = FbDbWorker._init(fromMain, client, master, util, provider);
     } catch (e) {
       toMain.send(FbDbResponse(FbDbResponseOp.error, [e]));
       return;
     }
-    // send the control SendPort to the main isolate
-    toMain.send(FbDbResponse(FbDbResponseOp.success, [fromMain.sendPort]));
 
-    // create the worker object
-    final worker = FbDbWorker._init(fromMain);
+    try {
+      // send the control SendPort to the main isolate
+      toMain.send(FbDbResponse(FbDbResponseOp.success, [fromMain.sendPort]));
 
-    // start the event loop of the worker
-    await worker._run();
-
-    // when the event loop finishes, the worker isolate should be shut down
-    _disposeClient();
+      // start the event loop of the worker
+      await worker._run();
+    } finally {
+      // we need to release the provider before the worker isolate shuts down
+      worker.provider.release();
+    }
   } catch (e) {
     // ignoring all uncaught exceptions
-    // can't do anything about them
+    // can't do anything about them in the worker isolate
   } finally {
     fromMain.close();
   }
-}
-
-// Create the global FbClient instance, optionally using the provided
-// path to the libfbclient binary.
-void _createClient(String? libPath) {
-  client = FbClient(libPath);
-  master = client.fbGetMasterInterface();
-  util = master.getUtilInterface();
-  provider = master.getDispatcher();
-}
-
-// Close / release the global FbClient instance and associated interfaces.
-void _disposeClient() {
-  provider.release();
-  client.close();
 }
 
 /// The database connection worker class.
@@ -106,6 +66,19 @@ void _disposeClient() {
 class FbDbWorker {
   /// The receive port for commands from the main isolate.
   final ReceivePort _fromMain;
+
+  /// The instance of FbClient (wrapper around the libfbclient native
+  /// library).
+  FbClient client;
+
+  /// The master interface, an entry point to all other interfaces.
+  IMaster master;
+
+  /// The IUtil interface, obtained from master.
+  IUtil util;
+
+  /// The connection provider / dispatcher.
+  IProvider provider;
 
   /// The database attachment used by the worker.
   IAttachment? attachment;
@@ -144,8 +117,13 @@ class FbDbWorker {
 
   /// Private constructor, so that no foreign code can instantiate
   /// the worker.
-  FbDbWorker._init(this._fromMain)
-    : status = master.getStatus(),
+  FbDbWorker._init(
+    this._fromMain,
+    this.client,
+    this.master,
+    this.util,
+    this.provider,
+  ) : status = master.getStatus(),
       _activeQueries = {},
       _activeBlobs = {},
       _activeBatches = {},
@@ -958,7 +936,7 @@ class FbDbQueryWorker {
           // encapsulate the exception and send it to the main isolate
           db._sendErrorResp(
             (msg as FbDbControlMessage).resultPort,
-            FbServerException.fromStatus(se.status, util: util),
+            FbServerException.fromStatus(se.status, util: db.util),
           );
         } catch (e) {
           // encapsulate the exception and send it to the main isolate
@@ -1011,7 +989,7 @@ class FbDbQueryWorker {
     } on FbStatusException catch (se) {
       db._sendErrorResp(
         msg.resultPort,
-        FbServerException.fromStatus(se.status, util: util),
+        FbServerException.fromStatus(se.status, util: db.util),
       );
     } catch (e) {
       db._sendErrorResp(msg.resultPort, e);
@@ -1132,7 +1110,7 @@ class FbDbQueryWorker {
         _outputMetadata,
         db,
         _transaction,
-        util,
+        db.util,
         _getInternalBuffer(),
         _internalBufferSize,
         _inlineBlobs,
@@ -1190,7 +1168,7 @@ class FbDbQueryWorker {
       _outputMetadata,
       db,
       _transaction,
-      util,
+      db.util,
       _getInternalBuffer(),
       _internalBufferSize,
       _inlineBlobs,
@@ -1536,7 +1514,7 @@ class FbDbBatchWorker {
   }
 
   IXpbBuilder _optionsToXpb(FbBatchOptions options) {
-    final IXpbBuilder builder = util.getXpbBuilder(
+    final IXpbBuilder builder = db.util.getXpbBuilder(
       db.status,
       IXpbBuilder.batch,
     );
@@ -1593,7 +1571,7 @@ class FbDbBatchWorker {
           // encapsulate the exception and send it to the main isolate
           db._sendErrorResp(
             (msg as FbDbControlMessage).resultPort,
-            FbServerException.fromStatus(se.status, util: util),
+            FbServerException.fromStatus(se.status, util: db.util),
           );
         } catch (e) {
           // encapsulate the exception and send it to the main isolate
@@ -1637,7 +1615,7 @@ class FbDbBatchWorker {
     } on FbStatusException catch (se) {
       db._sendErrorResp(
         msg.resultPort,
-        FbServerException.fromStatus(se.status, util: util),
+        FbServerException.fromStatus(se.status, util: db.util),
       );
     } catch (e) {
       db._sendErrorResp(msg.resultPort, e);
@@ -1740,13 +1718,13 @@ class FbDbBatchWorker {
       throw FbClientException("No completion state after batch execution");
     }
     try {
-      final tmpStatus = master.getStatus();
+      final tmpStatus = db.master.getStatus();
       try {
         final bres = FbBatchResult.fromCompletionState(
           status: db.status,
           state: bcs,
           tmpStatus: tmpStatus,
-          util: util,
+          util: db.util,
           withRecordCounts: _recordCounts,
         );
         db._sendSuccessResp(msg.resultPort, [bres]);
@@ -1787,7 +1765,7 @@ class FbDbBatchWorker {
     db.status.init();
     batch?.getInfo(db.status, 3, inPtr.cast(), outBufSize, outPtr);
 
-    IXpbBuilder b = util.getXpbBuilder(
+    IXpbBuilder b = db.util.getXpbBuilder(
       db.status,
       IXpbBuilder.infoResponse,
       outPtr,
