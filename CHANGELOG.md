@@ -1,3 +1,6 @@
+## 1.7.2
+- Fixed double release of the `IBatch` interface instance, possibly leading to undefined behavior (mentioned in [issue #18](https://github.com/hipercompl/fbdb/issues/18). Added safeguards in `IDisposable` and `IReferenceCounted` interface bindings to deal with accitental multiple calls to `release` / `dispose`.
+
 ## 1.7.1
 - Improved handling of multiple concurrent `FbDb` connections in a single application. Some internal refactorings were required (making all low-level interfaces specific to a worker istance, instead of being globally available for all workers). All changes in this point release impact only the private part of the library (the worker isolate), the public API remains intact. Specific tests in the test suite for multi-connection scenarios have also been added (the `Multiple connections` group in `fbdb_connection_test.dart`).
 

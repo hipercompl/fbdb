@@ -187,7 +187,13 @@ class IReferenceCounted extends IVersioned {
   /// After calling [release], the calling code must not use the
   /// interface in any fashion.
   int release() {
-    return _release(self);
+    if (self != nullptr) {
+      var r = _release(self);
+      self = nullptr;
+      return r;
+    } else {
+      return 0;
+    }
   }
 
   @override
@@ -214,7 +220,10 @@ class IDisposable extends IVersioned {
   }
 
   void dispose() {
-    _dispose(self);
+    if (self != nullptr) {
+      _dispose(self);
+      self = nullptr;
+    }
   }
 
   @override

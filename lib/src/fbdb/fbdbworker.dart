@@ -1659,7 +1659,10 @@ class FbDbBatchWorker {
     }
     _transaction = null;
     fromMain.close();
-    batch?.release(); // also closes the batch
+    if (batch != null) {
+      batch?.release(); // also closes the batch
+      batch = null;
+    }
   }
 
   /// Handles the batchAdd operation.
