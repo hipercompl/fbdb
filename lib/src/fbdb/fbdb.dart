@@ -751,11 +751,16 @@ class FbDb {
   /// Keep in mind, that all rows are cached in the memory, so for
   /// queries returning large data sets, the memory consumption
   /// can be significant.
+  /// The parameter [chunkSize] determines the number of rows
+  /// fetched in a single message from the worker isolate
+  /// (the higher [chunkSize], the less messages need to be exchanged
+  /// between the isolates, but the larger each of those messages is).
   Future<List<Map<String, dynamic>>> selectAll({
     required String sql,
     List<dynamic> parameters = const [],
     bool inlineBlobs = true,
     FbTransaction? inTransaction,
+    int chunkSize = 10,
   }) async {
     final q = query();
 
@@ -766,7 +771,7 @@ class FbDb {
         inlineBlobs: inlineBlobs,
         inTransaction: inTransaction,
       );
-      return await q.fetchAllAsMaps();
+      return await q.fetchAllAsMaps(chunkSize: chunkSize);
     } finally {
       await q.close();
     }
@@ -1302,8 +1307,9 @@ class FbQuery {
     if (rowCount <= 0) {
       return res;
     }
+
     int cnt = 0;
-    await for (var row in rows()) {
+    await for (var row in rows(chunkSize: rowCount)) {
       res.add(row);
       cnt++;
       if (cnt >= rowCount) {
@@ -1337,7 +1343,7 @@ class FbQuery {
       return res;
     }
     int cnt = 0;
-    await for (var row in rowValues()) {
+    await for (var row in rowValues(chunkSize: rowCount)) {
       res.add(row);
       cnt++;
       if (cnt >= rowCount) {
@@ -1356,6 +1362,10 @@ class FbQuery {
   /// on the number of rows.
   /// The resulting maps have keys corresponding to the names of
   /// the selected columns.
+  /// The parameter [chunkSize] determines the number of rows
+  /// fetched in a single message from the worker isolate
+  /// (the higher [chunkSize], the less messages need to be exchanged
+  /// between the isolates, but the larger each of those messages is).
   ///
   /// Example:
   /// ```dart
@@ -1370,8 +1380,10 @@ class FbQuery {
   /// await q.close();
   /// // allRows retains the data after the query gets closed
   /// ```
-  Future<List<Map<String, dynamic>>> fetchAllAsMaps() async {
-    return rows().toList();
+  Future<List<Map<String, dynamic>>> fetchAllAsMaps({
+    int chunkSize = 10,
+  }) async {
+    return rows(chunkSize: chunkSize).toList();
   }
 
   /// An alias for [FbQuery.fetchAllAsMaps].
@@ -1379,8 +1391,12 @@ class FbQuery {
   /// Since fetching rows as maps is the most frequently used
   /// variant, this alias was introduced, to make client
   /// code shorter.
-  Future<List<Map<String, dynamic>>> fetchAll() async {
-    return fetchAllAsMaps();
+  /// The parameter [chunkSize] determines the number of rows
+  /// fetched in a single message from the worker isolate
+  /// (the higher [chunkSize], the less messages need to be exchanged
+  /// between the isolates, but the larger each of those messages is).
+  Future<List<Map<String, dynamic>>> fetchAll({int chunkSize = 10}) async {
+    return fetchAllAsMaps(chunkSize: chunkSize);
   }
 
   /// Fetches all rows from the data set as lists.
@@ -1390,6 +1406,10 @@ class FbQuery {
   /// sure the size of the result set is reasonable.
   /// In general it's better to use [fetchAsLists] with an upper bound
   /// on the number of rows.
+  /// The parameter [chunkSize] determines the number of rows
+  /// fetched in a single message from the worker isolate
+  /// (the higher [chunkSize], the less messages need to be exchanged
+  /// between the isolates, but the larger each of those messages is).
   ///
   /// Example:
   /// ```dart
@@ -1404,8 +1424,8 @@ class FbQuery {
   /// await q.close();
   /// // allRows retains the data after the query gets closed
   /// ```
-  Future<List<List<dynamic>>> fetchAllAsLists() async {
-    return rowValues().toList();
+  Future<List<List<dynamic>>> fetchAllAsLists({int chunkSize = 10}) async {
+    return rowValues(chunkSize: chunkSize).toList();
   }
 
   /// Fetches the next row from the data set as a map.
@@ -1503,6 +1523,11 @@ class FbQuery {
   /// the selected columns.
   /// The stream ends when all rows from the result set have been
   /// fetched from the database and streamed to the calling code.
+  /// The rows are fetched in batches of size [chunkSize],
+  /// to reduce the number of messages passed between the main
+  /// and worker isolates (the higher [chunkSize], the less
+  /// messages need to be exchanged between the isolates,
+  /// but the larger each of those messages is).
   ///
   /// Example:
   /// ```dart
@@ -1516,12 +1541,32 @@ class FbQuery {
   /// }
   /// await q.close();
   /// ```
-  Stream<Map<String, dynamic>> rows() async* {
-    Map<String, dynamic>? row = {};
-    while (row != null) {
-      row = await fetchOneAsMap();
-      if (row != null) {
-        yield row;
+  Stream<Map<String, dynamic>> rows({int chunkSize = 10}) async* {
+    if (_toWorker == null) {
+      throw FbClientException(
+        "No active query associated with this query object",
+      );
+    }
+    if (chunkSize <= 0) {
+      throw FbClientException("Invalid chunk size: $chunkSize");
+    }
+
+    while (true) {
+      final msg = await _db?._askWorker(FbDbControlOp.fetchMany, [
+        FbRowFormat.asMap,
+        chunkSize,
+      ], _toWorker);
+      _throwIfErrorResponse(msg);
+      final r = msg as FbDbResponse;
+      if (r.data.isEmpty || r.data[0] == null) {
+        return; // no more sets of rows
+      }
+      final rows = r.data[0] as List<Map<String, dynamic>>;
+      for (final r in rows) {
+        yield r;
+      }
+      if (rows.length < chunkSize) {
+        break; // that was the last batch
       }
     }
   }
@@ -1530,6 +1575,11 @@ class FbQuery {
   ///
   /// The stream ends when all rows from the result set have been
   /// fetched from the database and streamed to the calling code.
+  /// The rows are fetched in batches of size [chunkSize],
+  /// to reduce the number of messages passed between the main
+  /// and worker isolates (the higher [chunkSize], the less
+  /// messages need to be exchanged between the isolates,
+  /// but the larger each of those messages is).
   ///
   /// Example:
   /// ```dart
@@ -1543,12 +1593,32 @@ class FbQuery {
   /// }
   /// await q.close();
   /// ```
-  Stream<List<dynamic>> rowValues() async* {
-    List<dynamic>? row = [];
-    while (row != null) {
-      row = await fetchOneAsList();
-      if (row != null) {
-        yield row;
+  Stream<List<dynamic>> rowValues({int chunkSize = 10}) async* {
+    if (_toWorker == null) {
+      throw FbClientException(
+        "No active query associated with this query object",
+      );
+    }
+    if (chunkSize <= 0) {
+      throw FbClientException("Invalid chunk size: $chunkSize");
+    }
+
+    while (true) {
+      final msg = await _db?._askWorker(FbDbControlOp.fetchMany, [
+        FbRowFormat.asList,
+        chunkSize,
+      ], _toWorker);
+      _throwIfErrorResponse(msg);
+      final r = msg as FbDbResponse;
+      if (r.data.isEmpty || r.data[0] == null) {
+        return; // no more sets of rows
+      }
+      final rows = r.data[0] as List<List<dynamic>>;
+      for (final r in rows) {
+        yield r;
+      }
+      if (rows.length < chunkSize) {
+        break; // that was the last batch
       }
     }
   }

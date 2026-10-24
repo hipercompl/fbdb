@@ -966,6 +966,9 @@ class FbDbQueryWorker {
         case FbDbControlOp.fetchNext:
           await _fetchNext(msg);
 
+        case FbDbControlOp.fetchMany:
+          await _fetchMany(msg);
+
         case FbDbControlOp.affectedRows:
           await _affectedRows(msg);
 
@@ -1131,6 +1134,80 @@ class FbDbQueryWorker {
         _transaction = null;
       }
       db._sendSuccessResp(msg.resultPort, null);
+    }
+  }
+
+  /// Handles the fetchMany operation.
+  Future<void> _fetchMany(FbDbControlMessage msg) async {
+    if (_type != FbDbQueryType.withCursor || _resultSet == null) {
+      throw FbClientException("No data set available for the query");
+    }
+    List<Map<String, dynamic>> resMaps = [];
+    List<List<dynamic>> resLists = [];
+    final FbRowFormat format = msg.data.isNotEmpty
+        ? msg.data[0]
+        : FbRowFormat.asMap;
+    int batchSize = msg.data.length > 1 ? msg.data[1] : 10;
+    int cnt = 0;
+    while (cnt < batchSize) {
+      // row fetching loop
+      int? r;
+      db.status.init();
+      try {
+        r = _resultSet?.fetchNext(db.status, _outMsg);
+      } on FbStatusException catch (e) {
+        if (e.status.errors[1] == FbErrorCodes.isc_bad_result_set) {
+          // special case - trying to fetch from a result set
+          // that has been already depleted
+          // we don't want an exception in this case - just return
+          // the records we collected so far
+          break;
+        } else {
+          // in all other cases, the exception is to be passed on
+          rethrow;
+        }
+      }
+      if (r == IStatus.resultOK) {
+        final values = getRowValues(
+          _outMsg,
+          _outputMetadata,
+          db,
+          _transaction,
+          db.util,
+          _getInternalBuffer(),
+          _internalBufferSize,
+          _inlineBlobs,
+        );
+        if (format == FbRowFormat.asList) {
+          resLists.add(values);
+        } else {
+          final rec = Map<String, dynamic>.fromIterables(
+            _fieldNames ?? [],
+            values,
+          );
+          resMaps.add(rec);
+        }
+        cnt++;
+      } else {
+        if (_ownTransaction) {
+          _transaction?.commit(db.status);
+          _ownTransaction = false;
+          _transaction = null;
+        }
+        break; // send the records we collected so far
+      }
+    } // row fetching loop
+
+    if (format == FbRowFormat.asMap) {
+      db._sendSuccessResp(
+        msg.resultPort,
+        resMaps.isNotEmpty ? [resMaps] : null,
+      );
+    } else {
+      db._sendSuccessResp(
+        msg.resultPort,
+        resLists.isNotEmpty ? [resLists] : null,
+      );
     }
   }
 
@@ -2003,6 +2080,16 @@ enum FbDbControlOp {
   /// whether a map or a list depends on the requested row format
   fetchNext,
 
+  /// Send back a list of rows of data.
+  /// Input payload:
+  /// data[0]: `FbRowFormat` - the format of the record (list or map)
+  /// data[1]: `int` - the number of rows to package and send back (N)
+  /// Output payload:
+  /// payload[0]: `null` or `List<List<dynamic>>` or `List<Map<String, dynamic>>` -
+  /// the contents of the next batch of rows, containing up to N rows,
+  /// or null if there are no more rows to send
+  fetchMany,
+
   /// Send back the output parameters (for queries without a cursor).
   /// Input payload:
   /// data[0]: `FbRowFormat` - the format of the record (list or map)
@@ -2052,6 +2139,12 @@ enum FbDbControlOp {
   /// data[0]: `List<dynamic>` - list of values to add to the batch
   /// Output payload: none.
   batchAdd,
+
+  /// Add many new sets of parameters to the batch.
+  /// Input payload:
+  /// data[0]: `List<List<dynamic>>` - a set of lists of values to add to the batch
+  /// Output payload: none
+  batchAddAll,
 
   /// Execute the batch.
   /// Input payload: none.

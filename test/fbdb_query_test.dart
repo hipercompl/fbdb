@@ -595,6 +595,24 @@ void main() async {
     }); // test "SELECT after failing INSERT in transaction"
   }); // group "Continuing after errors"
 
+  group("Fetch rows in batches", () {
+    test("fetch in batches", () async {
+      //TODO
+    }); // test "fetch in batches of 5"
+
+    test("row stream in batches", () async {
+      //TODO
+    }); // test "row stream in batches"
+
+    test("fetchAll in batches", () async {
+      //TODO
+    }); // test "fetchAll in batches"
+
+    test("db.selectAll in batches", () async {
+      //TODO
+    }); // test "db.selectAll in batches"
+  }); // group "Fetch rows in batches"
+
   group("Github issues", () {
     test("issue #4", () async {
       await withNewDb2((db) async {
