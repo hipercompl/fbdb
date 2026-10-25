@@ -595,21 +595,408 @@ void main() async {
     }); // test "SELECT after failing INSERT in transaction"
   }); // group "Continuing after errors"
 
+  // A utility function, inserting n rows into T1.
+  Future<void> fillT(FbDb db, int n, {bool deleteExistingRows = false}) async {
+    if (deleteExistingRows) {
+      await db.execute(sql: "delete from T");
+    }
+    var q = db.query();
+    await q.prepare(sql: "insert into T(PK_INT, VC32) values(?, ?)");
+    for (int i = 1; i <= n; i++) {
+      await q.executePrepared(parameters: [i, "$i"]);
+    }
+    await q.close();
+  }
+
   group("Fetch rows in batches", () {
+    final tCount = 100;
     test("fetch in batches", () async {
-      //TODO
-    }); // test "fetch in batches of 5"
+      await withNewDb2((db) async {
+        await expectLater(
+          (() async {
+            await fillT(db, tCount);
+          })(),
+          completes,
+        );
+        await expectLater(
+          (() async {
+            final q = db.query();
+            await q.open(sql: "select * from T order by PK_INT");
+            int pk = 0;
+            while (true) {
+              final rows = await q.fetch(3);
+              for (final row in rows) {
+                pk++;
+                expect(row["PK_INT"], equals(pk));
+                expect(row["VC32"], equals("$pk"));
+              }
+              if (rows.length < 3) {
+                break;
+              }
+            }
+            expect(pk, equals(tCount));
+            await q.close();
+          })(),
+          completes,
+        );
+        await expectLater(
+          (() async {
+            final q = db.query();
+            await q.open(sql: "select * from T order by PK_INT");
+            int pk = 0;
+            while (true) {
+              final rows = await q.fetch(5);
+              for (final row in rows) {
+                pk++;
+                expect(row["PK_INT"], equals(pk));
+                expect(row["VC32"], equals("$pk"));
+              }
+              if (rows.length < 5) {
+                break;
+              }
+            }
+            expect(pk, equals(tCount));
+            await q.close();
+          })(),
+          completes,
+        );
+        await expectLater(
+          (() async {
+            final q = db.query();
+            try {
+              await q.open(sql: "select * from T order by PK_INT");
+              final r = await q.fetch(0);
+              expect(r.isEmpty, isTrue);
+            } finally {
+              await q.close();
+            }
+          })(),
+          completes,
+        );
+        await expectLater(
+          (() async {
+            final q = db.query();
+            await q.open(sql: "select PK_INT, VC32 from T order by PK_INT");
+            int pk = 0;
+            while (true) {
+              final rows = await q.fetchAsLists(3);
+              for (final row in rows) {
+                pk++;
+                expect(row[0], equals(pk));
+                expect(row[1], equals("$pk"));
+              }
+              if (rows.length < 3) {
+                break;
+              }
+            }
+            expect(pk, equals(tCount));
+            await q.close();
+          })(),
+          completes,
+        );
+        await expectLater(
+          (() async {
+            final q = db.query();
+            await q.open(sql: "select PK_INT, VC32 from T order by PK_INT");
+            int pk = 0;
+            while (true) {
+              final rows = await q.fetchAsLists(5);
+              for (final row in rows) {
+                pk++;
+                expect(row[0], equals(pk));
+                expect(row[1], equals("$pk"));
+              }
+              if (rows.length < 5) {
+                break;
+              }
+            }
+            expect(pk, equals(tCount));
+            await q.close();
+          })(),
+          completes,
+        );
+      });
+    }); // test "fetch in batches"
 
     test("row stream in batches", () async {
-      //TODO
+      await withNewDb2((db) async {
+        await expectLater(
+          (() async {
+            await fillT(db, tCount);
+          })(),
+          completes,
+        );
+        await expectLater(
+          (() async {
+            final q = db.query();
+            await q.open(sql: "select * from T order by PK_INT");
+            int pk = 0;
+            await for (final row in q.rows()) {
+              pk++;
+              expect(row["PK_INT"], equals(pk));
+              expect(row["VC32"], equals("$pk"));
+            }
+            expect(pk, equals(tCount));
+            await q.close();
+          })(),
+          completes,
+        );
+        await expectLater(
+          (() async {
+            final q = db.query();
+            await q.open(sql: "select * from T order by PK_INT");
+            int pk = 0;
+            await for (final row in q.rows(chunkSize: 3)) {
+              pk++;
+              expect(row["PK_INT"], equals(pk));
+              expect(row["VC32"], equals("$pk"));
+            }
+            expect(pk, equals(tCount));
+            await q.close();
+          })(),
+          completes,
+        );
+        await expectLater(
+          (() async {
+            final q = db.query();
+            await q.open(sql: "select * from T order by PK_INT");
+            int pk = 0;
+            await for (final row in q.rows(chunkSize: 1)) {
+              pk++;
+              expect(row["PK_INT"], equals(pk));
+              expect(row["VC32"], equals("$pk"));
+            }
+            expect(pk, equals(tCount));
+            await q.close();
+          })(),
+          completes,
+        );
+        await expectLater(
+          (() async {
+            final q = db.query();
+            try {
+              await q.open(sql: "select * from T order by PK_INT");
+              await for (final _ in q.rows(chunkSize: 0)) {}
+            } finally {
+              await q.close();
+            }
+          })(),
+          throwsA(isA<FbClientException>()),
+        );
+        await expectLater(
+          (() async {
+            final q = db.query();
+            await q.open(sql: "select PK_INT, VC32 from T order by PK_INT");
+            int pk = 0;
+            await for (final row in q.rowValues()) {
+              pk++;
+              expect(row[0], equals(pk));
+              expect(row[1], equals("$pk"));
+            }
+            expect(pk, equals(tCount));
+            await q.close();
+          })(),
+          completes,
+        );
+        await expectLater(
+          (() async {
+            final q = db.query();
+            await q.open(sql: "select PK_INT, VC32 from T order by PK_INT");
+            int pk = 0;
+            await for (final row in q.rowValues(chunkSize: 3)) {
+              pk++;
+              expect(row[0], equals(pk));
+              expect(row[1], equals("$pk"));
+            }
+            expect(pk, equals(tCount));
+            await q.close();
+          })(),
+          completes,
+        );
+        await expectLater(
+          (() async {
+            final q = db.query();
+            await q.open(sql: "select PK_INT, VC32 from T order by PK_INT");
+            int pk = 0;
+            await for (final row in q.rowValues(chunkSize: 1)) {
+              pk++;
+              expect(row[0], equals(pk));
+              expect(row[1], equals("$pk"));
+            }
+            expect(pk, equals(tCount));
+            await q.close();
+          })(),
+          completes,
+        );
+        await expectLater(
+          (() async {
+            final q = db.query();
+            try {
+              await q.open(sql: "select PK_INT, VC32 from T order by PK_INT");
+              await for (final _ in q.rowValues(chunkSize: 0)) {}
+            } finally {
+              await q.close();
+            }
+          })(),
+          throwsA(isA<FbClientException>()),
+        );
+      });
     }); // test "row stream in batches"
 
     test("fetchAll in batches", () async {
-      //TODO
+      await withNewDb2((db) async {
+        await expectLater(
+          (() async {
+            await fillT(db, tCount);
+          })(),
+          completes,
+        );
+        await expectLater(
+          (() async {
+            final q = db.query();
+            await q.open(sql: "select * from T order by PK_INT");
+            final rows = await q.fetchAll();
+            expect(rows.length, equals(tCount));
+            int pk = 0;
+            for (final row in rows) {
+              pk++;
+              expect(row["PK_INT"], equals(pk));
+              expect(row["VC32"], equals("$pk"));
+            }
+            expect(pk, equals(tCount));
+            await q.close();
+          })(),
+          completes,
+        );
+        await expectLater(
+          (() async {
+            final q = db.query();
+            await q.open(sql: "select * from T order by PK_INT");
+            final rows = await q.fetchAll(chunkSize: 3);
+            expect(rows.length, equals(tCount));
+            int pk = 0;
+            for (final row in rows) {
+              pk++;
+              expect(row["PK_INT"], equals(pk));
+              expect(row["VC32"], equals("$pk"));
+            }
+            expect(pk, equals(tCount));
+            await q.close();
+          })(),
+          completes,
+        );
+        await expectLater(
+          (() async {
+            final q = db.query();
+            try {
+              await q.open(sql: "select * from T order by PK_INT");
+              final _ = await q.fetchAll(chunkSize: 0);
+            } finally {
+              await q.close();
+            }
+          })(),
+          throwsA(isA<FbClientException>()),
+        );
+        await expectLater(
+          (() async {
+            final q = db.query();
+            await q.open(sql: "select PK_INT, VC32 from T order by PK_INT");
+            final rows = await q.fetchAllAsLists();
+            expect(rows.length, equals(tCount));
+            int pk = 0;
+            for (final row in rows) {
+              pk++;
+              expect(row[0], equals(pk));
+              expect(row[1], equals("$pk"));
+            }
+            expect(pk, equals(tCount));
+            await q.close();
+          })(),
+          completes,
+        );
+        await expectLater(
+          (() async {
+            final q = db.query();
+            await q.open(sql: "select PK_INT, VC32 from T order by PK_INT");
+            final rows = await q.fetchAllAsLists(chunkSize: 3);
+            expect(rows.length, equals(tCount));
+            int pk = 0;
+            for (final row in rows) {
+              pk++;
+              expect(row[0], equals(pk));
+              expect(row[1], equals("$pk"));
+            }
+            expect(pk, equals(tCount));
+            await q.close();
+          })(),
+          completes,
+        );
+        await expectLater(
+          (() async {
+            final q = db.query();
+            try {
+              await q.open(sql: "select PK_INT, VC32 from T order by PK_INT");
+              final _ = await q.fetchAllAsLists(chunkSize: 0);
+            } finally {
+              await q.close();
+            }
+          })(),
+          throwsA(isA<FbClientException>()),
+        );
+      });
     }); // test "fetchAll in batches"
 
     test("db.selectAll in batches", () async {
-      //TODO
+      await withNewDb2((db) async {
+        await expectLater(
+          (() async {
+            await fillT(db, tCount);
+          })(),
+          completes,
+        );
+        await expectLater(
+          (() async {
+            final rows = await db.selectAll(
+              sql: "select * from T order by PK_INT",
+            );
+            expect(rows.length, equals(tCount));
+            int pk = 0;
+            for (final row in rows) {
+              pk++;
+              expect(row["PK_INT"], equals(pk));
+              expect(row["VC32"], equals("$pk"));
+            }
+            expect(pk, equals(tCount));
+          })(),
+          completes,
+        );
+        await expectLater(
+          (() async {
+            final rows = await db.selectAll(
+              sql: "select * from T order by PK_INT",
+              chunkSize: 3,
+            );
+            expect(rows.length, equals(tCount));
+            int pk = 0;
+            for (final row in rows) {
+              pk++;
+              expect(row["PK_INT"], equals(pk));
+              expect(row["VC32"], equals("$pk"));
+            }
+            expect(pk, equals(tCount));
+          })(),
+          completes,
+        );
+        await expectLater(
+          (() async {
+            final _ = await db.selectAll(
+              sql: "select * from T order by PK_INT",
+              chunkSize: 0,
+            );
+          })(),
+          throwsA(isA<FbClientException>()),
+        );
+      });
     }); // test "db.selectAll in batches"
   }); // group "Fetch rows in batches"
 

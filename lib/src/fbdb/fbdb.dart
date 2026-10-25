@@ -2035,6 +2035,12 @@ class FbBatch {
     _toWorker = null;
   }
 
+  /// Adds a set of parameters to the batch.
+  ///
+  /// Adds a set of parameters to substitute for `?` placeholders
+  /// in the query assiciated with the current batch.
+  /// The order and types of items in [parameters] have to correspond
+  /// with the query placeholders.
   Future<void> add({required List<dynamic> parameters}) async {
     if (_toWorker == null) {
       throw FbClientException(
@@ -2047,6 +2053,49 @@ class FbBatch {
     _throwIfErrorResponse(msg);
   }
 
+  /// Adds multiple sets of parameters to the batch.
+  ///
+  /// This method differs from [FbBatch.add] only in way the data
+  /// is passed between your main isolate and the worker isolate.
+  /// While repeatedly calling [FbBatch.add] passes each set of parameters
+  /// from the main isolate to the worker isolate as a separate message,
+  /// [FbBatch.addAll] creates a single large message and passes all
+  /// sets of parameters at once.
+  /// It can result in some performance gains at the cost of more memory
+  /// consumption.
+  ///
+  /// Like in [FbBatch.add], the items of the lists in `parameters` have
+  /// to correspond to the `?` placeholders in the query assiciated
+  /// with the batch.
+  ///
+  /// If a set of parametes at index `N` (in `parameters`) is invalid
+  /// (cannot be added to the batch), the instance of [FbServerException]
+  /// or [FbClientException] getting thrown will contain the index `N`
+  /// in a dedicated [FbServerException.index] / [FbClientException.index]
+  /// attribute.
+  Future<void> addAll({required List<List<dynamic>> parameters}) async {
+    if (parameters.isEmpty) {
+      return; // no error, but no action either
+    }
+    if (_toWorker == null) {
+      throw FbClientException(
+        "No active query associated with this query object",
+      );
+    }
+    final msg = await _db?._askWorker(FbDbControlOp.batchAddAll, [
+      parameters,
+    ], _toWorker);
+    _throwIfErrorResponse(msg);
+  }
+
+  /// Executes the batch.
+  ///
+  /// After adding sets of parameters with [FbBatch.add] or
+  /// [FbBatch.addAll], call [FbBatch.execute] to actually
+  /// execute the batch.
+  /// The resulting object is the [FbBatchResult] instance,
+  /// from which you can check execution status for particular
+  /// sets of parameters (single statements in the batch).
   Future<FbBatchResult> execute() async {
     final msg = await _db?._askWorker(FbDbControlOp.batchExec, [], _toWorker);
     _throwIfErrorResponse(msg);
@@ -2058,11 +2107,22 @@ class FbBatch {
     }
   }
 
+  /// Cancels the batch, removing all currently added parameter sets.
+  ///
+  /// After calling [FbBatcg.cancel], the batch is still usable
+  /// (unlike after [FbBatch.close]). You can keep adding parameters
+  /// and finally execute the batch. [FbBatch.cancel] simply resets
+  /// the batch, i.e. removes all batch parameters added so far.
   Future<void> cancel() async {
     final msg = await _db?._askWorker(FbDbControlOp.batchCancel, [], _toWorker);
     _throwIfErrorResponse(msg);
   }
 
+  /// Get some memory characteristics of the batch.
+  ///
+  /// Using this method you can query current memory consumption and limits
+  /// of the batch. See [FbBatchInfo] for details on what kind of data
+  /// can be obtained.
   Future<FbBatchInfo> getInfo() async {
     final msg = await _db?._askWorker(FbDbControlOp.batchInfo, [], _toWorker);
     _throwIfErrorResponse(msg);

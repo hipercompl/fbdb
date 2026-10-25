@@ -20,6 +20,7 @@ analyzer:
     - windows/**
     - macos/**
     - linux/**
+    - example/**
 include: package:lints/recommended.yaml
 
 # Uncomment the following section to specify additional rules.

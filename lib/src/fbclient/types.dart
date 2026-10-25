@@ -7,8 +7,13 @@ class FbClientException implements Exception {
   /// Error message
   String message;
 
+  /// For operations on multiple sets of data (e.g. [FbBatch.addAll]),
+  /// this attribute contains an index, at which an error occured.
+  /// For all other operations it contains 0.
+  int index;
+
   /// Constructs an exception with the given error message.
-  FbClientException(this.message);
+  FbClientException(this.message, {this.index = 0});
 
   /// Returns the error message associated with this exception.
   @override
@@ -31,13 +36,19 @@ class FbServerException implements Exception {
   /// The raw error message, exactly as reported by the native library code.
   Uint8List messageBytes;
 
+  /// For operations on multiple sets of data (e.g. [FbBatch.addAll]),
+  /// this attribute contains an index, at which an error occured.
+  /// For all other operations it contains 0.
+  int index;
+
   /// The default constructor.
   FbServerException(
     this.errors,
     this.message,
     this.messageValid,
-    this.messageBytes,
-  );
+    this.messageBytes, {
+    this.index = 0,
+  });
 
   /// Constructs a FbServerException object from the given IStatus.
   ///
@@ -46,7 +57,7 @@ class FbServerException implements Exception {
   /// in the status vector.
   /// If util is not provided, the error message will be empty
   /// and only numeric error codes will be present in the exception.
-  FbServerException.fromStatus(IStatus status, {IUtil? util})
+  FbServerException.fromStatus(IStatus status, {IUtil? util, this.index = 0})
     : errors = status.errors,
       message = "",
       messageValid = true,

@@ -27,7 +27,8 @@ This guide is copyritht © 2025 Tomasz Tyrakowski (t.tyrakowski @at@ hipercom.pl
 	* 4.2. [Executing queries](#Executingqueries)
 		* 4.2.1. [Query parameters](#Queryparameters)
 		* 4.2.2. [Type mapping](#Typemapping)
-		* 4.2.3. [Executing queries - examples](#Executingqueries-examples)
+		* 4.2.3. [Fetching rows in chunks](#Fetchingrowsinchunks)
+		* 4.2.4. [Executing queries - examples](#Executingqueries-examples)
 	* 4.3. [Closing the query](#Closingthequery)
 	* 4.4. [Accessing data](#Accessingdata)
 		* 4.4.1. [Methods of the *FbQuery* objects](#MethodsoftheFbQueryobjects)
@@ -562,7 +563,29 @@ The type mappings are as follows:
 - SQL `BOOLEAN` is mapped to `bool` in Dart,
 - parameters of the SQL `BLOB` type can be passed to a query as `ByteBuffer` objects, any `TypedData` objects (from which a byte buffer can be obtained), as `String` objects (in which case they will be encoded as UTF8 and passed byte-by-byte) or as `FbBlobId` objects (for BLOBs stored beforehand); the returned values are always either `ByteBuffer` objects or `FbBlobId` objects (depending on whether BLOB inlining is turned on or off for a particular query). See also the [Working with blobs](#Workingwithblobs) section.
 
-####  4.2.3. <a name='Executingqueries-examples'></a>Executing queries - examples
+####  4.2.3. <a name='Fetchingrowsinchunks'></a>Fetching rows in chunks
+Traditionally (in all versions prior to 1.8.0), fetching rows from the query result set to the main isolate required an exchange of messages between the main (application) isolate and the wokrker (background) isolate for each row being fetched.
+
+Due to User request, and addressing possible performance bottlenecks related to the efficiency of inter-isolate message passing in Dart, from version 1.8.0 onward, you, as the library user, can decide, how many rows from the result set will be fetched from the worker isolate to the main isolate in a single message.
+
+The `FbQuery`'s methods:
+- `fetchAll`
+- `fetchAllAsMaps`
+- `fetchAllAsLists`
+
+as well as the row streams:
+- `rows`
+- `rowValues`
+
+accept an optional named parameter `int chunkSize` (with a default value of 10), which decides how many rows will be packed together by the worker isolate and sent to the main isolate in a single message.
+
+Increasing `chunkSize` reduces the overhead related to inter-isolate message passing, but temporarily increases memory consumption, because each message being sent from the worker isolate, as a result of one of the aforementioned calls, contains a larger data buffer.
+
+>**NOTE**. Changing `chunkSize` doesn't change the way the actual rows are returned from the `FbQuery` methods. The `rows` stream, for example, still emits one row at a time, so processing the rows application-side looks the same, regardless of the `chunkSize`. In particular, the `rows(50)` stream emits the same single rows (objects of class `Map<String, dynamic>`), just as `rows(1)` does. The difference lies only in the internal communication between the main and worker isolates.
+
+>Adjust the value of `chunkSize` only if you identified inter-isolate message passing to be a bottleneck in your application and need to reduce it. Increasing `chunkSize` just for its own sake does not guarantee any performance gains.
+
+####  4.2.4. <a name='Executingqueries-examples'></a>Executing queries - examples
 A query that does not return a data set:
 ```dart
 // con is an attached connection
@@ -600,6 +623,29 @@ await q.close();
         parameters: [1.1, "E_20"]
     )
 ```
+
+Fetching rows from the worker isolate in chunks 50 at a time.
+```dart
+    // con is an attached connection
+    final q = await con.query();
+    await q.openCursor(
+        sql: "select * from EMPLOYEE where DEPT_NO = ? and JOB_CODE = ?", 
+        parameters: [120, "Eng"]
+    );
+    // chunkSize defines how many rows will be
+    // fetched in a single message from the worker
+    // isolat. It doesn't change the way the rows
+    // are processed in the application - the rows()
+    // stream still emits one row at a time, just
+    // the inter-isolate communication is performed
+    // differently.
+    await for (final row in q.rows(chunkSize: 50)) {
+        // row is a map: field name => field value
+        print("${row['EMP_NO']} :: ${row['NAME']}");
+    }
+    await q.close();
+```
+
 
 ###  4.3. <a name='Closingthequery'></a>Closing the query
 When you're done working with the results of a particular query, you should **close** the query. Closing a query releases resources allocated for processing the SQL statement and its results.

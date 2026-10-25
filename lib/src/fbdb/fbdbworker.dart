@@ -1675,6 +1675,9 @@ class FbDbBatchWorker {
         case FbDbControlOp.batchAdd:
           await _add(msg);
 
+        case FbDbControlOp.batchAddAll:
+          await _addAll(msg);
+
         case FbDbControlOp.batchExec:
           await _exec(msg);
 
@@ -1774,6 +1777,57 @@ class FbDbBatchWorker {
       batch: this,
     );
     batch?.add(db.status, 1, _inMsg);
+    db._sendSuccessResp(msg.resultPort, []);
+  }
+
+  /// Handles the batchAddAll operation.
+  Future<void> _addAll(FbDbControlMessage msg) async {
+    if (batch == null || _inputMetadata == null) {
+      throw FbClientException("Cannot add values to a batch: not prepared");
+    }
+    if (msg.data.isEmpty) {
+      throw FbClientException(
+        "FbBatchWorker.add: parameter values not provided",
+      );
+    }
+    final List<List<dynamic>> paramsList = msg.data[0];
+    final paramCount = _inputMetadata?.getCount(db.status) ?? 0;
+
+    for (var idx = 0; idx < paramsList.length; idx++) {
+      final params = paramsList[idx];
+      if (paramCount != params.length) {
+        throw FbClientException(
+          "The number of provided values: ${params.length} "
+          "doesn't match the required number of batch statement parameters: "
+          "$paramCount (at index $idx)",
+          index: idx,
+        );
+      }
+      try {
+        db.status.init();
+        putParams(
+          _inMsg,
+          _inputMetadata,
+          params,
+          db.status,
+          db,
+          _transaction,
+          _getInternalBuffer(),
+          _internalBufferSize,
+          batch: this,
+        );
+        batch?.add(db.status, 1, _inMsg);
+      } on FbStatusException catch (e) {
+        // Enveloping FbStatusException by hand here
+        // to provide the index, at which the error occured.
+        throw FbServerException.fromStatus(e.status, util: db.util, index: idx);
+      } on TypeError catch (e) {
+        // A TypeError needs to be thrown as a FbClientException,
+        // because there's no place for index in TypeError.
+        throw FbClientException(e.toString(), index: idx);
+      }
+    }
+
     db._sendSuccessResp(msg.resultPort, []);
   }
 

@@ -514,9 +514,12 @@ void main() async {
   group("internal batch errors", () {
     test("invalid creation parameters", () async {
       await withNewDbForBatch((FbDb db) async {
-        await expectLater((() async {
-          await db.batch(sql: "this is an invalid SQL");
-        }), throwsA(isA<FbServerException>()));
+        await expectLater(
+          (() async {
+            await db.batch(sql: "this is an invalid SQL");
+          })(),
+          throwsA(isA<FbServerException>()),
+        );
 
         // This is rather strange, but Firebird allows creating a batch
         // with nonsense parameters and doesn't complain in any way.
@@ -656,6 +659,89 @@ void main() async {
         expect(i2.maxBufferSize > 0, isTrue);
         expect(i2.dataSize > 0, isTrue);
         expect(i2.blobSize > 0, isTrue);
+      });
+    });
+  });
+
+  group("batch addAll", () {
+    test("INSERT with addAll", () async {
+      await withNewDb2((db) async {
+        await expectLater(
+          (() async {
+            final b = await db.batch(
+              sql: "insert into T(PK_INT, VC32) values(?, ?)",
+            );
+            await b.addAll(
+              parameters: [
+                [1, "row 1"],
+                [2, "row 2"],
+                [3, "row 3"],
+              ],
+            );
+            await b.execute();
+            await b.close();
+            final r = await db.selectOne(sql: "select count(*) as CNT from T");
+            expect(r, isNotNull);
+            if (r != null) {
+              expect(r["CNT"], equals(3));
+            }
+          })(),
+          completes,
+        );
+      });
+    });
+
+    test("invalid parameter count", () async {
+      await withNewDb2((db) async {
+        await expectLater(
+          (() async {
+            final b = await db.batch(
+              sql: "insert into T(PK_INT, VC32) values(?, ?)",
+            );
+            try {
+              await b.addAll(
+                parameters: [
+                  [1, "row 1"],
+                  [2],
+                  [3, "row 3"],
+                ],
+              );
+              expect(false, isTrue, reason: "addAll should have thrown");
+            } on FbClientException catch (e) {
+              expect(e.index, equals(1));
+              rethrow;
+            }
+            await b.close();
+          })(),
+          throwsA(isA<FbClientException>()),
+        );
+      });
+    });
+
+    test("invalid parameter types", () async {
+      await withNewDb2((db) async {
+        await expectLater(
+          (() async {
+            final b = await db.batch(
+              sql: "insert into T(PK_INT, VC32) values(?, ?)",
+            );
+            try {
+              await b.addAll(
+                parameters: [
+                  [1, "row 1"],
+                  ["row 2", 2],
+                  [3, "row 3"],
+                ],
+              );
+              expect(false, isTrue, reason: "addAll should have thrown");
+            } on FbClientException catch (e) {
+              expect(e.index, equals(1));
+              rethrow;
+            }
+            await b.close();
+          })(),
+          throwsA(isA<FbClientException>()),
+        );
       });
     });
   });
