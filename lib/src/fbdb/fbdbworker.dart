@@ -1829,8 +1829,8 @@ class FbDbBatchWorker {
         // Fill in the index and push the exception up the stack.
         e.index = idx;
         rethrow;
-      } on Exception catch (e) {
-        // Any other exception needs to be thrown as a FbClientException,
+      } catch (e) {
+        // Any other error needs to be thrown as a FbClientException,
         // because there's no place for index in a generic exception class.
         throw FbClientException(e.toString(), index: idx);
       }

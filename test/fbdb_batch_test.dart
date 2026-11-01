@@ -737,8 +737,9 @@ void main() async {
             } on FbClientException catch (e) {
               expect(e.index, equals(1));
               rethrow;
+            } finally {
+              await b.close();
             }
-            await b.close();
           })(),
           throwsA(isA<FbClientException>()),
         );
