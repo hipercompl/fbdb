@@ -1825,9 +1825,13 @@ class FbDbBatchWorker {
         // Enveloping FbStatusException by hand here
         // to provide the index, at which the error occured.
         throw FbServerException.fromStatus(e.status, util: db.util, index: idx);
-      } on TypeError catch (e) {
-        // A TypeError needs to be thrown as a FbClientException,
-        // because there's no place for index in TypeError.
+      } on FbServerException catch (e) {
+        // Fill in the index and push the exception up the stack.
+        e.index = idx;
+        rethrow;
+      } on Exception catch (e) {
+        // Any other exception needs to be thrown as a FbClientException,
+        // because there's no place for index in a generic exception class.
         throw FbClientException(e.toString(), index: idx);
       }
     }
