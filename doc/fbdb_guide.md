@@ -581,7 +581,7 @@ accept an optional named parameter `int chunkSize` (with a default value of 10),
 
 Increasing `chunkSize` reduces the overhead related to inter-isolate message passing, but temporarily increases memory consumption, because each message being sent from the worker isolate, as a result of one of the aforementioned calls, contains a larger data buffer.
 
->**NOTE**. Changing `chunkSize` doesn't change the way the actual rows are returned from the `FbQuery` methods. The `rows` stream, for example, still emits one row at a time, so processing the rows application-side looks the same, regardless of the `chunkSize`. In particular, the `rows(50)` stream emits the same single rows (objects of class `Map<String, dynamic>`), just as `rows(1)` does. The difference lies only in the internal communication between the main and worker isolates.
+>**NOTE**. Changing `chunkSize` doesn't change the way the actual rows are returned from the `FbQuery` methods. The `rows` stream, for example, still emits one row at a time, so processing the rows application-side looks the same, regardless of the `chunkSize`. In particular, the `rows(chunkSize: 50)` stream emits the same single rows (objects of class `Map<String, dynamic>`), just as `rows(chunkSize: 1)` does. The difference lies only in the internal communication between the main and worker isolates.
 
 >Adjust the value of `chunkSize` only if you identified inter-isolate message passing to be a bottleneck in your application and need to reduce it. Increasing `chunkSize` just for its own sake does not guarantee any performance gains.
 
