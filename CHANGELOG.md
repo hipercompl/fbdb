@@ -1,3 +1,10 @@
+## 1.8.1
+- Fixed an instance of `IMessage` not being released upon closing an `FbBatch` instance (causing a memleak).
+- Fixed the index of the errorneous parameter set propagation in `FbBatch.addAll`, for some classes of errors.
+- Fixed two places in the programmer's guide where `chunkSize` parameter of the `FbQuery.rows()` method should have been passed as a named parameter, and not a positional one.
+
+Thanks to [vkruglik](https://github.com/vkruglik) for pointing out the mistakes in the commens of [issue #18](https://github.com/hipercompl/fbdb/issues/18).
+
 ## 1.8.0
 - This release focuses mainly on performance improvements, as suggested by [vkruglik](https://github.com/vkruglik) in [issue #18](https://github.com/hipercompl/fbdb/issues/18).
 - `FbBatch` API has been extended with `addAll` method, addressing performance bottlenecks signaled in [issue #18](https://github.com/hipercompl/fbdb/issues/18). `FbBatch.addAll` allows a collection of batch parameter sets to be added to the batch with a single call (and a single message will be sent from the main isolate to the worker isolate).
