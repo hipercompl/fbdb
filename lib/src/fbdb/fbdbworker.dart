@@ -1722,6 +1722,10 @@ class FbDbBatchWorker {
       _inMsg = nullptr;
     }
     _inMsgLen = 0;
+    if (_inputMetadata != null) {
+      _inputMetadata?.release();
+      _inputMetadata = null;
+    }
     if (_internalBuffer != nullptr) {
       mem.free(_internalBuffer);
       _internalBuffer = nullptr;
