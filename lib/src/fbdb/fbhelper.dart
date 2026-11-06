@@ -405,7 +405,7 @@ ByteBuffer getBlob(
   final List<Uint8List> segments = [];
   var totalLength = 0;
   try {
-    // The internal buffer will be used both for read bytes count
+    // The internal buffer will be used both to read bytes count
     // and the actual data
     // The first sizeOf<UnsignedInt> bytes are used by segmentLength,
     // the rest of the internal buffer constitute blobBuf.
