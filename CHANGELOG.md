@@ -1,3 +1,6 @@
+## 1.9.0
+- Per User request (see [issue #19](https://github.com/hipercompl/fbdb/issues/19)), you can now specify an additional flag in `FbOptions` (while opening a database connection): `utcTimestamps` (default is `false` for backward compatibility). If set, all `TIMESTAMP` values will be returned as UTC `DateTime` objects (constructed with `DateTime.utc(...)` instead of `DateTime(...)`), while the default behavior is to return the timestamps in the client local time zone.
+
 ## 1.8.1
 - Fixed an instance of `IMessage` not being released upon closing an `FbBatch` instance (causing a memleak).
 - Fixed the index of the errorneous parameter set propagation in `FbBatch.addAll`, for some classes of errors.

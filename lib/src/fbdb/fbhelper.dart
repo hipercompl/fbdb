@@ -139,23 +139,37 @@ DateTime decodeTime(int time, IUtil util, Pointer<Uint8> buffer) {
 }
 
 /// Decodes date and time, based on the provided native structure.
-DateTime _decodeTimestamp(
+DateTime decodeTimestamp(
   Pointer<IscTimestamp> ts,
   IUtil util,
-  Pointer<Uint8> buffer,
-) {
+  Pointer<Uint8> buffer, {
+  bool inUTC = false,
+}) {
   final d = decodeDate(ts.ref.date, util, buffer);
   final t = decodeTime(ts.ref.time, util, buffer);
-  return DateTime(
-    d.year,
-    d.month,
-    d.day,
-    t.hour,
-    t.minute,
-    t.second,
-    t.millisecond,
-    t.microsecond,
-  );
+  if (inUTC) {
+    return DateTime.utc(
+      d.year,
+      d.month,
+      d.day,
+      t.hour,
+      t.minute,
+      t.second,
+      t.millisecond,
+      t.microsecond,
+    );
+  } else {
+    return DateTime(
+      d.year,
+      d.month,
+      d.day,
+      t.hour,
+      t.minute,
+      t.second,
+      t.millisecond,
+      t.microsecond,
+    );
+  }
 }
 
 /// Retrieves a timestamp value from the message.
@@ -163,9 +177,10 @@ DateTime getTimestamp(
   Pointer<Uint8> msg,
   int offset,
   IUtil util,
-  Pointer<Uint8> buffer,
-) {
-  return _decodeTimestamp((msg + offset).cast(), util, buffer);
+  Pointer<Uint8> buffer, {
+  bool inUTC = false,
+}) {
+  return decodeTimestamp((msg + offset).cast(), util, buffer, inUTC: inUTC);
 }
 
 /// Gets the timestamp from the message.
@@ -178,8 +193,9 @@ DateTime getTimestampTZ(
   Pointer<Uint8> msg,
   int offset,
   IUtil util,
-  Pointer<Uint8> buffer,
-) {
+  Pointer<Uint8> buffer, {
+  bool inUTC = false,
+}) {
   Pointer<UnsignedInt> ts = buffer.cast();
   util.decodeTimeStampTz(
     status,
@@ -195,16 +211,29 @@ DateTime getTimestampTZ(
     nullptr, // timeZoneBuffer
   );
 
-  return DateTime(
-    ts[0], // year
-    ts[1], // month
-    ts[2], // day
-    ts[3], // hour
-    ts[4], // minute
-    ts[5], // second
-    ts[6] ~/ 10, // millisecond
-    (ts[6] % 10) * 100, // microsecond
-  );
+  if (inUTC) {
+    return DateTime.utc(
+      ts[0], // year
+      ts[1], // month
+      ts[2], // day
+      ts[3], // hour
+      ts[4], // minute
+      ts[5], // second
+      ts[6] ~/ 10, // millisecond
+      (ts[6] % 10) * 100, // microsecond
+    );
+  } else {
+    return DateTime(
+      ts[0], // year
+      ts[1], // month
+      ts[2], // day
+      ts[3], // hour
+      ts[4], // minute
+      ts[5], // second
+      ts[6] ~/ 10, // millisecond
+      (ts[6] % 10) * 100, // microsecond
+    );
+  }
 }
 
 /// Gets the timestamp from the message.
@@ -498,7 +527,7 @@ dynamic getRowValue(
 
     case FbConsts.SQL_TIMESTAMP:
     case const (FbConsts.SQL_TIMESTAMP + 1):
-      return getTimestamp(msg, offset, util, buffer);
+      return getTimestamp(msg, offset, util, buffer, inUTC: db.utcTimestamps);
 
     case FbConsts.SQL_BLOB:
     case const (FbConsts.SQL_BLOB + 1):
@@ -529,7 +558,14 @@ dynamic getRowValue(
 
     case FbConsts.SQL_TIMESTAMP_TZ:
     case const (FbConsts.SQL_TIMESTAMP_TZ + 1):
-      return getTimestampTZ(status, msg, offset, util, buffer);
+      return getTimestampTZ(
+        status,
+        msg,
+        offset,
+        util,
+        buffer,
+        inUTC: db.utcTimestamps,
+      );
 
     case FbConsts.SQL_TIME_TZ:
     case const (FbConsts.SQL_TIME_TZ + 1):

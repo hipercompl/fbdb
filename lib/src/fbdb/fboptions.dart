@@ -62,6 +62,16 @@ class FbOptions {
   /// The lock timeout for wait transactions is infinite by default.
   static const defaultTransactionFlags = fbTrWriteWait;
 
+  /// Return all timestamps without time zone as UTC instead
+  /// of the local time zone of the client.
+  /// The returned [DateTime] objects will be constructed with
+  /// [DateTime.utc] instead of the default constructor.
+  /// It fixes some edge cases with timestamps unrepresentable
+  /// in the local time zone due to daylight saving time transitions.
+  /// Please refer to the FbDb Programmer's Guide (section
+  /// "Timestamps as UTC") for more context.
+  bool utcTimestamps;
+
   /// Constructs a new options object with reasonable defaults.
   ///
   /// When called with no arguments whatsoever, the constructed
@@ -76,6 +86,7 @@ class FbOptions {
     this.dbCharset = "UTF8",
     this.dbCollation,
     this.libFbClient,
+    this.utcTimestamps = false,
   });
 
   /// Checks if the current transaction flags are the same as default ones.

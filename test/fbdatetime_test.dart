@@ -330,5 +330,51 @@ void main() {
         }
       }); // withNewDb3
     }); // test "Inserting with offset time zones"
+
+    test("with timestamps as UTC", () async {
+      await withNewDbForTS((db) async {
+        final tsl = DateTime(2026, 11, 23, 16, 0, 0);
+        final tsu = DateTime.utc(2026, 11, 23, 16, 0, 0);
+
+        await db.execute(
+          sql: "insert into T1(PK, TS) values (?, ?)",
+          parameters: [1, tsl],
+        );
+
+        final r = await db.selectOne(
+          sql: "select * from T1 where PK=?",
+          parameters: [1],
+        );
+        expect(r, isNotNull);
+        if (r != null) {
+          final tsdb = r['TS'];
+          expect(tsdb, equals(tsu));
+          expect(tsdb == tsl, isFalse);
+        }
+      }, options: FbOptions(utcTimestamps: true));
+    });
+
+    test("with timestamps as local", () async {
+      await withNewDbForTS((db) async {
+        final tsl = DateTime(2026, 11, 23, 16, 0, 0);
+        final tsu = DateTime.utc(2026, 11, 23, 16, 0, 0);
+
+        await db.execute(
+          sql: "insert into T1(PK, TS) values (?, ?)",
+          parameters: [1, tsl],
+        );
+
+        final r = await db.selectOne(
+          sql: "select * from T1 where PK=?",
+          parameters: [1],
+        );
+        expect(r, isNotNull);
+        if (r != null) {
+          final tsdb = r['TS'];
+          expect(tsdb, equals(tsl));
+          expect(tsdb == tsu, isFalse);
+        }
+      }, options: FbOptions(utcTimestamps: false));
+    });
   });
 }

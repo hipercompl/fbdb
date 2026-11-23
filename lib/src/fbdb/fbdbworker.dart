@@ -839,6 +839,11 @@ class FbDbWorker {
       _activeBlobs[d.id!.idHash] = d;
     }
   }
+
+  /// Get the UTC option passed on construction.
+  bool get utcTimestamps {
+    return _options != null && _options!.utcTimestamps;
+  }
 }
 
 /// The query worker class.

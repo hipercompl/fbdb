@@ -205,6 +205,22 @@ Future<void> withNewDbForBatch(
   }, options: options); // withNewEmptyDb
 }
 
+Future<void> withNewDbForTS(
+  Future<void> Function(FbDb) testFunc, {
+  FbOptions? options,
+}) async {
+  await withNewEmptyDb((db) async {
+    await db.execute(
+      sql:
+          "create table T1( "
+          "   PK integer not null primary key, "
+          "   TS timestamp "
+          ")",
+    );
+    await testFunc(db);
+  }, options: options); // withNewEmptyDb
+}
+
 /// Calculate and return a new, unique temporary database location.
 String getTmpDbLoc() {
   final iid = Isolate.current.hashCode;

@@ -52,9 +52,10 @@ This guide is copyritht © 2025 Tomasz Tyrakowski (t.tyrakowski @at@ hipercom.pl
 	* 6.2. [Fetching blobs from selected rows](#Fetchingblobsfromselectedrows)
 	* 6.3. [Examples - blobs](#Examples-blobs)
 * 7. [Working with time zones](#Workingwithtimezones)
-	* 7.1. [Getting time or timestamp with time zone from the database](#Gettingtimeortimestampwithtimezonefromthedatabase)
-	* 7.2. [Time-only values](#Time-onlyvalues)
-	* 7.3. [Storing time or timestamp with time zone in the database](#Storingtimeortimestampwithtimezoneinthedatabase)
+	* 7.1. [Timestamps as UTC](#TimestampsasUTC)
+	* 7.2. [Getting time or timestamp with time zone from the database](#Gettingtimeortimestampwithtimezonefromthedatabase)
+	* 7.3. [Time-only values](#Time-onlyvalues)
+	* 7.4. [Storing time or timestamp with time zone in the database](#Storingtimeortimestampwithtimezoneinthedatabase)
 * 8. [Batch execution](#Batchexecution)
 	* 8.1. [Batch creation parameters](#Batchcreationparameters)
 	* 8.2. [Batch execution result](#Batchexecutionresult)
@@ -373,6 +374,7 @@ The `FbOptions` constructor allows you to pass the following parameters (all of 
     The flags can be combined into a set. You can pass for example `{FbTrPar.write, FbTrPar.noWait, FbTrPar.concurrency}` as `transactionFlags`.
     If not otherwise specified, transactions are started with the flags `{FbTrPar.write, FbTrPar.concurrency, FbTrPar.wait}`, which is the default transaction mode in Firebird.
 - `lockTimeout` (int) - if transactions were defined with the `FbTrPar.wait` flag, this parameter allows to define the maximum time a transaction will wait to resolve a lock conflict. If the timeout occurs, an exception gets thrown.
+- `utcTimestamps` (bool) - if `true`, all `TIMESTAMP` (without time zone) values from the database will be returned as if they belonged to the UTC (Greenwich) time zone. Otherwise, the timestamps are returned in the local time zone of the client. The default value is `false` to ensure backward compatibility with pre-1.9 versions of *fbdb*. Please note, that returning a `TIMESTAMP` in the local time zone does not involve any zone-related translations, because the time zone of the `TIMESTAMP` Firebird type is unspecified (nonexistent). This parameter also affects `TIMESTAMP WITH TIME ZONE` values when using the Firebird client library version 3.x (for this client version, the time zone was not supported properly in *fbdb*). For client libraries version 4 or later, the `IUtil::decodeTimeStampTzEx` native function is available and the `FbDateTimeTZ` instances are returned.
 
 ##  3. <a name='Errorreporting'></a>Error reporting
 The original Firebird API uses the concept of a **status vector** to indicate possible error conditions. It requires passing the vector (which is actually just a memory buffer) to each API call, and checking the contents of the vector after the API function returns.
@@ -1398,7 +1400,33 @@ Similarly, if you intend to store a date/time value with a time zone other than 
 
 While not ideal, this solution allows you not to lose any information about actual time zones in the database, while avoiding introducing dependencies on third party packages.
 
-###  7.1. <a name='Gettingtimeortimestampwithtimezonefromthedatabase'></a>Getting time or timestamp with time zone from the database
+###  7.1. <a name='TimestampsasUTC'></a>Timestamps as UTC
+Starting with version 1.9 of *fbdb*, the `FbOptions` class has been extended, allowing to pass one more flag when attaching to the database.
+If you attach with the `utcTimestamps` flag set, i.e.:
+```dart
+    final db = await FbDb.attach(
+        // all required parameters here
+        options = FbOptions(
+            // other options, when needed
+            utcTimestamps: true, // return DateTime in UTC
+        ),
+    );
+```
+all `DateTime` objects, representing the values of database type `TIMESTAMP` (without time zone), will be constructed with `DateTime.utc(...)` in Dart, with the date / time components retrieved from the `TIMESTAMP` value fetched from the database.
+
+If the `utcTimestamps` is set to `false` (or omitted), the returned `DateTime` objects are constructed with the default `DateTime(...)` constructor.
+
+> This flag affects only `TIMESTAMP` values without the time zone (in all Firebird client library versions) **and** `TIMESTAMP WITH TIME ZONE` values when using Firebird client library version **3.x**, in which case `TIMESTAMP WITH TIME ZONE` is treated as if it was just a `TIMESTAMP` (this is a known limitation and tradeoff in *fbdb*, please use a modern native client library to avoid this inconvenience). Starting with Firebird version **4**, the native `IUtil` interface of the Firebird client library exposes a richer API for decoding timestamps, and *fbdb* takes advantage of it, handling time zones properly.
+
+The difference reveals itself in some edge cases, usually involving the dates on which the daylight saving time transition takes place. For example, on the date a particular time zone switches from UTC+1 to UTC+2 (due to DST transition), all time values between 2 AM and 3 AM (or between other two subsequent full hours, depending on the country and the actual time zone) are nonexistent in the local time zone (but still representable in UTC). The nonexistent timestamps get distorted when constructed in Dart (for example, 2:30 AM will be automatically converted to 3:30 AM, because 2:30 AM does not exist on a particular date due to the DST transition and 30 minutes after 2 AM on this very day is in fact 3:30 AM, not 2:30 AM, because on DST transition the clock jumps from 2 AM to 3 AM instantly).
+
+Therefore, it might be convenient to use UTC when dealing with databases containing `TIMESTAMP` values without the time zone.
+
+In fact, the only reason this flag is not set to `true` by default is to retain backward compatibility and not break existing code.
+
+For a real-life scenario please refer to [https://github.com/hipercompl/fbdb/issues/19](https://github.com/hipercompl/fbdb/issues/19).
+
+###  7.2. <a name='Gettingtimeortimestampwithtimezonefromthedatabase'></a>Getting time or timestamp with time zone from the database
 Suppose your local time zone has an offset `+02:00` with respect to UTC (GMT time), and suppose a value stored in the field `F` of the table `T` has the type `TIMESTAMP WITH TIME ZONE` and the value `2025-05-20 12:00:00 -05:00`, that is, noon on May 20, 2025, in the time zone 5 hours west of GMT.
 
 Suppose you run the following code (assuming `db` is an active attachment):
@@ -1416,12 +1444,12 @@ Then:
 
 Therefore, you can treat the value retrieved from the database as a normal `DateTime` object, but converted to your **local** time zone. At the same time, using the `db` property, you can access the **original** data, exactly as retrieved from the database (in the example above, `f` is the date/time converted to your local time zone, and `f.db` retains the original time zone from the database).
 
-###  7.2. <a name='Time-onlyvalues'></a>Time-only values
+###  7.3. <a name='Time-onlyvalues'></a>Time-only values
 Firebird treats all values of type `TIME WITH TIME ZONE` (i.e. just the time of the day, not associated with any particular date) as being time instants on January 1, 2020 (the date is fixed to 2020-01-01). It is mentioned in the release notes of Firebird 4.0, and the reason is to treat all such values consistently, especially with respect to `DATEADD` and `DATEDIFF` database functions. Please refer to the [Firebird 4.0 release notes](https://firebirdsql.org/file/documentation/release_notes/html/en/4_0/rlsnotes40.html) for more details.
 
 Therefore, when constructing `FbDateTime` objects with time-only initial values (i.e. without specifying `year`, `month` and `day`), the date part will be always set to Jan. 1, 2020, to be consistent with the Firebird server.
 
-###  7.3. <a name='Storingtimeortimestampwithtimezoneinthedatabase'></a>Storing time or timestamp with time zone in the database
+###  7.4. <a name='Storingtimeortimestampwithtimezoneinthedatabase'></a>Storing time or timestamp with time zone in the database
 Suppose your local time zone has an offset `+02:00` with respect to UTC (GMT time), and suppose the field `F` of the table `T` has the type `TIMESTAMP WITH TIME ZONE`.
 
 Suppose you run the following code (assuming `db` is an active attachment):
